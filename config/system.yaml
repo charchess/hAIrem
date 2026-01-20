@@ -1,0 +1,8 @@
+core:
+  log_level: "INFO"
+  default_llm: "gpt-4-turbo"
+safety_governor:
+  p0_mode: { inhibit_entropy: true, force_visual_preset: "emergency_red" }
+chaos_settings:
+  enabled: true
+  global_probability: 0.05
