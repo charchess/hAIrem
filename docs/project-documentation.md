@@ -51,10 +51,33 @@ hAIrem/
 
 ## 4. Key Concepts & Patterns
 
-### H-Link Protocol
+### H-Link Protocol (v1.0 Standard)
 Agents communicate exclusively via asynchronous messages on the Redis bus.
-- **Format:** JSON
-- **Envelope:** `{ sender, type, payload, timestamp }`
+
+**Message Envelope Schema (JSON):**
+```json
+{
+  "id": "uuid-v4",
+  "timestamp": "2026-01-20T12:00:00Z",
+  "type": "narrative.text|expert.command|system.log",
+  "sender": {
+    "agent_id": "renarde",
+    "role": "coordinator"
+  },
+  "recipient": {
+    "target": "broadcast|expert-domotique"
+  },
+  "payload": {
+    "content": "Message content or data object",
+    "format": "text|json",
+    "emotion": "neutral" 
+  },
+  "metadata": {
+    "priority": "normal",
+    "correlation_id": "uuid-of-parent-msg"
+  }
+}
+```
 
 ### Hot-Reload Plugins
 Agents are defined in `agents/{name}/expert.yaml`. The system monitors this directory using `watchdog` to load/unload agents dynamically without restarting the core.
