@@ -8,8 +8,8 @@ Nous nous engageons sur l'intégralité de l'**Epic 1**, car ces composants sont
 | ID | Story Title | Status | Priority |
 | --- | --- | --- | --- |
 | 1.1 | Initialiser le repo Monorepo | Approved | P0 |
-| 1.2 | Configurer le Bus Redis | Ready for Dev | P0 |
-| 1.3 | Implémenter le chargeur de plugins | Ready for Dev | P0 |
+| 1.2 | Configurer le Bus Redis | Approved | P0 |
+| 1.3 | Implémenter le chargeur de plugins | Approved | P0 |
 
 ## 2. Technical Focus Areas
 - **Monorepo Architecture:** Garantir une séparation nette entre le H-Core (Python) et l'A2UI (Frontend).
