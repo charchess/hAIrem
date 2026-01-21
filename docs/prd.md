@@ -100,7 +100,24 @@ L'intersection entre :
 
 ---
 
-## 6. Success Metrics (MVP)
-1.  **Daily Active Embodiment (DAE):** Interactions quotidiennes avec l'interface A2UI.
-2.  **Proactive Success Rate:** % de suggestions agents acceptées.
-3.  **Token Sustainability:** Coût de fonctionnement acceptable (< seuil défini).
+---
+
+## 7. V2 Roadmap: Omnichannel Expansion
+
+### Epic 6: Text Interaction Layer
+**Goal:** Offrir une alternative textuelle à la voix et permettre un suivi historique.
+- **Story 6.1:** Implémenter une zone de saisie texte (Chat Input) superposée à l'A2UI.
+- **Story 6.2:** Afficher l'historique de la conversation actuelle (Message Bubbles).
+- **Story 6.3:** Support des commandes "Slash" (ex: /expert-domotique turn_on light.salon).
+
+### Epic 7: Agent Dashboard & Control
+**Goal:** Visualiser et gérer l'équipage hAIrem.
+- **Story 7.1:** Vue liste des agents chargés avec leur statut (Idle/Thinking) et émotion.
+- **Story 7.2:** Visualisation des logs système en temps réel dans l'UI.
+- **Story 7.3:** Interface de configuration simplifiée pour les nouveaux agents.
+
+### Epic 8: Persistent Memory (The Archive)
+**Goal:** Sauvegarder les interactions pour une continuité à long terme.
+- **Story 8.1:** Intégrer une base de données de persistance (SQL ou SurrealDB).
+- **Story 8.2:** Chargement de l'historique au démarrage de la session.
+- **Story 8.3:** Recherche sémantique dans les souvenirs (RAG local).

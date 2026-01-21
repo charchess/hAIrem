@@ -1,0 +1,31 @@
+schema: 1
+story: "1.3"
+story_title: "Implémenter le chargeur de plugins (Hot-Reload)"
+gate: PASS
+status_reason: "Hot-reload mechanism is highly resilient. YAML schema validation and async thread-safety are correctly implemented. Risk OPS-001 is mitigated."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-01-20T13:00:00Z"
+
+waiver: { active: false }
+
+top_issues: []
+
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 0 }
+  recommendations:
+    must_fix: []
+    monitor:
+      - "File system notification stability in different Docker environments"
+
+evidence:
+  tests_reviewed: 2
+  risks_identified: 3
+  trace:
+    ac_covered: [1, 2, 3, 4, 5]
+    ac_gaps: []
+
+nfr_validation:
+  security: { status: PASS, notes: "Strict Pydantic type checking" }
+  performance: { status: PASS, notes: "Non-blocking I/O" }
+  reliability: { status: PASS, notes: "Error handling prevents system crash" }
+  maintainability: { status: PASS, notes: "Clear modular structure" }

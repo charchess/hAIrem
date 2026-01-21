@@ -1,0 +1,21 @@
+schema: 1
+story: "6.1"
+story_title: "Zone de saisie texte (Chat Input)"
+gate: PASS
+status_reason: "Text input is correctly implemented and integrated with the WebSocket bridge using H-Link v1.1 protocol."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-01-21T08:00:00Z"
+
+waiver: { active: false }
+
+top_issues: []
+
+evidence:
+  tests_reviewed: 1 (Code inspection of H-Link envelope)
+  trace:
+    ac_covered: [1, 2, 3, 4, 5]
+    ac_gaps: []
+
+nfr_validation:
+  security: { status: PASS, notes: "Basic input trimming implemented" }
+  maintainability: { status: PASS, notes: "Follows project-wide H-Link standard" }

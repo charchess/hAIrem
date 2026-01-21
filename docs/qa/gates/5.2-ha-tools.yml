@@ -1,0 +1,20 @@
+schema: 1
+story: "5.2"
+story_title: "Exposition des outils HA au LLM"
+gate: PASS
+status_reason: "Automated tool schema generation is functional and integrated with the LLM client."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-01-20T22:00:00Z"
+
+waiver: { active: false }
+
+top_issues: []
+
+evidence:
+  tests_reviewed: 1 (Schema inspection)
+  trace:
+    ac_covered: [1, 2, 3, 4]
+    ac_gaps: []
+
+nfr_validation:
+  maintainability: { status: PASS, notes: "DRY principle respected via @tool decorator" }

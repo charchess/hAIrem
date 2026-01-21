@@ -1,0 +1,21 @@
+schema: 1
+story: "5.1"
+story_title: "Client WebSocket/REST Home Assistant"
+gate: PASS
+status_reason: "HA Client is robust, secure (env vars), and handles errors gracefully."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-01-20T21:00:00Z"
+
+waiver: { active: false }
+
+top_issues: []
+
+evidence:
+  tests_reviewed: 2
+  trace:
+    ac_covered: [1, 2, 3, 4, 5]
+    ac_gaps: []
+
+nfr_validation:
+  security: { status: PASS, notes: "Token is protected" }
+  reliability: { status: PASS, notes: "Explicit timeouts configured" }

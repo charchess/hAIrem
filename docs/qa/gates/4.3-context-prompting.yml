@@ -1,0 +1,20 @@
+schema: 1
+story: "4.3"
+story_title: "Injection du Contexte et Prompting"
+gate: PASS
+status_reason: "Agent persona injection and context management are correctly implemented. History sliding window mitigates token overflow risk."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-01-20T20:00:00Z"
+
+waiver: { active: false }
+
+top_issues: []
+
+evidence:
+  tests_reviewed: 2
+  trace:
+    ac_covered: [1, 2, 3, 4]
+    ac_gaps: []
+
+nfr_validation:
+  reliability: { status: PASS, notes: "Context window limit prevents API errors" }

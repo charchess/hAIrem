@@ -1,0 +1,21 @@
+schema: 1
+story: "5.3"
+story_title: "Boucle d'action réelle"
+gate: PASS
+status_reason: "End-to-end action loop is fully functional. The system can now interpret natural language, execute Home Assistant services, and report results narratively."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-01-20T23:00:00Z"
+
+waiver: { active: false }
+
+top_issues: []
+
+evidence:
+  tests_reviewed: 1 (Manual E2E action loop check)
+  trace:
+    ac_covered: [1, 2, 3, 4]
+    ac_gaps: []
+
+nfr_validation:
+  reliability: { status: PASS, notes: "Tool errors are handled and reported narratively" }
+  security: { status: PASS, notes: "Only registered tools are accessible" }

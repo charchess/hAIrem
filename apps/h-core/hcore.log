@@ -1,0 +1,30 @@
+INFO:src.infrastructure.llm:Initializing LlmClient with URL: http://localhost:11434/v1, Model: mistral
+INFO:     Started server process [560624]
+INFO:     Waiting for application startup.
+INFO:src.main:H-Core is starting up...
+INFO:src.infrastructure.redis:Successfully connected to Redis at redis://localhost:6379/0
+INFO:src.infrastructure.plugin_loader:Performing initial agent scan...
+INFO:src.domain.agent:Agent Expert-Domotique registered command: ping
+WARNING:src.infrastructure.home_assistant:HA_TOKEN is not set. Home Assistant integration will be restricted.
+INFO:src.domain.agent:Registered tool: get_entity_state for agent Expert-Domotique
+INFO:src.domain.agent:Registered tool: toggle_device for agent Expert-Domotique
+INFO:src.domain.agent:Agent Expert-Domotique registered command: echo
+INFO:src.domain.agent:Agent Expert-Domotique starting. Listening on agent:Expert-Domotique
+INFO:src.infrastructure.plugin_loader:Agent 'Expert-Domotique' registered/updated successfully.
+INFO:src.domain.agent:Agent Renarde registered command: ping
+INFO:src.domain.agent:Agent Renarde starting. Listening on agent:Renarde
+INFO:src.infrastructure.plugin_loader:Agent 'Renarde' registered/updated successfully.
+INFO:src.infrastructure.plugin_loader:Plugin Loader started. Watching directory: /root/hAIrem/agents
+INFO:src.infrastructure.redis:Subscribed to channel: agent:Expert-Domotique
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:src.infrastructure.redis:Subscribed to channel: agent:Renarde
+INFO:src.infrastructure.redis:Redis raw message received on channel agent:Renarde
+INFO:src.domain.agent:Agent Renarde received message of type narrative.text
+INFO:src.domain.agent:Agent Renarde starts thinking...
+INFO:openai._base_client:Retrying request to /chat/completions in 0.411802 seconds
+INFO:openai._base_client:Retrying request to /chat/completions in 0.945693 seconds
+ERROR:src.infrastructure.llm:LLM API Error: Connection error.
+INFO:src.infrastructure.redis:Redis raw message received on channel agent:Expert-Domotique
+INFO:src.domain.agent:Agent Expert-Domotique received message of type expert.command
+INFO:src.domain.agent:Agent Expert-Domotique executing command: echo

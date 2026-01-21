@@ -1,0 +1,21 @@
+schema: 1
+story: "4.2"
+story_title: "Gestion du Streaming de réponse texte"
+gate: PASS
+status_reason: "End-to-end streaming pipeline is functional. Protocol version 1.1 ensures clean separation between chunks and final messages."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-01-20T19:00:00Z"
+
+waiver: { active: false }
+
+top_issues: []
+
+evidence:
+  tests_reviewed: 1 (Manual E2E check of streaming flow)
+  trace:
+    ac_covered: [1, 2, 3, 4]
+    ac_gaps: []
+
+nfr_validation:
+  performance: { status: PASS, notes: "Zero-latency text accumulation implemented" }
+  reliability: { status: PASS, notes: "Final message ensures state consistency" }

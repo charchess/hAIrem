@@ -1,0 +1,27 @@
+schema: 1
+story: "2.1"
+story_title: "Définir le schéma H-Link et Diagrammes de Séquence"
+gate: PASS
+status_reason: "Documentation and implementation are aligned. H-Link protocol is formally defined with sequence diagrams and enforced via Pydantic."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-01-20T13:30:00Z"
+
+waiver: { active: false }
+
+top_issues: []
+
+risk_summary:
+  totals: { critical: 0, high: 0, medium: 0, low: 0 }
+  recommendations:
+    must_fix: []
+    monitor: []
+
+evidence:
+  tests_reviewed: 0 # Documentation/Spec story
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4]
+    ac_gaps: []
+
+nfr_validation:
+  maintainability: { status: PASS, notes: "Single Source of Truth established" }
