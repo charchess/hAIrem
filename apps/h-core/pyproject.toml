@@ -14,6 +14,8 @@ redis = "^5.0.1"
 watchdog = "^4.0.0"
 PyYAML = "^6.0.1"
 openai = "^1.10.0"
+litellm = "^1.30.0"
+surrealdb = "^0.3.2"
 httpx = "^0.26.0"
 python-dotenv = "^1.0.1"
 

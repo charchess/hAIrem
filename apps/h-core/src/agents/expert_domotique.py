@@ -6,14 +6,18 @@ from src.infrastructure.redis import RedisClient
 from src.infrastructure.llm import LlmClient
 
 class ExpertDomotiqueAgent(BaseAgent):
-    def __init__(self, config: AgentConfig, redis_client: RedisClient, llm_client: LlmClient):
-        super().__init__(config, redis_client, llm_client)
+    def __init__(self, config: AgentConfig, redis_client: RedisClient, llm_client: LlmClient, surreal_client: Optional[Any] = None):
+        super().__init__(config, redis_client, llm_client, surreal_client)
         self.ha_client = HaClient()
         
         # Registration des outils
         self.tool("Get the current state of a device (on/off, temperature, etc)")(self.get_entity_state)
         self.tool("Turn a device on or off (light, switch, etc)")(self.toggle_device)
         self.register_command("echo", self._handle_echo)
+        self.register_command("ping", self._handle_ping)
+
+    async def _handle_ping(self, payload: Any) -> str:
+        return "Pong! Expert-Domotique est prêt."
 
     async def _handle_echo(self, payload: Any) -> str:
         text = payload.get("args", "Pas d'arguments") if isinstance(payload, dict) else "Echo"

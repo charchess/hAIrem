@@ -7,6 +7,11 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div id="view-nav">
+        <button id="nav-stage" class="nav-btn active">Stage</button>
+        <button id="nav-dashboard" class="nav-btn">Dashboard</button>
+    </div>
+
     <div id="the-stage">
         <!-- Z-0: Background -->
         <div id="layer-bg" class="layer"></div>
@@ -20,6 +25,28 @@
         
         <!-- Chat History (Scrollable) -->
         <div id="chat-history"></div>
+
+        <!-- System Log Viewer -->
+        <div id="log-viewer" class="hidden">
+            <div class="log-header">
+                <span>System Logs</span>
+                <div class="log-controls">
+                    <button id="pause-logs" title="Pause/Resume scrolling">⏸</button>
+                    <button id="clear-logs" title="Clear logs">🗑</button>
+                    <button id="close-logs" title="Close">×</button>
+                </div>
+            </div>
+            <div id="log-content"></div>
+        </div>
+
+        <!-- Agent Status Dashboard -->
+        <div id="agent-dashboard" class="hidden">
+            <div class="dashboard-header">
+                <span>Agent Fleet Status</span>
+                <button id="close-dashboard">×</button>
+            </div>
+            <div id="agent-grid"></div>
+        </div>
         
         <!-- Z-30: Dialogue Overlay -->
         <div id="dialogue-container">
@@ -28,15 +55,16 @@
         </div>
 
         <!-- Chat Input Overlay -->
-        <div id="input-container">
-            <input type="text" id="chat-input" placeholder="Chuchoter à l'équipage..." autocomplete="off">
-            <button id="chat-send">Envoyer</button>
-        </div>
+    <div id="chat-input-container">
+        <div id="suggestion-menu" class="hidden"></div>
+        <input type="text" id="chat-input" placeholder="Parler aux agents... (tapez / pour les commandes)" autocomplete="off">
+        <button id="chat-send">Envoyer</button>
+    </div>
 
         <button id="mock-speak" style="position:absolute; top:10px; right:10px; padding:10px; opacity:0.5;">Mock: User Speaking</button>
     </div>
 
-    <script src="js/renderer.js"></script>
-    <script src="js/network.js"></script>
+    <script src="js/network.js?v=3.9"></script>
+    <script src="js/renderer.js?v=3.9"></script>
 </body>
 </html>

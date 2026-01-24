@@ -117,7 +117,35 @@ L'intersection entre :
 - **Story 7.3:** Interface de configuration simplifiée pour les nouveaux agents.
 
 ### Epic 8: Persistent Memory (The Archive)
+
 **Goal:** Sauvegarder les interactions pour une continuité à long terme.
+
 - **Story 8.1:** Intégrer une base de données de persistance (SQL ou SurrealDB).
+
 - **Story 8.2:** Chargement de l'historique au démarrage de la session.
+
 - **Story 8.3:** Recherche sémantique dans les souvenirs (RAG local).
+
+
+
+### Epic 9: Cognitive Consolidation & Optimization
+
+**Goal:** Améliorer l'intelligence et la performance du système.
+
+- **Story 9.1:** Semantic Caching pour réduire la latence et les coûts.
+
+- **Story 9.2:** Privacy Filter Middleware pour sécuriser les données sensibles.
+
+- **Story 9.3:** The Sleep Cycle (Analytic Background Process) pour l'apprentissage.
+
+
+
+### Epic 10: Narrative Orchestration & Proactivity
+
+**Goal:** Incarner une "Maison Vivante" capable d'initiatives.
+
+- **Story 10.1:** Sleep Automation & Scheduling.
+
+- **Story 10.2:** The Entropy Agent (Dieu) pour briser le silence.
+
+- **Story 10.3:** Cross-Agent Collaboration (Internal Coordination).

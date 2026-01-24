@@ -9,8 +9,10 @@ class MessageType(str, Enum):
     NARRATIVE_CHUNK = "narrative.chunk"
     NARRATIVE_ACTION = "narrative.action"
     SYSTEM_LOG = "system.log"
+    SYSTEM_STATUS_UPDATE = "system.status_update"
     EXPERT_COMMAND = "expert.command"
     EXPERT_RESPONSE = "expert.response"
+    AGENT_INTERNAL_NOTE = "agent.internal_note"
 
 class Priority(str, Enum):
     NORMAL = "normal"

@@ -55,7 +55,7 @@ class RedisClient:
                     while not self._stop_event.is_set():
                         message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
                         if message and message["type"] == "message":
-                            logger.info(f"Redis raw message received on channel {channel}")
+                            logger.info(f"DEBUG REDIS: Raw data on {channel}: {message['data'][:100]}...")
                             try:
                                 data = json.loads(message["data"])
                                 hlink_msg = HLinkMessage.model_validate(data)

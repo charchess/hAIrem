@@ -18,31 +18,31 @@ Le cœur (**H-Core**) en Python asynchrone utilise **Redis** pour la communicati
 
 ## 3. Tech Stack
 *   **Backend:** Python 3.11+ (FastAPI).
-*   **Bus:** Redis 7.x.
-*   **DB:** SurrealDB (Hot) / MariaDB (Cold).
-*   **Inference:** LiteLLM (Hybrid: Local, Remote GPU, Cloud).
+*   **Bus:** Redis 7.x (Pub/Sub).
+*   **DB:** SurrealDB (Unified: Graph, Vector, Document).
+*   **Inference:** LiteLLM (Universal Connector: Gemini, Ollama, etc.).
 
 ---
 
 ## 4. Modèles de Données & Mémoire Subjective
-Mémoire Dynamique Pondérée (MDP) : Faits bruts immuables + Interprétations subjectives indexées par UUID avec érosion (Decay) et synthèse.
+Mémoire Dynamique Pondérée (MDP) : Faits bruts immuables + Interprétations subjectives indexées par UUID avec érosion (Decay) et synthèse. Support natif des embeddings vectoriels dans SurrealDB.
 
 ---
 
 ## 5. Protocole H-Link
-Messages JSON incluant header (msg_id, replaces_id, type, priority) et payload (content, data, metadata).
+Messages JSON incluant header (msg_id, replaces_id, type, priority) et payload (content, data, metadata). Support des types `system.whisper` et `agent.internal_note`.
 
 ---
 
 ## 6. Orchestration Narrative
-*   **Dieu (Entropy):** Plug-in `ENTROPY_AGENT` injectant du chaos via `whisper`.
-*   **Dream (Maintenance):** Job nocturne de synthèse et nettoyage.
-*   **Safety Governor:** Inhibition P0 automatique.
+*   **Dieu (Entropy):** Plugin spécialisé (`agents/entropy`) injectant du chaos via des murmures (whispers).
+*   **Sleep Cycle:** Processus automatique de synthèse et consolidation mémorielle.
+*   **Safety Governor:** Redaction automatique des données sensibles (Privacy Filter).
 
 ---
 
 ## 7. Système Hotplug & Plugins
-Structure : `agent.yaml`, `logic.py`, `/assets/`. Validé par le **Gatekeeper** et isolé via l'objet **Context (ctx)**.
+Structure : `expert.yaml`, `logic.py` (optionnel), `/assets/`. Chargement dynamique via `PluginLoader` supportant l'instanciation de classes personnalisées.
 
 ---
 

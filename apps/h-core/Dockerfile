@@ -2,23 +2,33 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install poetry
-RUN pip install --no-cache-dir poetry
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy configuration
-COPY pyproject.toml poetry.lock* ./
+# Install Python dependencies directly
+RUN pip install --no-cache-dir \
+    fastapi \
+    "uvicorn[standard]" \
+    redis \
+    pydantic \
+    pyyaml \
+    watchdog \
+    openai \
+    python-dotenv \
+    surrealdb==1.0.8 \
+    litellm \
+    httpx
 
-# Disable virtualenvs creation (since we are in a container)
-RUN poetry config virtualenvs.create false
+# Copy the application
+COPY . .
 
-# Install dependencies
-RUN poetry install --no-interaction --no-ansi
+ENV PYTHONPATH=/app
 
-# Copy source code
-COPY src ./src
-
-# Expose port (default for uvicorn/fastapi)
+# Expose the port
 EXPOSE 8000
 
-# Command to run the app (will fail if main.py is missing, but that's for next stories)
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Run the application
+CMD ["python", "src/main.py"]
+

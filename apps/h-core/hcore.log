@@ -28,3 +28,15 @@ ERROR:src.infrastructure.llm:LLM API Error: Connection error.
 INFO:src.infrastructure.redis:Redis raw message received on channel agent:Expert-Domotique
 INFO:src.domain.agent:Agent Expert-Domotique received message of type expert.command
 INFO:src.domain.agent:Agent Expert-Domotique executing command: echo
+INFO:     192.168.111.62:39024 - "GET /manifest.json HTTP/1.1" 404 Not Found
+INFO:     192.168.111.62:39014 - "GET /api2/ping HTTP/1.1" 404 Not Found
+INFO:     192.168.111.62:39030 - "GET / HTTP/1.1" 404 Not Found
+INFO:     192.168.111.62:39024 - "GET /static/frontend/en-US/manifest.webmanifest HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:39876 - "GET /api/agents HTTP/1.1" 404 Not Found
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:src.main:H-Core is shutting down...
+INFO:src.infrastructure.redis:Redis connection closed.
+INFO:src.infrastructure.plugin_loader:Plugin Loader stopped.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [560624]

@@ -1,0 +1,104 @@
+INFO:src.infrastructure.llm:Initializing LlmClient with URL: http://localhost:11434/v1, Model: mistral
+/root/hAIrem/apps/h-core/src/main.py:82: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/root/hAIrem/apps/h-core/src/main.py:88: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+INFO:__main__:Mounting static files from: /root/hAIrem/apps/a2ui
+INFO:     Started server process [366534]
+INFO:     Waiting for application startup.
+INFO:__main__:H-Core is starting up (Agents: /root/hAIrem/agents)...
+INFO:src.infrastructure.redis:Successfully connected to Redis at redis://localhost:6379/0
+INFO:src.infrastructure.plugin_loader:Performing initial agent scan...
+INFO:src.domain.agent:Agent Expert-Domotique registered command: ping
+WARNING:src.infrastructure.home_assistant:HA_TOKEN is not set. Home Assistant integration will be restricted.
+INFO:src.domain.agent:Registered tool: get_entity_state for agent Expert-Domotique
+INFO:src.domain.agent:Registered tool: toggle_device for agent Expert-Domotique
+INFO:src.domain.agent:Agent Expert-Domotique registered command: echo
+INFO:src.domain.agent:Agent Expert-Domotique registered command: ping
+INFO:src.domain.agent:Agent Expert-Domotique starting. Listening on agent:Expert-Domotique
+INFO:src.infrastructure.plugin_loader:Agent 'Expert-Domotique' registered/updated successfully.
+INFO:src.domain.agent:Agent Renarde registered command: ping
+INFO:src.domain.agent:Agent Renarde starting. Listening on agent:Renarde
+INFO:src.infrastructure.plugin_loader:Agent 'Renarde' registered/updated successfully.
+INFO:src.infrastructure.plugin_loader:Plugin Loader started. Watching directory: /root/hAIrem/agents
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:src.infrastructure.redis:Subscribed to channel: agent:Expert-Domotique
+INFO:src.infrastructure.redis:Subscribed to channel: agent:Renarde
+INFO:     192.168.200.67:51534 - "WebSocket /ws" [accepted]
+INFO:bridge:New A2UI client connected via WebSocket.
+INFO:bridge:Subscribing to agent:user for this WebSocket session
+INFO:     connection open
+INFO:src.infrastructure.redis:Subscribed to channel: broadcast
+INFO:src.infrastructure.redis:Subscribed to channel: agent:user
+INFO:__main__:Incoming request: GET /
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"85c942cd-1b2e-4631-a2c9-7e76c9bcd7f6","timestamp":"2026-01-23T01:32:17.710513","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.log
+INFO:bridge:Bridge: Pushing system.log to WebSocket
+INFO:     127.0.0.1:48082 - "GET / HTTP/1.1" 200 OK
+INFO:__main__:Incoming request: GET /style.css
+INFO:__main__:Incoming request: GET /js/network.js
+INFO:__main__:Incoming request: GET /js/renderer.js
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"fac0edee-355e-4ef1-a376-48439877ad67","timestamp":"2026-01-23T01:32:17.722709","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.log
+INFO:bridge:Bridge: Pushing system.log to WebSocket
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"f0d5d5e4-07c3-4de6-9946-5c29b623b6b1","timestamp":"2026-01-23T01:32:17.723366","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.log
+INFO:bridge:Bridge: Pushing system.log to WebSocket
+INFO:     127.0.0.1:48084 - "GET /js/network.js?v=1.5 HTTP/1.1" 200 OK
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"ee70661a-62ae-44d2-9fa7-f926cdfb55de","timestamp":"2026-01-23T01:32:17.723900","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.log
+INFO:bridge:Bridge: Pushing system.log to WebSocket
+INFO:     127.0.0.1:48082 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48096 - "GET /js/renderer.js?v=1.5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48100 - "WebSocket /ws" [accepted]
+INFO:bridge:New A2UI client connected via WebSocket.
+INFO:bridge:Subscribing to agent:user for this WebSocket session
+INFO:     connection open
+INFO:src.infrastructure.redis:Subscribed to channel: broadcast
+INFO:src.infrastructure.redis:Subscribed to channel: agent:user
+INFO:__main__:Incoming request: GET /api/agents
+INFO:     127.0.0.1:48096 - "GET /api/agents HTTP/1.1" 200 OK
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"6e9bc8f1-8a1e-4e81-894f-64731572134d","timestamp":"2026-01-23T01:32:17.739627","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.log
+INFO:bridge:Bridge: Pushing system.log to WebSocket
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"6e9bc8f1-8a1e-4e81-894f-64731572134d","timestamp":"2026-01-23T01:32:17.739627","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.log
+INFO:bridge:Bridge: Pushing system.log to WebSocket
+INFO:__main__:Incoming request: GET /
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"79e1e6a3-9964-4e0e-a9d2-cb747939233a","timestamp":"2026-01-23T01:32:19.004095","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.log
+INFO:bridge:Bridge: Pushing system.log to WebSocket
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"79e1e6a3-9964-4e0e-a9d2-cb747939233a","timestamp":"2026-01-23T01:32:19.004095","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.log
+INFO:bridge:Bridge: Pushing system.log to WebSocket
+INFO:     127.0.0.1:48096 - "GET / HTTP/1.1" 304 Not Modified
+INFO:bridge:A2UI client disconnected.
+INFO:     connection closed
+INFO:__main__:Incoming request: GET /api/agents
+INFO:     127.0.0.1:48096 - "GET /api/agents HTTP/1.1" 200 OK
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"3ba6c0dd-fe75-41a3-aa97-bdf76a98b0f9","timestamp":"2026-01-23T01:32:19.017002","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.log
+INFO:bridge:Bridge: Pushing system.log to WebSocket
+ERROR:bridge:Failed to push message to WS: Unexpected ASGI message 'websocket.send', after sending 'websocket.close' or response already completed.
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"3ba6c0dd-fe75-41a3-aa97-bdf76a98b0f9","timestamp":"2026-01-23T01:32:19.017002","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.log
+INFO:bridge:Bridge: Pushing system.log to WebSocket
+INFO:     127.0.0.1:48106 - "WebSocket /ws" [accepted]
+INFO:bridge:New A2UI client connected via WebSocket.
+INFO:bridge:Subscribing to agent:user for this WebSocket session
+INFO:     connection open
+INFO:src.infrastructure.redis:Subscribed to channel: broadcast
+INFO:src.infrastructure.redis:Subscribed to channel: agent:user
+INFO:bridge:A2UI client disconnected.
+INFO:     connection closed

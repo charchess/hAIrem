@@ -1,0 +1,49 @@
+schema: 1
+story: '7.1'
+story_title: 'Slash Commands Contextual Help (UX)'
+gate: PASS
+status_reason: 'Implemented successfully with critical bug fixes in backend suggestions and frontend UX (Tab completion).'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-01-22T13:55:00Z'
+
+top_issues:
+  - id: ISS-1
+    severity: medium
+    description: 'Backend returned capabilities tags instead of actual command names.'
+    suggested_owner: dev
+  - id: ISS-2
+    severity: low
+    description: 'Tab completion required prior arrow navigation.'
+    suggested_owner: dev
+
+quality_score: 90 # 100 - (10 * 1 CONCERN from Risk Score > 6)
+expires: '2026-02-05T13:55:00Z'
+
+evidence:
+  tests_reviewed: 1
+  risks_identified: 5
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Safe metadata exposure.'
+  performance:
+    status: PASS
+    notes: 'Fast local filtering.'
+  reliability:
+    status: PASS
+    notes: 'Graceful fallback.'
+  maintainability:
+    status: CONCERNS
+    notes: 'Autocomplete logic inlined in large file.'
+
+recommendations:
+  immediate:
+    - action: 'Verify fix for backend command listing.'
+      refs: ['apps/h-core/src/main.py']
+  future:
+    - action: 'Extract Autocomplete to separate module.'
+      refs: ['apps/a2ui/js/renderer.js']

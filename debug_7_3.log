@@ -1,0 +1,89 @@
+INFO:src.infrastructure.llm:Initializing LlmClient with URL: http://localhost:11434/v1, Model: mistral
+/root/hAIrem/apps/h-core/src/main.py:82: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/root/hAIrem/apps/h-core/src/main.py:88: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+INFO:__main__:Mounting static files from: /root/hAIrem/apps/a2ui
+INFO:     Started server process [337788]
+INFO:     Waiting for application startup.
+INFO:__main__:H-Core is starting up (Agents: /root/hAIrem/agents)...
+INFO:src.infrastructure.redis:Successfully connected to Redis at redis://localhost:6379/0
+INFO:src.infrastructure.plugin_loader:Performing initial agent scan...
+INFO:src.domain.agent:Agent Expert-Domotique registered command: ping
+WARNING:src.infrastructure.home_assistant:HA_TOKEN is not set. Home Assistant integration will be restricted.
+INFO:src.domain.agent:Registered tool: get_entity_state for agent Expert-Domotique
+INFO:src.domain.agent:Registered tool: toggle_device for agent Expert-Domotique
+INFO:src.domain.agent:Agent Expert-Domotique registered command: echo
+INFO:src.domain.agent:Agent Expert-Domotique registered command: ping
+INFO:src.domain.agent:Agent Expert-Domotique starting. Listening on agent:Expert-Domotique
+INFO:src.infrastructure.plugin_loader:Agent 'Expert-Domotique' registered/updated successfully.
+INFO:src.domain.agent:Agent Renarde registered command: ping
+INFO:src.domain.agent:Agent Renarde starting. Listening on agent:Renarde
+INFO:src.infrastructure.plugin_loader:Agent 'Renarde' registered/updated successfully.
+INFO:src.infrastructure.plugin_loader:Plugin Loader started. Watching directory: /root/hAIrem/agents
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:src.infrastructure.redis:Subscribed to channel: agent:Expert-Domotique
+INFO:src.infrastructure.redis:Subscribed to channel: agent:Renarde
+INFO:__main__:Incoming request: GET /
+INFO:     127.0.0.1:57516 - "GET / HTTP/1.1" 200 OK
+INFO:__main__:Incoming request: GET /style.css
+INFO:__main__:Incoming request: GET /js/network.js
+INFO:__main__:Incoming request: GET /js/renderer.js
+INFO:     127.0.0.1:57516 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57522 - "GET /js/network.js?v=1.5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57536 - "GET /js/renderer.js?v=1.5 HTTP/1.1" 200 OK
+INFO:__main__:Incoming request: GET /api/agents
+INFO:     127.0.0.1:57550 - "WebSocket /ws" [accepted]
+INFO:bridge:New A2UI client connected via WebSocket.
+INFO:bridge:Subscribing to agent:user for this WebSocket session
+INFO:     127.0.0.1:57536 - "GET /api/agents HTTP/1.1" 200 OK
+INFO:     connection open
+INFO:src.infrastructure.redis:Subscribed to channel: broadcast
+INFO:src.infrastructure.redis:Subscribed to channel: agent:user
+INFO:bridge:Received from UI: {'id': '9cc2a9eb-429a-4683-a242-f0724c8226a7', 'timestamp': '2026-01-23T01:00:29.405Z', 'type': 'narrative.text', 'sender': {'agent_id': 'user', 'role': 'user'}, 'recipient': {'target': 'broadcast'}, 'payload': {'content': 'Hello Renarde', 'format': 'text'}, 'metadata': {'priority': 'normal', 'ttl': 5}}
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on agent:Renarde: {"id":"9cc2a9eb-429a-4683-a242-f0724c8226a7","timestamp":"2026-01-23T01:00:29.405000Z","type":"narra...
+INFO:src.domain.agent:Agent Renarde received message of type narrative.text
+INFO:src.domain.agent:Agent Renarde starts thinking...
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"04e523f2-e50a-4d1c-b404-1acb50f0496b","timestamp":"2026-01-23T01:00:29.443172","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.log
+INFO:bridge:Bridge: Pushing system.log to WebSocket
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"3d6ded19-31d5-404b-a266-453551fe2082","timestamp":"2026-01-23T01:00:29.443077","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.log
+INFO:bridge:Bridge: Pushing system.log to WebSocket
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"b0f5d1cb-840b-412d-82ab-66fc1aaf6507","timestamp":"2026-01-23T01:00:29.443139","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.log
+INFO:bridge:Bridge: Pushing system.log to WebSocket
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"462fbb16-1d21-4c68-b987-1f71ebcbe779","timestamp":"2026-01-23T01:00:29.443556","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.status_update
+INFO:bridge:Bridge: Pushing system.status_update to WebSocket
+INFO:openai._base_client:Retrying request to /chat/completions in 0.444720 seconds
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"1063665b-1b28-4829-85f1-a93e52e17bc4","timestamp":"2026-01-23T01:00:29.843548","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.log
+INFO:bridge:Bridge: Pushing system.log to WebSocket
+INFO:openai._base_client:Retrying request to /chat/completions in 0.980798 seconds
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"48b5deaf-fdfc-4fb8-9afe-fbc018225609","timestamp":"2026-01-23T01:00:30.290669","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.log
+INFO:bridge:Bridge: Pushing system.log to WebSocket
+ERROR:src.infrastructure.llm:LLM API Error: Connection error.
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"63d75caf-af34-40d8-af3b-301418b74a5d","timestamp":"2026-01-23T01:00:31.273196","type":"narrat...
+INFO:bridge:Bridge: Received from Redis: narrative.text
+INFO:bridge:Bridge: Pushing narrative.text to WebSocket
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"91692b87-a878-46b0-9eff-030f7c0d0760","timestamp":"2026-01-23T01:00:31.273161","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.log
+INFO:bridge:Bridge: Pushing system.log to WebSocket
+INFO:src.infrastructure.redis:DEBUG REDIS: Raw data on broadcast: {"id":"da29ccd7-2386-418c-8358-682cf2dd7445","timestamp":"2026-01-23T01:00:31.273466","type":"system...
+INFO:bridge:Bridge: Received from Redis: system.status_update
+INFO:bridge:Bridge: Pushing system.status_update to WebSocket
+INFO:bridge:A2UI client disconnected.
+INFO:     connection closed

@@ -1,0 +1,24 @@
+schema: 1
+story: "6.3"
+story_title: "Commandes Slash (Direct Control)"
+gate: PASS
+status_reason: "Full omnichannel integration complete. H-Core now serves the A2UI static files and provides a robust bi-directional bridge between WebSockets and the Redis bus. All ACs are met for both CLI and Web interfaces."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-01-21T11:00:00Z"
+
+waiver: { active: false }
+
+top_issues:
+  - issue: "Visual context assistance (auto-complete) for slash commands is currently missing in the UI."
+    severity: "LOW"
+    type: "UX_DEBT"
+
+evidence:
+  tests_reviewed: 2 (CLI routing test + Code inspection of H-Core bridge)
+  trace:
+    ac_covered: [1, 2, 3, 4]
+    ac_gaps: []
+
+nfr_validation:
+  performance: { status: PASS, notes: "Direct routing bypasses LLM overhead for expert commands." }
+  reliability: { status: PASS, notes: "Consistent message schema between CLI and Web UI." }
