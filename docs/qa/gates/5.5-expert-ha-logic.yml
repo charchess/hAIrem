@@ -1,0 +1,40 @@
+schema: 1
+story: '5.5'
+story_title: 'Expert-Domotique Home Assistant Integration'
+gate: PASS
+status_reason: 'Custom agent logic successfully implemented using the new pluggable architecture. Home Assistant tools are correctly registered and verified.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-01-24T14:00:00Z'
+
+top_issues: []
+
+waiver: { active: false }
+
+quality_score: 100
+
+evidence:
+  tests_reviewed: 2
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4, 5]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Uses Bearer token authentication via environment variables.'
+  performance:
+    status: PASS
+    notes: 'Asynchronous httpx client used for HA calls.'
+  reliability:
+    status: PASS
+    notes: 'Graceful error handling when HA entities are not found.'
+  maintainability:
+    status: PASS
+    notes: 'Follows the new sidecar pattern (logic.py) which isolates expert logic.'
+
+recommendations:
+  immediate: []
+  future:
+    - action: 'Implement tool-level input validation'
+      refs: ['agents/expert_domotique/logic.py']

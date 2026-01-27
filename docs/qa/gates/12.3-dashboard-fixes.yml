@@ -1,0 +1,29 @@
+schema: 1
+story: '12.3'
+story_title: 'Dashboard Fixes & Agent Control'
+gate: PASS
+status_reason: 'Dashboard navigation bug fixed and agent activation control implemented. Verified via E2E testing.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-01-24T12:00:00Z'
+
+top_issues: []
+
+evidence:
+  tests_reviewed: 1
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4, 5]
+    ac_gaps: []
+
+nfr_validation:
+  usability:
+    status: PASS
+    notes: 'Dashboard is now closable and agents can be managed intuitively.'
+  performance:
+    status: PASS
+    notes: 'Optimistic UI update prevents lag perception.'
+
+recommendations:
+  future:
+    - action: 'Persist disabled state across server restarts via SurrealDB'
+      refs: ['apps/h-core/src/domain/agent.py']

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>hAIrem - The Stage</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="view-nav">
+        <!-- New Icon Navigation -->
+        <button id="nav-admin" class="nav-btn" title="Control Panel">⚙️</button>
+        <button id="nav-crew" class="nav-btn" title="Crew Management">👥</button>
+        
+        <div id="system-status-indicators">
+            <div class="status-indicator" id="status-ws" title="WebSocket Connection">WS</div>
+            <div class="status-indicator" id="status-redis" title="Redis Bus">BUS</div>
+            <div class="status-indicator" id="status-llm" title="LLM Connectivity">AI</div>
+            <div class="status-indicator" id="status-brain" title="Cognitive Core Health">BRAIN</div>
+        </div>
+    </div>
+
+    <div id="the-stage">
+        <!-- Z-0: Background -->
+        <div id="layer-bg" class="layer"></div>
+        
+        <!-- Z-10: Agents -->
+        <div id="layer-agent-body" class="layer agent-layer"></div>
+        <div id="layer-agent-face" class="layer agent-layer"></div>
+        
+        <!-- Z-20: Data Rails (Placeholder for future) -->
+        <div id="layer-data" class="layer"></div>
+        
+        <!-- Chat History (Scrollable) -->
+        <div id="chat-history"></div>
+
+        <!-- System Log Viewer -->
+        <div id="log-viewer" class="hidden">
+            <div class="log-header">
+                <span>System Logs</span>
+                <div class="log-controls">
+                    <button id="pause-logs" title="Pause/Resume scrolling">⏸</button>
+                    <button id="clear-logs" title="Clear logs">🗑</button>
+                    <button id="close-logs" title="Close">×</button>
+                </div>
+            </div>
+            <div id="log-content"></div>
+        </div>
+
+        <!-- Crew Status Panel (Formerly Dashboard) -->
+        <div id="crew-panel" class="hidden panel-overlay">
+            <div class="panel-header">
+                <span>Crew Management</span>
+                <button id="close-crew">×</button>
+            </div>
+            <div id="agent-grid"></div>
+        </div>
+
+        <!-- Admin Control Panel (New) -->
+        <div id="admin-panel" class="hidden panel-overlay">
+            <div class="panel-header">
+                <span>System Control</span>
+                <button id="close-admin">×</button>
+            </div>
+            <div class="panel-content">
+                <div class="config-section">
+                    <h3>Logging</h3>
+                    <label for="log-level-select">System Log Level:</label>
+                    <select id="log-level-select">
+                        <option value="DEBUG">DEBUG (Verbose)</option>
+                        <option value="INFO" selected>INFO (Standard)</option>
+                        <option value="WARNING">WARNING</option>
+                        <option value="ERROR">ERROR</option>
+                    </select>
+                </div>
+                
+                <div class="config-section">
+                    <h3>System Health</h3>
+                    <div id="admin-status-indicators">
+                        <div class="status-item">
+                            <span>WebSocket:</span>
+                            <span id="status-ws-admin" class="status-indicator">CHECKING</span>
+                        </div>
+                        <div class="status-item">
+                            <span>Redis Bus:</span>
+                            <span id="status-redis-admin" class="status-indicator">CHECKING</span>
+                        </div>
+                        <div class="status-item">
+                            <span>LLM Connectivity:</span>
+                            <span id="status-llm-admin" class="status-indicator">CHECKING</span>
+                        </div>
+                        <div class="status-item">
+                            <span>Cognitive Core:</span>
+                            <span id="status-brain-admin" class="status-indicator">CHECKING</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Z-30: Dialogue Overlay -->
+        <div id="dialogue-container">
+            <div id="agent-name">Renarde</div>
+            <div id="dialogue-text">Initialisation du système hAIrem... Bienvenue à bord.</div>
+        </div>
+
+        <!-- Chat Input Overlay -->
+    <div id="chat-input-container">
+        <div id="suggestion-menu" class="hidden"></div>
+        <select id="target-agent-select">
+            <option value="broadcast">Tous</option>
+        </select>
+        <input type="text" id="chat-input" placeholder="Parler aux agents..." autocomplete="off">
+        <button id="chat-send">Envoyer</button>
+    </div>
+
+        <button id="mock-speak" style="position:absolute; top:10px; right:10px; padding:10px; opacity:0.5;">Mock: User Speaking</button>
+    </div>
+
+    <script src="js/network.js?v=4.0"></script>
+    <script src="js/speechQueue.js?v=4.0"></script>
+    <script src="js/renderer.js?v=4.0"></script>
+</body>
+</html>

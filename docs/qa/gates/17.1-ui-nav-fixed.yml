@@ -1,0 +1,17 @@
+story_id: 17.1
+epic: 17
+title: Dual Panel Navigation & Modal UX
+status: PASS
+date: 2026-01-26
+reviewer: Quinn
+summary: |
+  Story 17.1 is verified. The initial rendering failure was identified as a syntax error in renderer.js (placeholders left by developer). 
+  This has been fixed. Live audit via Playwright confirms:
+  - Icon-based navigation is correctly placed and styled.
+  - Crew panel correctly lists agents and supports toggling.
+  - Admin panel shell is ready for 17.2.
+  - Click-outside and Escape key close mechanisms work perfectly.
+risks: None.
+nfr_assessment:
+  usability: PASS (Modern icon navigation and modal patterns)
+  stability: PASS (Resolved syntax errors and ensured clean class initialization)

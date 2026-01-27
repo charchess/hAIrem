@@ -17,9 +17,16 @@ services:
     image: surrealdb/surrealdb:latest
     ports:
       - "8001:8000"
-    command: start --user root --pass root memory
+    command: start --user root --pass root rocksdb:/mydata
+    volumes:
+      - ./surreal_data:/mydata
     networks:
       - hairem-net
+    healthcheck:
+      test: ["CMD", "/surreal", "is-ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   h-core:
     build:
@@ -27,10 +34,10 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./apps/h-core/src:/app/src
-      - ./apps/a2ui:/app/a2ui
       - ./agents:/app/agents # Mount agents folder for Hot-Reload (Epic 1.3)
       - ./config:/app/config # Story 11.4: Mount config for global instructions
     environment:
+      - PYTHONUNBUFFERED=1
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - SURREALDB_URL=ws://surrealdb:8000/rpc
@@ -39,8 +46,30 @@ services:
       - LLM_MODEL=openrouter/x-ai/grok-4.1-fast
       - OPENROUTER_API_KEY=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
       - GEMINI_API_KEY=AIzaSyAYZ8kJfPGg8Kqj5auPvT5qFeMeEvwffqo
+      - HA_TOKEN=${HA_TOKEN}
+      - HA_URL=${HA_URL}
+    depends_on:
+      redis:
+        condition: service_healthy
+      surrealdb:
+        condition: service_healthy
+    networks:
+      - hairem-net
+
+  h-bridge:
+    build:
+      context: ./apps/h-bridge
+      dockerfile: Dockerfile
+    volumes:
+      - ./apps/h-bridge/src:/app/src
+      - ./apps/h-bridge/static:/app/static
+    environment:
+      - REDIS_HOST=redis
+      - SURREALDB_URL=ws://surrealdb:8000/rpc
+      - SURREALDB_USER=root
+      - SURREALDB_PASS=root
     ports:
-      - "8080:8000"
+      - "8000:8000"
     depends_on:
       redis:
         condition: service_healthy

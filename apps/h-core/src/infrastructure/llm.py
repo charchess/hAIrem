@@ -1,13 +1,15 @@
-import os
+import asyncio
 import logging
-from typing import List, Dict, Any, AsyncGenerator, Union, Optional
+import os
+from collections.abc import AsyncGenerator
+from typing import Any
 
 try:
     import litellm
     from litellm import acompletion, aembedding
     LITELLM_AVAILABLE = True
 except ImportError:
-    litellm = None
+    litellm = None  # type: ignore
     acompletion = None
     aembedding = None
     LITELLM_AVAILABLE = False
@@ -15,23 +17,39 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Configure litellm to drop unknown params (helps with some providers)
+# Configure litellm
 if LITELLM_AVAILABLE:
     litellm.drop_params = True
+    litellm.success_callback = [] # Disable callbacks like cost tracking
+    litellm.failure_callback = []
 
 class LlmClient:
-    def __init__(self, cache: Optional[Any] = None):
-        self.model = os.getenv("LLM_MODEL", "ollama/mistral")
-        self.api_key = os.getenv("LLM_API_KEY")
-        self.base_url = os.getenv("LLM_BASE_URL")
+    api_key: Any = None
+    base_url: Any = None
+
+    def __init__(self, cache: Any | None = None, config_override: dict[str, Any] | None = None):
+        config_override = config_override or {}
+        self.model = config_override.get("model") or os.getenv("LLM_MODEL", "ollama/mistral")
+        
+        # DEBUG: Check api_key type
+        print(f"DEBUG: api_key type: {type(self.api_key)} value: {self.api_key}")
+        
+        raw_key = config_override.get("api_key") or os.getenv("LLM_API_KEY")
+        self.api_key = str(raw_key) if raw_key else None
+        self.base_url = config_override.get("base_url") or os.getenv("LLM_BASE_URL")
+        
+        self.temperature = config_override.get("temperature")
         self.cache = cache
         
         # Ensure provider-specific keys are in environment for LiteLLM
-        if os.getenv("GEMINI_API_KEY"):
-            os.environ["GEMINI_API_KEY"] = os.getenv("GEMINI_API_KEY")
+        gemini_key = os.getenv("GEMINI_API_KEY")
+        if gemini_key:
+            os.environ["GEMINI_API_KEY"] = gemini_key
             logger.info("Gemini API Key detected.")
-        if os.getenv("OPENROUTER_API_KEY"):
-            os.environ["OPENROUTER_API_KEY"] = os.getenv("OPENROUTER_API_KEY")
+            
+        openrouter_key = os.getenv("OPENROUTER_API_KEY")
+        if openrouter_key:
+            os.environ["OPENROUTER_API_KEY"] = openrouter_key
             logger.info(f"OpenRouter API Key detected. Using Model: {self.model}")
         
         if not LITELLM_AVAILABLE:
@@ -39,9 +57,9 @@ class LlmClient:
         else:
             logger.info("LiteLLM initialized successfully.")
         
-        logger.info(f"Initializing LlmClient with Model: {self.model}")
+        logger.info(f"Initializing LlmClient with Model: {self.model} (Temp: {self.temperature})")
 
-    async def get_completion(self, messages: List[Dict[str, str]], stream: bool = False, tools: Optional[List[Dict[str, Any]]] = None, return_full_object: bool = False) -> Union[str, AsyncGenerator[str, None], Any]:
+    async def get_completion(self, messages: list[dict[str, str]], stream: bool = False, tools: list[dict[str, Any]] | None = None, return_full_object: bool = False) -> str | AsyncGenerator[str, None] | Any:
         """
         Get completion from the LLM using litellm.
         """
@@ -60,11 +78,15 @@ class LlmClient:
                 kwargs["api_key"] = self.api_key
             if self.base_url:
                 kwargs["base_url"] = self.base_url
+            if self.temperature is not None:
+                kwargs["temperature"] = float(self.temperature)
 
             if tools:
                 kwargs["tools"] = tools
 
-            response = await acompletion(**kwargs)
+            logger.info(f"LLM_CALL: Model={self.model}, Tools={len(tools) if tools else 0}")
+            response = await asyncio.wait_for(acompletion(**kwargs), timeout=60.0)
+            logger.info(f"LLM_RESPONSE_RECEIVED: {type(response)}")
 
             if stream:
                 return self._stream_generator(response)
@@ -85,10 +107,15 @@ class LlmClient:
     async def _stream_generator(self, response):
         """Helper to yield content chunks from the stream."""
         async for chunk in response:
-            if chunk.choices[0].delta.content is not None:
-                yield chunk.choices[0].delta.content
+            delta = chunk.choices[0].delta
+            # Capture standard content
+            if hasattr(delta, 'content') and delta.content is not None:
+                yield delta.content
+            # Capture Grok reasoning content if standard content is empty
+            elif hasattr(delta, 'reasoning_content') and delta.reasoning_content is not None:
+                yield delta.reasoning_content
 
-    async def get_embedding(self, text: str) -> List[float]:
+    async def get_embedding(self, text: str) -> list[float]:
         """
         Generate a vector embedding for the given text.
         """
@@ -122,4 +149,5 @@ class LlmClient:
             return emb
         except Exception as e:
             logger.error(f"Failed to generate embedding: {e}")
-            return None
+            return None  # type: ignore
+        

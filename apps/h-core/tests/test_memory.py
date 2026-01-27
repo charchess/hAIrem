@@ -29,15 +29,18 @@ async def test_memory_consolidation_success():
     mock_llm.get_completion.return_value = '[{"fact": "User likes green tea", "subject": "user", "agent": "Renarde", "confidence": 0.9}]'
     mock_llm.get_embedding.return_value = [0.1, 0.2]
     
+    # Mock semantic search to avoid conflict check issues
+    mock_surreal.semantic_search.return_value = []
+    
     consolidator = MemoryConsolidator(mock_surreal, mock_llm, mock_redis)
     facts_count = await consolidator.consolidate()
     
     assert facts_count == 1
     # Check if messages were marked as processed
     mock_surreal.mark_as_processed.assert_called_once_with(["uuid1", "uuid2"])
-    # Check if memory was inserted
-    mock_surreal.insert_memory.assert_called_once()
-    args, _ = mock_surreal.insert_memory.call_args
+    # Check if graph memory was inserted
+    mock_surreal.insert_graph_memory.assert_called_once()
+    args, _ = mock_surreal.insert_graph_memory.call_args
     assert args[0]["fact"] == "User likes green tea"
     assert args[0]["embedding"] == [0.1, 0.2]
     # Check if log was broadcasted

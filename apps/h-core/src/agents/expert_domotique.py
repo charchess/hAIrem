@@ -1,12 +1,16 @@
-from typing import Optional, Any
+from typing import Any
+
+# STORY 5.6: HaClient migrated to Electra drivers
+from agents.electra.drivers.ha_client import HaClient
+
 from src.domain.agent import BaseAgent
-from src.infrastructure.home_assistant import HaClient
-from src.models.agent import AgentConfig
-from src.infrastructure.redis import RedisClient
 from src.infrastructure.llm import LlmClient
+from src.infrastructure.redis import RedisClient
+from src.models.agent import AgentConfig
+
 
 class ExpertDomotiqueAgent(BaseAgent):
-    def __init__(self, config: AgentConfig, redis_client: RedisClient, llm_client: LlmClient, surreal_client: Optional[Any] = None):
+    def __init__(self, config: AgentConfig, redis_client: RedisClient, llm_client: LlmClient, surreal_client: Any | None = None):
         super().__init__(config, redis_client, llm_client, surreal_client)
         self.ha_client = HaClient()
         

@@ -5,7 +5,7 @@ from src.models.hlink import HLinkMessage, MessageType, Sender, Recipient, Paylo
 
 logger = logging.getLogger(__name__)
 
-class EntropyAgent(BaseAgent):
+class Agent(BaseAgent):
     """
     The 'Dieu' Agent. 
     It doesn't talk to the user directly but whispers to other agents.
@@ -16,8 +16,15 @@ class EntropyAgent(BaseAgent):
         if message.type == "system.inactivity":
             logger.info("Dieu detected inactivity. Preparing a whisper...")
             await self._trigger_spark()
+            return # Don't process further
         
-        # Call base for standard processing (logging etc)
+        # 2. Dieu does NOT respond to regular narrative text from users
+        if message.type == MessageType.NARRATIVE_TEXT and message.sender.agent_id == "user":
+            # Just store in history but don't call LLM
+            self.ctx.history.append(message)
+            return
+
+        # Call base for standard processing (internal notes, status updates, etc)
         await super().on_message(message)
 
     async def _trigger_spark(self):

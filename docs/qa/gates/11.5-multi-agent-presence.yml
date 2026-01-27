@@ -1,0 +1,40 @@
+schema: 1
+story: '11.5'
+story_title: 'Multi-Agent Presence & Non-Personified Entities'
+gate: PASS
+status_reason: 'Technical display logic for non-personified agents is functional. Assets for Lisa and Electra are present and cleaned.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-01-24T15:00:00Z'
+
+top_issues: []
+
+waiver: { active: false }
+
+quality_score: 100
+
+evidence:
+  tests_reviewed: 1
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4, 5]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'No security impact.'
+  performance:
+    status: PASS
+    notes: 'Efficient DOM toggling.'
+  reliability:
+    status: PASS
+    notes: 'Eliminated 404 errors for abstract agents.'
+  maintainability:
+    status: PASS
+    notes: 'Clean extension of metadata and renderer.'
+
+recommendations:
+  immediate: []
+  future:
+    - action: 'Visual cue for non-personified agents'
+      refs: ['apps/a2ui/js/renderer.js']

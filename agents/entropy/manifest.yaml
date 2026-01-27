@@ -1,0 +1,8 @@
+id: "entropy"
+version: "1.0"
+type: "background"
+name: "Dieu"
+description: "Agent invisible qui surveille le silence et injecte des étincelles de vie."
+capabilities:
+  - "proactivity"
+  - "monitoring"

@@ -1,8 +1,7 @@
 import hashlib
 import json
 import logging
-import os
-from typing import List, Optional
+
 from src.infrastructure.redis import RedisClient
 
 logger = logging.getLogger(__name__)
@@ -27,9 +26,10 @@ class EmbeddingCache:
         text_hash = hashlib.sha256(normalized.encode('utf-8')).hexdigest()
         return f"{self.prefix}{text_hash}"
 
-    async def get(self, text: str) -> Optional[List[float]]:
+    async def get(self, text: str) -> list[float] | None:
         """Retrieve an embedding from the cache."""
         key = self._get_key(text)
+        assert self.redis.client is not None
         try:
             # redis_client.client is the underlying redis-py instance
             data = await self.redis.client.get(key)
@@ -40,12 +40,13 @@ class EmbeddingCache:
             logger.error(f"Error reading from embedding cache: {e}")
         return None
 
-    async def set(self, text: str, vector: List[float]):
+    async def set(self, text: str, vector: list[float]):
         """Store an embedding in the cache."""
         if not vector:
             return
             
         key = self._get_key(text)
+        assert self.redis.client is not None
         try:
             await self.redis.client.set(key, json.dumps(vector), ex=self.ttl)
             logger.debug(f"Cache stored for: {text[:30]}...")

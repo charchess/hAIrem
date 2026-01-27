@@ -1,7 +1,6 @@
 import pytest
-import httpx
-from unittest.mock import AsyncMock, patch, MagicMock
-from src.infrastructure.home_assistant import HaClient
+from unittest.mock import MagicMock, AsyncMock, patch
+from agents.electra.drivers.ha_client import HaClient
 
 @pytest.mark.asyncio
 async def test_ha_get_state_success():

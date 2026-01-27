@@ -1,0 +1,31 @@
+schema: 1
+story: "17.3"
+story_title: "Crew Panel Enhancements (Tokens & Status)"
+gate: "PASS"
+status_reason: "Implementation is robust with excellent token extraction logic and complete UI integration. All ACs met with superior detail."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-01-26T06:58:00Z"
+
+waiver: { active: false }
+
+top_issues: []
+
+quality_score: 100
+
+evidence:
+  tests_reviewed: 1
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3]
+    ac_gaps: []
+
+nfr_validation:
+  security: { status: PASS, notes: "No sensitive data exposed." }
+  performance: { status: PASS, notes: "Low overhead token tracking." }
+  reliability: { status: PASS, notes: "Robust fallback for LLM usage data." }
+  maintainability: { status: PASS, notes: "Self-documenting code with clear logs." }
+
+recommendations:
+  future:
+    - action: "Consider persisting total token usage in SurrealDB for long-term analytics."
+      refs: ["apps/h-core/src/domain/agent.py"]

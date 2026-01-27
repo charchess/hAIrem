@@ -1,0 +1,40 @@
+schema: 1
+story: '12.4'
+story_title: 'Backend Flexibility & Persistence'
+gate: PASS
+status_reason: 'All acceptance criteria met. Implementation is robust with added resilience and persistence. Tests pass.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-01-24T12:00:00Z'
+
+top_issues: []
+
+waiver: { active: false }
+
+quality_score: 100
+
+evidence:
+  tests_reviewed: 2
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Standard env var usage for secrets.'
+  performance:
+    status: PASS
+    notes: 'Startup delay is intentional for reliability.'
+  reliability:
+    status: PASS
+    notes: 'Significantly improved with wait_for_db and healthchecks.'
+  maintainability:
+    status: PASS
+    notes: 'Clean separation of per-agent config logic.'
+
+recommendations:
+  immediate: []
+  future:
+    - action: 'Add integration tests for DB persistence'
+      refs: ['apps/h-core/tests/test_persistence.py']

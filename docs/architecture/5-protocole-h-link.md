@@ -41,6 +41,7 @@ Tous les messages DOIVENT respecter cette structure :
 | `narrative.action` | Action narrative (VN). | `{"content": "La Renarde sourit doucement."}` |
 | `expert.command` | Commande technique. | `{"content": {"service": "light.turn_on", "entity": "living_room"}}` |
 | `expert.response` | Résultat d'une commande. | `{"content": {"status": "success"}}` |
+| `system.status_update` | Mise à jour d'état système (ex: activation agent). | `{"content": {"agent_id": "lisa", "active": false}}` |
 | `system.log` | Log technique interne. | `{"content": "Agent loaded: expert-domotique"}` |
 
 ## 5.3 Diagrammes de Séquence

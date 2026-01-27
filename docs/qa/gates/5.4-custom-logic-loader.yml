@@ -1,0 +1,40 @@
+schema: 1
+story: '5.4'
+story_title: 'Custom Python Logic Support (Pluggable Agents)'
+gate: PASS
+status_reason: 'Implementation is robust, extensible, and verified by comprehensive unit tests. Legacy tests were also fixed.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-01-24T13:00:00Z'
+
+top_issues: []
+
+waiver: { active: false }
+
+quality_score: 100
+
+evidence:
+  tests_reviewed: 3
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4, 5]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Strict inheritance check added during review.'
+  performance:
+    status: PASS
+    notes: 'Zero impact on message throughput.'
+  reliability:
+    status: PASS
+    notes: 'Clean fallback logic for agents without logic.py.'
+  maintainability:
+    status: PASS
+    notes: 'setup() hook is a major improvement for future agent development.'
+
+recommendations:
+  immediate: []
+  future:
+    - action: 'Watch logic.py for hot-reload'
+      refs: ['apps/h-core/src/infrastructure/plugin_loader.py']

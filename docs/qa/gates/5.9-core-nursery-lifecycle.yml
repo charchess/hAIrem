@@ -1,0 +1,35 @@
+schema: 1
+story: '5.9'
+story_title: 'Core Infrastructure for Task Nursery & Lifecycle'
+gate: PASS
+status_reason: 'Nursery pattern established in BaseAgent. Graceful shutdown and hot-reload replacement confirmed robust. Memory leak protection added.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-01-25T19:45:00Z'
+
+quality_score: 100
+
+evidence:
+  tests_reviewed: 1
+  risks_identified: 1
+  trace:
+    ac_covered: [1, 2, 3, 4, 5]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'No impact on security.'
+  performance:
+    status: PASS
+    notes: 'Memory usage optimized by auto-removing finished tasks.'
+  reliability:
+    status: PASS
+    notes: 'Task crash wrapping prevents core system failure.'
+  maintainability:
+    status: PASS
+    notes: 'Standard hooks (setup, async_setup, teardown) provided for all agents.'
+
+recommendations:
+  future:
+    - action: 'Extend crash wrapping to provide automatic restart policies for critical tasks'
+      refs: ['apps/h-core/src/domain/agent.py']

@@ -1,37 +1,66 @@
-import os
 import asyncio
 import logging
-import json
-from datetime import datetime
-from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, FileResponse
+import os
+from typing import Any
 
+from src.domain.memory import MemoryConsolidator
+from src.infrastructure.llm import LlmClient
+from src.infrastructure.plugin_loader import AgentRegistry, PluginLoader
 from src.infrastructure.redis import RedisClient
 from src.infrastructure.surrealdb import SurrealDbClient
-from src.infrastructure.llm import LlmClient
-from src.infrastructure.plugin_loader import PluginLoader, AgentRegistry
-from src.models.hlink import HLinkMessage, Sender, Recipient
+from src.models.hlink import HLinkMessage, MessageType, Payload, Recipient, Sender
+from src.utils.privacy import PrivacyFilter
 
 # Logging setup
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s:%(name)s:%(message)s')
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("H-CORE")
 
-app = FastAPI(title="hAIrem Core")
+# Global privacy filter
+privacy_filter = PrivacyFilter()
 
-# CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Global consolidator
+consolidator = None
 
-# Constants
-agents_path = os.getenv("AGENTS_PATH", "/app/agents")
-public_path = "/app/a2ui"
+class RedisLogHandler(logging.Handler):
+    """Custom logging handler that publishes logs to Redis as SYSTEM_LOG messages."""
+    def __init__(self, redis_client):
+        super().__init__()
+        self.redis_client = redis_client
+        self.ignored_loggers = ["src.infrastructure.redis", "uvicorn", "fastapi", "asyncio", "aiosqlite"]
+        self.level_map = {"DEBUG": 10, "INFO": 20, "WARNING": 30, "ERROR": 40, "CRITICAL": 50}
+        self.log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+
+    def set_level(self, level: str):
+        if level.upper() in self.level_map:
+            self.log_level = level.upper()
+
+    def emit(self, record):
+        if any(ignored in record.name for ignored in self.ignored_loggers):
+            return
+            
+        current_level = self.level_map.get(record.levelname, 20)
+        min_level = self.level_map.get(self.log_level, 20)
+        
+        if current_level < min_level:
+            return
+
+        log_entry = self.format(record)
+        redacted_log, _ = privacy_filter.redact(log_entry)
+        
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._publish_log(redacted_log, record.levelname))
+        except RuntimeError:
+            pass 
+
+    async def _publish_log(self, content, level):
+        msg = HLinkMessage(
+            type=MessageType.SYSTEM_LOG,
+            sender=Sender(agent_id="system", role="orchestrator"),
+            recipient=Recipient(target="broadcast"),
+            payload=Payload(content=f"[{level}] {content}")
+        )
+        await self.redis_client.publish("broadcast", msg)
 
 # Infrastructure Clients
 redis_client = RedisClient(host=os.getenv("REDIS_HOST", "localhost"))
@@ -42,155 +71,137 @@ surreal_client = SurrealDbClient(
 )
 llm_client = LlmClient()
 agent_registry = AgentRegistry()
-plugin_loader = PluginLoader(agents_path, agent_registry, redis_client, llm_client, surreal_client)
+plugin_loader = PluginLoader(os.getenv("AGENTS_PATH", "/app/agents"), agent_registry, redis_client, llm_client, surreal_client)
 
-# Static Files Setup
-if os.path.exists(public_path):
-    logger.info(f"Mounting static files from: {public_path}")
-    assets_dir = os.path.join(public_path, "assets")
-    if os.path.exists(assets_dir):
-        app.mount("/public/assets", StaticFiles(directory=assets_dir), name="assets")
-    
-    @app.get("/")
-    async def read_index():
-        index_path = os.path.join(public_path, "index.html")
-        if os.path.exists(index_path):
-            with open(index_path, "r") as f:
-                return HTMLResponse(content=f.read())
-        return HTMLResponse(content="<h1>Index.html not found</h1>")
+log_handler = None
 
-    @app.get("/{file_path:path}")
-    async def serve_static(file_path: str):
-        full_path = os.path.join(public_path, file_path)
-        if os.path.isfile(full_path):
-            return FileResponse(full_path)
-        return {"error": "Not Found", "path": file_path}
-
-# API Endpoints
-@app.get("/api/agents")
-async def get_agents():
-    agents = []
-    for agent_id, agent in agent_registry.agents.items():
-        agents.append({
-            "id": agent_id,
-            "commands": list(agent.commands.keys())
-        })
-    return agents
-
-@app.get("/api/history")
-async def get_history():
-    if not surreal_client.client:
-        return {"messages": [], "status": "connecting"}
-    try:
-        messages = await surreal_client.get_messages(limit=50)
-        return {"messages": messages, "status": "ok"}
-    except Exception as e:
-        logger.error(f"Failed to retrieve history: {e}")
-        return {"messages": [], "status": "error"}
-
-@app.on_event("startup")
-async def startup_event():
-    logger.info("H-Core starting startup sequence...")
-    await redis_client.connect()
-    # Non-blocking SurrealDB connection
-    asyncio.create_task(surreal_client.connect())
-    await plugin_loader.start()
-    logger.info("Application startup complete.")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("H-Core is shutting down...")
-    # Safe close
-    if hasattr(redis_client, 'disconnect'): await redis_client.disconnect()
-    elif hasattr(redis_client, 'close'): await redis_client.close()
-    await surreal_client.close()
-
-# WebSocket Bridge
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    logger.info("New A2UI client connected.")
-    
-    async def redis_to_ws():
-        if not redis_client.client:
-            await redis_client.connect()
-        pubsub = redis_client.client.pubsub()
-        await pubsub.subscribe("broadcast", "agent:user")
+async def health_check_loop():
+    """Periodically checks backend services and broadcasts status."""
+    while True:
         try:
-            async for message in pubsub.listen():
-                if message["type"] == "message":
-                    try:
-                        data = json.loads(message["data"])
-                        await websocket.send_json(data)
-                    except Exception as e:
-                        logger.error(f"WS Send Error: {e}")
-        except asyncio.CancelledError:
-            logger.info("Redis-to-WS bridge task cancelled.")
-        finally:
-            await pubsub.unsubscribe()
+            redis_status = "ok" if redis_client.client and await redis_client.client.ping() else "error"
+            llm_status = "ok"
+            
+            if redis_client.client: 
+                await redis_client.publish(
+                    "broadcast",
+                    HLinkMessage(
+                        type=MessageType.SYSTEM_STATUS_UPDATE,
+                        sender=Sender(agent_id="core", role="system"),
+                        recipient=Recipient(target="system"),
+                        payload=Payload(content={"component": "redis", "status": redis_status})
+                    )
+                )
+                
+                await redis_client.publish(
+                    "broadcast",
+                    HLinkMessage(
+                        type=MessageType.SYSTEM_STATUS_UPDATE,
+                        sender=Sender(agent_id="core", role="system"),
+                        recipient=Recipient(target="system"),
+                        payload=Payload(content={"component": "llm", "status": llm_status})
+                    )
+                )
+        except Exception as e:
+            logger.error(f"Health check failed: {e}")
+        
+        await asyncio.sleep(30)
 
-    # Launch background task
-    rtw_task = asyncio.create_task(redis_to_ws())
+async def heartbeat_loop():
+    """Periodically publishes a heartbeat to Redis."""
+    logger.info("HEARTBEAT: Loop started.")
+    while True:
+        try:
+            msg = HLinkMessage(
+                type=MessageType.SYSTEM_STATUS_UPDATE,
+                sender=Sender(agent_id="core", role="system"),
+                recipient=Recipient(target="system"),
+                payload=Payload(content={"component": "brain", "status": "online"})
+            )
+            await redis_client.publish("broadcast", msg)
+        except Exception as e:
+            logger.error(f"HEARTBEAT: Error: {e}")
+        await asyncio.sleep(10)
+
+async def sleep_cycle_loop():
+    """Periodically runs memory consolidation."""
+    global consolidator
+    interval = float(os.getenv("SLEEP_CYCLE_INTERVAL", "3600"))
+    logger.info(f"SLEEP_CYCLE: Background loop started. Interval: {interval}s")
     
-    try:
-        while True:
-            data = await websocket.receive_json()
-            msg_type = data.get("type")
-            msg_id = data.get("id", str(asyncio.get_event_loop().time()))
+    while True:
+        try:
+            await asyncio.sleep(interval)
+            if consolidator:
+                logger.info("SLEEP_CYCLE: Starting consolidation...")
+                await consolidator.consolidate()
+                await consolidator.apply_decay()
+        except Exception as e:
+            logger.error(f"SLEEP_CYCLE: Loop error: {e}")
+
+async def persistence_worker():
+    """Listens to all narrative messages and persists them to SurrealDB."""
+    logger.info("PERSISTENCE: Worker started.")
+    
+    async def handler(msg: HLinkMessage):
+        if msg.type in [MessageType.NARRATIVE_TEXT, MessageType.EXPERT_RESPONSE]:
+            msg_data = msg.model_dump()
+            # Redact secrets before storage
+            if isinstance(msg_data.get("payload", {}).get("content"), str):
+                redacted_text, _ = privacy_filter.redact(msg_data["payload"]["content"])
+                msg_data["payload"]["content"] = redacted_text
             
-            # Construct standard message object
-            sender = Sender(agent_id="user", role="user")
+            await surreal_client.persist_message(msg_data)
+
+    await redis_client.subscribe("broadcast", handler)
+
+async def config_update_worker():
+    """Listens for system config updates."""
+    logger.info("SYSTEM: Config update worker started.")
+    async def handler(msg: Any):
+        # Handle raw dict if bridge sends it directly or HLinkMessage
+        data = msg.payload.content if hasattr(msg, 'payload') else msg.get('content', {})
+        if not isinstance(data, dict):
+            return
             
-            if msg_type == "narrative.text":
-                # Frontend sends payload nested, but we need to robustly handle flat or nested
-                payload = data.get("payload", {})
-                content = payload.get("content") if isinstance(payload, dict) else data.get("content")
-                
-                # Determine target from recipient if present
-                recipient = data.get("recipient", {})
-                target = recipient.get("target") if isinstance(recipient, dict) else data.get("target", "Renarde")
+        log_level = data.get("log_level")
+        if log_level and log_handler:
+            log_handler.set_level(log_level)
+            logger.info(f"SYSTEM: Log level updated to {log_level}")
 
-                hlink_msg = HLinkMessage(
-                    id=msg_id,
-                    type="narrative.text",
-                    sender=sender,
-                    recipient=Recipient(target=target),
-                    payload={"content": content}
-                )
-                await redis_client.publish(f"agent:{target}", hlink_msg)
-            
-            elif msg_type == "expert.command":
-                payload = data.get("payload", {})
-                # Try getting command from nested content first, then from payload directly
-                content_dict = payload.get("content", {}) if isinstance(payload.get("content"), dict) else {}
-                command = content_dict.get("command") or payload.get("command") or data.get("command")
-                args = content_dict.get("args") or payload.get("args") or data.get("args") or ""
-                
-                recipient = data.get("recipient", {})
-                target = recipient.get("target") if isinstance(recipient, dict) else data.get("agent_id", "Renarde")
+    await redis_client.subscribe("broadcast", handler)
 
-                hlink_msg = HLinkMessage(
-                    id=msg_id,
-                    type="expert.command",
-                    sender=sender,
-                    recipient=Recipient(target=target),
-                    payload={
-                        "content": None,  # Satisfy Pydantic model requirement
-                        "command": command,
-                        "args": args
-                    }
-                )
-                await redis_client.publish(f"agent:{target}", hlink_msg)
-
-            # Story 11.4: Persist user messages (needs dict for SurrealDB)
-            asyncio.create_task(surreal_client.persist_message(hlink_msg.model_dump()))
-
-    except WebSocketDisconnect:
-        logger.info("A2UI client disconnected.")
-    finally:
-        stop_event.set()
-        rtw_task.cancel()
+async def main():
+    global consolidator, log_handler
+    logger.info("H-Core Daemon starting...")
+    
+    # Connect infrastructure
+    await redis_client.connect()
+    await surreal_client.connect()
+    
+    # Register Redis log handler
+    log_handler = RedisLogHandler(redis_client)
+    logging.getLogger().addHandler(log_handler)
+    
+    # Initialize Consolidator
+    consolidator = MemoryConsolidator(surreal_client, llm_client, redis_client)
+    
+    # Start agents
+    await plugin_loader.start()
+    
+    # Run loops
+    await asyncio.gather(
+        health_check_loop(),
+        sleep_cycle_loop(),
+        persistence_worker(),
+        heartbeat_loop(),
+        config_update_worker()
+    )
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("H-Core Daemon stopped by user.")
+    except Exception as e:
+        logger.critical(f"H-Core Daemon crashed: {e}", exc_info=True)

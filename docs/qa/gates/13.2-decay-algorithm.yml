@@ -1,0 +1,13 @@
+decision: PASS
+rationale: |
+  The decay algorithm is correctly implemented in both the infrastructure (SurrealDbClient) and the domain (MemoryConsolidator).
+  Unit tests in `apps/h-core/tests/test_decay.py` confirm that the mathematical decay and the reinforcement logic (boost) behave as expected.
+  The use of `math::exp` in SurrealDB provides a natural exponential decay.
+  The cleanup logic properly removes relationships without deleting the underlying facts, which is crucial for multi-agent knowledge sharing.
+risks:
+  - High decay rates could lead to premature forgetting of important facts.
+  - Mitigation: The DECAY_RATE environment variable allows fine-tuning without code changes.
+requirements_traceability:
+  AC1: Metadata fields present in BELIEVES edge. [OK]
+  AC2: Decay function implemented and callable via MemoryConsolidator. [OK]
+  AC3: Reinforcement logic integrated into BaseAgent.recall_memory. [OK]

@@ -1,9 +1,8 @@
-import os
 import yaml
 import pytest
 import asyncio
+from unittest.mock import MagicMock, AsyncMock
 from src.infrastructure.plugin_loader import AgentRegistry, PluginLoader
-from src.models.agent import AgentConfig
 
 @pytest.mark.asyncio
 async def test_plugin_loader_load_valid_yaml(tmp_path):
@@ -24,7 +23,12 @@ async def test_plugin_loader_load_valid_yaml(tmp_path):
     }
     expert_file.write_text(yaml.dump(valid_data))
     
-    loader = PluginLoader(str(agents_dir), registry)
+    mock_redis = MagicMock()
+    mock_redis.subscribe = AsyncMock()
+    mock_redis.publish = AsyncMock()
+    mock_llm = MagicMock()
+    mock_llm.cache = None
+    loader = PluginLoader(str(agents_dir), registry, mock_redis, mock_llm)
     
     # Test
     await loader._initial_scan()
@@ -46,7 +50,11 @@ async def test_plugin_loader_invalid_yaml(tmp_path):
     expert_file = bad_dir / "expert.yaml"
     expert_file.write_text("invalid: [yaml: structure") # Missing bracket
     
-    loader = PluginLoader(str(agents_dir), registry)
+    mock_redis = MagicMock()
+    mock_redis.subscribe = AsyncMock()
+    mock_redis.publish = AsyncMock()
+    mock_llm = MagicMock()
+    loader = PluginLoader(str(agents_dir), registry, mock_redis, mock_llm)
     
     # Test (should not crash)
     await loader._initial_scan()

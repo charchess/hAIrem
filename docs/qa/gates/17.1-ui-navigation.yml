@@ -1,0 +1,15 @@
+story_id: 17.1
+epic: 17
+title: Dual Panel Navigation & Modal UX
+status: PASS
+date: 2026-01-25
+reviewer: Quinn
+summary: |
+  The UI refactor successfully introduced the dual-panel navigation using icons.
+  Renaming of Dashboard to Crew is consistent across HTML, CSS, and JS.
+  Modal behavior (Click-outside and Escape key) is correctly implemented and tested.
+  Structural validation script passed all checks.
+risks: Low. Frontend changes are isolated from core agent logic.
+nfr_assessment:
+  usability: PASS (Improved modal UX and clearer navigation)
+  maintainability: PASS (Unified panel-overlay class used)

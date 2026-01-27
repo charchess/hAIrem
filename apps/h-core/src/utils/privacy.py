@@ -1,7 +1,6 @@
-import re
-import math
 import logging
-from typing import List, Tuple
+import math
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,7 @@ class PrivacyFilter:
             return 0.0
         
         # Count frequency of each character
-        freq = {}
+        freq: dict[str, int] = {}
         for char in text:
             freq[char] = freq.get(char, 0) + 1
         
@@ -45,7 +44,7 @@ class PrivacyFilter:
         entropy = -sum(p * math.log2(p) for p in probs)
         return entropy
 
-    def redact(self, text: str) -> Tuple[str, List[str]]:
+    def redact(self, text: str) -> tuple[str, list[str]]:
         """
         Scan and redact sensitive info.
         Returns (redacted_text, list_of_detected_types)

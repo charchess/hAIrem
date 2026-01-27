@@ -27,7 +27,7 @@ async def test_redis_log_handler_publishes_to_redis():
     assert args[0] == "broadcast"
     message = args[1]
     assert message.type == MessageType.SYSTEM_LOG
-    assert message.payload.content == "INFO:Test message"
+    assert message.payload.content == "[INFO] INFO:Test message"
 
 @pytest.mark.asyncio
 async def test_redis_log_handler_prevents_recursion_and_noise():

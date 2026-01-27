@@ -9,7 +9,8 @@ from src.models.hlink import HLinkMessage, MessageType, Sender, Recipient, Paylo
 async def test_agent_initialization():
     config = AgentConfig(name="TestAgent", role="Tester")
     mock_redis = AsyncMock()
-    agent = BaseAgent(config, mock_redis)
+    mock_llm = MagicMock()
+    agent = BaseAgent(config, mock_redis, mock_llm)
     
     assert agent.ctx.agent_id == "TestAgent"
     assert agent.system_prompt == "You are TestAgent, a Tester."
@@ -18,7 +19,8 @@ async def test_agent_initialization():
 async def test_agent_command_execution():
     config = AgentConfig(name="TestAgent", role="Tester")
     mock_redis = AsyncMock()
-    agent = BaseAgent(config, mock_redis)
+    mock_llm = MagicMock()
+    agent = BaseAgent(config, mock_redis, mock_llm)
     
     # Mock a command handler
     async def mock_handler(payload):
@@ -36,9 +38,11 @@ async def test_agent_command_execution():
     
     await agent.on_message(incoming_msg)
     
-    # Verify response was sent
-    mock_redis.publish.assert_called_once()
-    call_args = mock_redis.publish.call_args
+    # Verify response was sent (plus 2 status updates)
+    assert mock_redis.publish.call_count == 3
+    
+    # The response is the 2nd call
+    call_args = mock_redis.publish.call_args_list[1]
     channel = call_args[0][0]
     msg_sent = call_args[0][1]
     

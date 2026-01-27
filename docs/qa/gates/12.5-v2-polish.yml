@@ -1,0 +1,17 @@
+story_id: 12.5
+epic: 12
+title: V2 Polish (Logs, Timestamps, Addressing)
+status: PASS
+date: 2026-01-25
+reviewer: Quinn
+summary: |
+  Comprehensive polish pass completed. Addressing logic is now robust and handles natural language mentions. 
+  Cacophony issues resolved by strict filtering and context deduplication. 
+  Dashboard observability improved with startup broadcasts.
+  Non-personified agents (Dieu) no longer interfere with visual layers.
+  RAG infrastructure restored and verified.
+risks: Low. Addressing heuristics rely on a hardcoded agent list which may need dynamic injection in V3.
+nfr_assessment:
+  performance: PASS (Addressing filtering reduces LLM calls)
+  observability: PASS (Configurable logs and dashboard presence)
+  reliability: PASS (Asset fallbacks prevent broken UI states)

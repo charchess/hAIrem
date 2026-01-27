@@ -1,13 +1,51 @@
-import asyncio
-import logging
 import json
-from typing import List, Optional
-from src.infrastructure.surrealdb import SurrealDbClient
+import logging
+from typing import Any
+
 from src.infrastructure.llm import LlmClient
 from src.infrastructure.redis import RedisClient
-from src.models.hlink import HLinkMessage, MessageType, Sender, Recipient, Payload
+from src.infrastructure.surrealdb import SurrealDbClient
+from src.models.hlink import HLinkMessage, MessageType, Payload, Recipient, Sender
 
 logger = logging.getLogger(__name__)
+
+class ConflictResolver:
+    """Handles resolution of contradictory facts using LLM synthesis."""
+    
+    RESOLUTION_PROMPT = """
+    You are the Memory Conflict Resolver for hAIrem.
+    You have two facts that might be contradictory.
+    
+    Fact A (Existing): "{old_fact}"
+    Fact B (New): "{new_fact}"
+    
+    Are these facts contradictory? 
+    - If YES, provide a synthesized fact that resolves the contradiction.
+    - If NO (they are complementary or unrelated), return "COMPLEMENTARY".
+    
+    Output format: JSON
+    {{
+      "is_conflict": true/false,
+      "resolution": "Synthesized fact or 'COMPLEMENTARY'",
+      "action": "OVERRIDE" (if new replaces old) or "MERGE" (if both integrated)
+    }}
+    """
+
+    def __init__(self, llm_client: LlmClient):
+        self.llm = llm_client
+
+    async def resolve(self, old_fact: str, new_fact: str) -> dict[str, Any]:
+        prompt = self.RESOLUTION_PROMPT.format(old_fact=old_fact, new_fact=new_fact)
+        response = await self.llm.get_completion([{"role": "system", "content": prompt}], stream=False)
+        
+        # Clean response
+        clean_json = response.strip() # type: ignore
+        if clean_json.startswith("```json"):
+            clean_json = clean_json.split("```json")[1].split("```")[0].strip()
+        elif clean_json.startswith("```"):
+            clean_json = clean_json.split("```")[1].split("```")[0].strip()
+            
+        return json.loads(clean_json)
 
 class MemoryConsolidator:
     """Service to periodically consolidate conversation history into atomic facts."""
@@ -38,6 +76,7 @@ class MemoryConsolidator:
         self.surreal = surreal_client
         self.llm = llm_client
         self.redis = redis_client
+        self.resolver = ConflictResolver(llm_client)
 
     async def consolidate(self, limit: int = 20) -> int:
         """Run a consolidation cycle."""
@@ -58,7 +97,7 @@ class MemoryConsolidator:
             if isinstance(content, dict):
                 content = content.get('content') or json.dumps(content)
             convo_lines.append(f"{sender}: {content}")
-            msg_ids.append(m.get('id').split(':')[-1].strip('`')) # Extract UUID from messages:`uuid`
+            msg_ids.append(m.get('id').split(':')[-1].strip('`')) # type: ignore
 
         conversation_text = "\n".join(convo_lines)
 
@@ -68,7 +107,7 @@ class MemoryConsolidator:
             response = await self.llm.get_completion([{"role": "system", "content": prompt}], stream=False)
             
             # Clean response if it contains markdown code blocks
-            clean_json = response.strip()
+            clean_json = response.strip() # type: ignore
             if clean_json.startswith("```json"):
                 clean_json = clean_json.split("```json")[1].split("```")[0].strip()
             elif clean_json.startswith("```"):
@@ -81,11 +120,25 @@ class MemoryConsolidator:
             for fact_data in facts:
                 # Add source metadata
                 fact_data['source_ids'] = msg_ids
+                # If subject is user, default belief to 'system' (Universal)
+                if fact_data.get('subject') == 'user' and not fact_data.get('agent'):
+                    fact_data['agent'] = 'system'
+                
                 # Generate embedding for the fact
                 embedding = await self.llm.get_embedding(fact_data['fact'])
                 fact_data['embedding'] = embedding
                 
-                await self.surreal.insert_memory(fact_data)
+                # STORY 13.4: Conflict Check
+                conflicts = await self.surreal.semantic_search(embedding, limit=1)
+                if conflicts and conflicts[0].get('score', 0) > 0.85:
+                    old_fact = conflicts[0]
+                    resolution = await self.resolver.resolve(old_fact['content'], fact_data['fact'])
+                    if resolution.get('is_conflict'):
+                        logger.info(f"CONFLICT detected: {old_fact['content']} vs {fact_data['fact']}. Action: {resolution['action']}")
+                        await self.surreal.merge_or_override_fact(old_fact['id'], fact_data, resolution)
+                        continue # Fact handled by resolver
+                
+                await self.surreal.insert_graph_memory(fact_data)
 
             # Mark all messages in this batch as processed
             await self.surreal.mark_as_processed(msg_ids)
@@ -101,8 +154,27 @@ class MemoryConsolidator:
             await self._broadcast_log(f"Consolidation failed: {e}", level="error")
             return 0
 
+    async def apply_decay(self, decay_rate: float | None = None, threshold: float = 0.1):
+        """Manually trigger memory decay."""
+        if decay_rate is None:
+            import os
+            decay_rate = float(os.getenv("DECAY_RATE", "0.0001"))
+        
+        logger.info(f"Applying memory decay (rate={decay_rate}, threshold={threshold})...")
+        await self.surreal.apply_decay_to_all_memories(decay_rate, threshold)
+        await self._broadcast_log(f"Memory decay applied (rate={decay_rate}).")
+
     async def _broadcast_log(self, content: str, level: str = "info"):
         """Utility to send a system log message."""
+        import os
+        log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+        level_map = {"DEBUG": 10, "INFO": 20, "WARNING": 30, "ERROR": 40, "CRITICAL": 50}
+        current_level = level_map.get(level.upper(), 20)
+        min_level = level_map.get(log_level, 20)
+        
+        if current_level < min_level:
+            return
+
         msg = HLinkMessage(
             type=MessageType.SYSTEM_LOG,
             sender=Sender(agent_id="system", role="orchestrator"),

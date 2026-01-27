@@ -1,23 +1,18 @@
 # Epic 11: Expressive Embodiment & Visual Refinement
 
-**Goal:** Transform generic placeholders into high-fidelity, expressive visual assets using Paul Ekman's emotional framework and `nanobanana` generation, while validating dashboard spatialization.
+**Status:** Done (Retro-documented)
+**Theme:** Identité Visuelle & Poses
+**PRD Version:** V2.5
 
-## Status
-- [ ] Story 11.1: Ekman-based Expression Mapping (In Progress)
-- [ ] Story 11.2: Generation of "High-Fi Placeholders"
-- [ ] Story 11.3: Dashboard Spatialization Validation
-- [ ] Story 11.4: Chat-to-Pose Triggering (MVP Logic)
+## 1. Vision
+Transformer les placeholders génériques en avatars expressifs capables de réagir émotionnellement aux dialogues, renforçant l'immersion dans l'A2UI.
 
-## Context
-We are using the `nanobanana` extension to generate these assets. The focus is on consistency and emotional resonance to enhance the "A2UI" (Agent-to-User Interface) and the "Living House" concept.
+## 2. Objectifs Métier
+- **Émotionnalité :** Mapper les poses des agents sur le framework émotionnel de Paul Ekman.
+- **Réactivité :** Déclencher automatiquement les changements de poses via le texte narratif.
+- **Présence Multiple :** Supporter l'affichage et la gestion de plusieurs agents sur le "Stage".
 
-## 11.1 Expression Set (Paul Ekman + Sally)
-- **Joy/Happy:** Smiles, sparkles.
-- **Sadness:** Downcast eyes, muted colors.
-- **Anger:** Stern look, alert pulse.
-- **Surprise/Alert:** Wide eyes, pulse effect.
-- **Fear/Emergency:** Tense, glitch effect.
-- **Disgust/Confused:** Sidelong glance.
-- **Contempt/Shy:** Looking away, slight blush.
-- **Thinking:** Focused, dots overlay.
-- **Idle:** Neutral, breathing animation placeholder.
+## 3. Exigences Clés
+- **Requirement 11.1 (Expression Mapping) :** Définition du set de poses (Happy, Sad, Angry, etc.).
+- **Requirement 11.2 (Pose Triggering) :** Implémentation du protocole `[pose:X]` dans le renderer.
+- **Requirement 11.3 (Asset Pipeline) :** Organisation et chargement dynamique des assets PNG par agent.

@@ -40,7 +40,7 @@ def test_assemble_payload_structure(mock_agent):
 
     # 4. Verify
     assert len(payload) == 4
-    assert payload[0] == {"role": "system", "content": "You are a test agent."}
+    assert "YOUR SPECIFIC PERSONA:\nYou are a test agent." in payload[0]["content"]
     assert payload[1] == {"role": "user", "content": "Hello"}
     assert payload[2] == {"role": "assistant", "content": "Hi there"}
     assert payload[3] == {"role": "user", "content": "How are you?"}

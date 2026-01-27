@@ -20,9 +20,14 @@
 - **Tests :** Scénarios Playwright End-to-End validés (Visuel + Fonctionnel).
 
 ## 🚀 Prochaines Étapes (Action Items)
-1.  **Persistance Réelle :** Configurer un volume Docker pour SurrealDB afin que la mémoire survive au redémarrage du conteneur (actuellement en mode `--memory` seul).
-2.  **Gestion de la Cacophonie :** Implémenter un système de "prise de parole" ou de filtrage côté UI pour éviter que les avatars ne clignotent quand tout le monde parle.
-3.  **Génération d'Assets :** Générer les images manquantes pour Lisa, Expert et Dieu pour éviter les erreurs 404 dans la console.
+1.  **Persistance Réelle :** Configurer un volume Docker pour SurrealDB.
+2.  **Gestion de la Cacophonie :** Implémenter une file d'attente (Queue) ou un système de "tour de parole" pour éviter les réponses simultanées.
+3.  **UI Polish :**
+    - Indicateur visuel de réflexion (bouton grisé/loader) pendant l'envoi/traitement.
+    - Indicateur de "Readiness" (LLM prêt ? Connexion active ?).
+    - Correction du Dashboard (Croix de fermeture, Toggle d'activation des personas).
+4.  **Backend :** Support de la configuration LLM spécifique par agent dans `expert.yaml`.
+5.  **Asset Generation :** Générer les images manquantes pour Lisa, Expert et Dieu.
 
 ---
 *Fin de l'Epic 11 - hAIrem est stable, visible et bavard !* 🦊🔧✨

@@ -1,0 +1,11 @@
+id: "electra"
+version: "1.1"
+type: "expert"
+name: "Electra"
+description: "Experte en systèmes intelligents, Electra combine précision fatale et élégance électrique."
+capabilities:
+  - "home_automation"
+  - "device_control"
+  - "system_optimization"
+dependencies:
+  - "home-assistant-client"

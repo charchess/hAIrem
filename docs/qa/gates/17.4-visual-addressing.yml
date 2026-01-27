@@ -1,0 +1,31 @@
+schema: 1
+story: "17.4"
+story_title: "Visual Addressing (Select Box)"
+gate: "PASS"
+status_reason: "Explicit recipient routing is fully functional. Added value: log viewer controls (Clear/Pause) and major stability fixes for Grok/HA integration."
+reviewer: "Quinn (Test Architect)"
+updated: "2026-01-26T07:15:00Z"
+
+waiver: { active: false }
+
+top_issues: []
+
+quality_score: 98
+
+evidence:
+  tests_reviewed: 1
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3]
+    ac_gaps: []
+
+nfr_validation:
+  security: { status: PASS, notes: "No injection risk in explicit routing." }
+  performance: { status: PASS, notes: "O(1) routing overhead." }
+  reliability: { status: PASS, notes: "Fixed major agent loading crash." }
+  maintainability: { status: PASS, notes: "Improved log visibility for troubleshooting." }
+
+recommendations:
+  future:
+    - action: "Refactor BaseAgent.on_message to further simplify the addressing regex logic now that explicit routing is the norm."
+      refs: ["apps/h-core/src/domain/agent.py"]

@@ -1,0 +1,35 @@
+schema: 1
+story: '5.7'
+story_title: 'Proactive HA Event Listeners (WebSocket)'
+gate: PASS
+status_reason: 'WebSocket bridge established with auto-reconnect logic. Proactive reactions confirmed functional and immersive.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-01-25T18:40:00Z'
+
+quality_score: 100
+
+evidence:
+  tests_reviewed: 1
+  risks_identified: 1
+  trace:
+    ac_covered: [1, 2, 3]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Secure WebSocket used with token authentication.'
+  performance:
+    status: PASS
+    notes: 'Minimal overhead for background listener.'
+  reliability:
+    status: PASS
+    notes: 'Auto-reconnect loop added to handle HA restarts.'
+  maintainability:
+    status: PASS
+    notes: 'Generic spawn_task method added to BaseAgent.'
+
+recommendations:
+  future:
+    - action: 'Generalize the HA WebSocket client into a shared driver'
+      refs: ['agents/electra/logic.py']
