@@ -14,6 +14,7 @@ class Renderer {
     constructor() {
         this.layers = {
             bg: document.getElementById('layer-bg'),
+            bgNext: document.getElementById('layer-bg-next'),
             body: document.getElementById('layer-agent-body'),
             face: document.getElementById('layer-agent-face'),
             text: document.getElementById('dialogue-text'),
@@ -33,6 +34,7 @@ class Renderer {
         this.streamingBubbles = {};
         this.isLogPaused = false;
         this.agents = {}; 
+        this.activeOutfits = {}; // Persistence for generated outfits
         this.activeView = 'stage';
         this.activeSpeakerId = null;
 
@@ -111,15 +113,58 @@ class Renderer {
     }
 
     renderHistory(messages) {
-        if (!messages) return;
+        if (!messages || messages.length === 0) {
+            console.log("HISTORY: Empty history, initializing default view.");
+            this.render("Renarde", "", { bg: "/public/assets/backgrounds/background.png" }, true);
+            return;
+        }
+        
+        let lastNarrative = null;
+        let lastBackground = null;
+
         messages.forEach(msg => {
-            const sender = msg.sender ? msg.sender.agent_id : "unknown";
+            const sender = msg.agent_id || (msg.sender ? msg.sender.agent_id : "unknown");
             const content = msg.payload ? msg.payload.content : "";
+            
             if (msg.type === "narrative.text" || msg.type === "expert.response") {
                 const text = typeof content === 'object' ? (content.result || content.error || JSON.stringify(content)) : content;
                 this.addMessageToHistory(sender === "user" ? "Moi" : sender, text, sender === "user");
+                
+                if (sender !== "user" && sender !== "system" && sender !== "unknown") {
+                    lastNarrative = { name: sender, text: text };
+                }
+            } else if (msg.type === "visual.asset") {
+                let url = content.url;
+                if (url && url.startsWith('file:///media/generated/')) {
+                    url = url.replace('file:///media/generated/', '/media/');
+                }
+                // Strip cache buster for persistence
+                const cleanUrl = url ? url.split('?')[0] : url;
+                
+                const assetType = content.asset_type || "background";
+                if (assetType === "background") {
+                    lastBackground = cleanUrl;
+                } else if (assetType === "pose" && content.agent_id) {
+                    // Story 25.1 Persistence: Store with lowercase ID
+                    this.activeOutfits[content.agent_id.toLowerCase()] = cleanUrl;
+                }
             }
         });
+
+        // Restore last state in one single shot without transitions
+        if (lastNarrative) {
+            const assets = { bg: lastBackground };
+            this.render(lastNarrative.name, lastNarrative.text, assets, true);
+        } else {
+            const bgToUse = lastBackground || "/public/assets/backgrounds/background.png";
+            if (lastBackground) {
+                this.updateLayer(this.layers.bg, bgToUse);
+            }
+            
+            // Always force render default agent to ensure avatar and background are visible
+            const defaultAgent = "Renarde";
+            this.render(defaultAgent, "", { bg: bgToUse }, true);
+        }
     }
 
     updateAgentCards(agentList) {
@@ -130,9 +175,11 @@ class Renderer {
             const currentVal = select.value;
             select.innerHTML = '<option value="broadcast">Tous</option>';
             agentList.forEach(agent => {
-                // Default to true if not specified
+                // EXCLUDE system/core from the talk-to selector as they don't have avatars
+                const isSystem = ["system", "core"].includes(agent.id.toLowerCase());
                 const personified = agent.personified !== false;
-                if (personified) {
+                
+                if (personified && !isSystem) {
                     const opt = document.createElement('option');
                     opt.value = agent.id;
                     opt.textContent = agent.id;
@@ -145,6 +192,7 @@ class Renderer {
         agentList.forEach(agent => {
             if (!agent || !agent.id) return;
             const personified = agent.personified !== false;
+            const deactivatable = agent.deactivatable !== false;
             
             if (!this.agents[agent.id]) {
                 this.agents[agent.id] = { 
@@ -152,6 +200,7 @@ class Renderer {
                     status: 'idle', 
                     mood: 'neutral', 
                     personified: personified,
+                    deactivatable: deactivatable,
                     commands: agent.commands || [],
                     prompt_tokens: agent.prompt_tokens || 0,
                     completion_tokens: agent.completion_tokens || 0,
@@ -160,6 +209,7 @@ class Renderer {
             } else {
                 this.agents[agent.id].commands = agent.commands || this.agents[agent.id].commands;
                 this.agents[agent.id].personified = personified;
+                this.agents[agent.id].deactivatable = deactivatable;
                 if (agent.prompt_tokens !== undefined) this.agents[agent.id].prompt_tokens = agent.prompt_tokens;
                 if (agent.completion_tokens !== undefined) this.agents[agent.id].completion_tokens = agent.completion_tokens;
                 if (agent.total_tokens !== undefined) this.agents[agent.id].total_tokens = agent.total_tokens;
@@ -281,6 +331,7 @@ class Renderer {
             const moodIcon = moodMap[agent.mood] || '😐';
             const badgeClass = `agent-status-badge status-${agent.status} ${isFresh ? 'flash-update' : ''}`;
             const isEnabled = agent.active !== false;
+            const isDeactivatable = agent.deactivatable !== false;
             card.innerHTML = `
                 <div class="agent-card-header">
                     <div class="agent-info">
@@ -291,8 +342,8 @@ class Renderer {
                 </div>
                 <div class="agent-controls">
                     <span class="${badgeClass}">${agent.status}</span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" ${isEnabled ? 'checked' : ''} onchange="window.network.toggleAgent('${agent.id}', this.checked)">
+                    <label class="toggle-switch ${isDeactivatable ? '' : 'readonly'}">
+                        <input type="checkbox" ${isEnabled ? 'checked' : ''} ${isDeactivatable ? '' : 'disabled'} onchange="window.network.toggleAgent('${agent.id}', this.checked)">
                         <span class="slider round"></span>
                     </label>
                 </div>
@@ -442,19 +493,106 @@ class Renderer {
 
     updateLayer(el, src, fallbackSrc = null) {
         if (!el) return;
+        console.log(`LAYER: Loading image ${src}...`);
         const img = new Image();
         img.onload = () => {
+            console.log(`LAYER: Success loading ${src}`);
             el.style.backgroundImage = `url('${src}')`;
             el.style.opacity = 1;
         };
         img.onerror = () => { 
+            console.warn(`LAYER: Failed to load ${src}`);
             if (fallbackSrc && src !== fallbackSrc) {
+                console.log(`LAYER: Trying fallback ${fallbackSrc}...`);
                 this.updateLayer(el, fallbackSrc);
             } else {
+                console.error(`LAYER: No image available for this layer.`);
                 el.style.opacity = 1; 
             }
         };
         img.src = src;
+    }
+
+    updateBackgroundWithFade(src) {
+        if (!this.layers.bg || !this.layers.bgNext) return;
+        
+        console.log("FADE: Starting transition to", src);
+        this.addLog(`DEBUG: Chargement de l'image ${src.split('/').pop()}`);
+
+        const img = new Image();
+        img.onload = () => {
+            console.log("FADE: Image loaded successfully");
+            
+            // Set the new image on the top layer
+            this.layers.bgNext.style.backgroundImage = `url('${src}')`;
+            this.layers.bgNext.style.transition = 'opacity 1.5s ease-in-out';
+            this.layers.bgNext.style.opacity = 1;
+            
+            // After fade in, swap layers
+            setTimeout(() => {
+                this.layers.bg.style.backgroundImage = `url('${src}')`;
+                this.layers.bgNext.style.transition = 'none';
+                this.layers.bgNext.style.opacity = 0;
+                console.log("FADE: Transition complete");
+            }, 1600);
+        };
+        img.onerror = (err) => {
+            console.error("FADE: Failed to load image", src, err);
+            this.showToast("❌ Erreur de rendu de l'image");
+            // Fallback: apply directly to main layer
+            this.layers.bg.style.backgroundImage = `url('${src}')`;
+        };
+        img.src = src;
+    }
+
+    renderVisualAsset(asset, quiet = false) {
+        console.log("RENDER: Visual asset", asset);
+        if (!quiet) {
+            this.showToast(`🎨 Nouvelle image reçue : ${asset.alt_text || 'Génération'}`);
+        }
+        
+        if (asset.asset_type === "background" || asset.asset_type === "image") {
+            this.updateBackgroundWithFade(asset.url);
+        } else if (asset.asset_type === "pose") {
+            // Update the body of the specific agent
+            if (asset.agent_id) {
+                console.log(`RENDER: Updating pose for agent ${asset.agent_id}`);
+                this.activeOutfits[asset.agent_id.toLowerCase()] = asset.url; // Persist outfit lowercase
+                this.updateLayer(this.layers.body, asset.url);
+                // Story 25.7 FIX: Ensure body is visible when a new outfit arrives
+                if (this.layers.body) this.layers.body.style.display = 'block';
+                // Also update the name to reflect who we are looking at if it's a pose update
+                if (this.layers.name) this.layers.name.textContent = asset.agent_id;
+            }
+        } else if (asset.asset_type === "overlay") {
+            this.showOverlayAsset(asset);
+        }
+    }
+
+    showToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'ui-toast';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.classList.add('visible'), 100);
+        setTimeout(() => {
+            toast.classList.remove('visible');
+            setTimeout(() => toast.remove(), 500);
+        }, 4000);
+    }
+
+    showOverlayAsset(asset) {
+        const overlay = document.createElement('div');
+        overlay.id = 'visual-overlay-modal';
+        overlay.className = 'overlay-modal';
+        overlay.innerHTML = `
+            <div class="overlay-content">
+                <img src="${asset.url}" alt="${asset.alt_text || 'Generated Asset'}">
+                <div class="overlay-caption">${asset.alt_text || ''}</div>
+                <button onclick="this.parentElement.parentElement.remove()">Fermer</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
     }
 
     render(agentName, text, assets = {}, skipTypewriter = false) {
@@ -468,11 +606,18 @@ class Renderer {
         let fallbackBody = null;
         if (agentName && isPersonified) {
             let agentId = agentName.toLowerCase();
-            if (agentId === 'renarde') agentId = 'test_model';
             const suffix = (pose && this.poseMap[pose]) ? this.poseMap[pose] : 'neutral';
-            const assetUrl = `/public/assets/agents/${agentId}/${agentId}_${suffix}_01.png`;
+            
+            // Priority 1: Generated Character Sheet (Story 25.1) - Always lowercase path
+            const assetUrl = `/agents/${agentId}/media/character_sheet_neutral.png`;
+            
+            // Priority 2: Legacy Assets
             fallbackBody = `/public/assets/agents/${agentId}/${agentId}_neutral_01.png`;
-            assets.body = assetUrl;
+            
+            // Priority 0: Active generated outfit (Story 25.1 Persistence)
+            const activeOutfit = this.activeOutfits[agentId];
+            assets.body = assets.body || activeOutfit || assetUrl; 
+            
             if (this.layers.body) this.layers.body.style.display = 'block';
             if (this.layers.face) this.layers.face.style.display = 'block';
         } else if (agentName && !isPersonified) {
@@ -492,10 +637,8 @@ window.renderer = new Renderer();
 
 window.onload = () => {
     window.network.fetchHistory();
-    renderer.render("Renarde", "Système hAIrem initialisé. [pose:idle]", {
-        bg: "/public/assets/backgrounds/background.png"
-    });
-
+    // Default fallback if no history (will be handled in renderHistory logic)
+    
     const chatInput = document.getElementById('chat-input');
     const chatSend = document.getElementById('chat-send');
     const targetSelect = document.getElementById('target-agent-select');
@@ -551,7 +694,7 @@ window.onload = () => {
             if (!s) return;
             const text = chatInput.value;
             const parts = text.split(' ');
-            if (s.type === 'agent') {
+            if (s.type === 'agent' || s.type === 'system') {
                 chatInput.value = `/${s.text} `;
                 selectedIndex = -1;
                 updateSuggestions(); 
@@ -569,11 +712,27 @@ window.onload = () => {
                 const agentQuery = parts[0].toLowerCase();
                 const commandQuery = parts[1] ? parts[1].toLowerCase() : "";
                 let suggestions = [];
-                if (parts.length <= 1) {
-                    suggestions = (window.network.agentMetadata || [])
+                
+                // 1. Add global commands (e.g. /imagine)
+                const globalCommands = ["imagine", "outfit"];
+                const isGlobalCommandTyped = globalCommands.includes(agentQuery);
+                
+                if (!isGlobalCommandTyped) {
+                    globalCommands.forEach(cmd => {
+                        if (cmd.startsWith(agentQuery)) {
+                            suggestions.push({ text: cmd, type: 'system' });
+                        }
+                    });
+                }
+
+                if (parts.length <= 1 && !isGlobalCommandTyped) {
+                    // 2. Add agents
+                    const agentSuggestions = (window.network.agentMetadata || [])
                         .filter(a => a && a.id && a.id.toLowerCase().startsWith(agentQuery))
                         .map(a => ({ text: a.id, type: 'agent' }));
+                    suggestions = [...suggestions, ...agentSuggestions];
                 } else {
+                    // 3. Add agent-specific commands
                     const agent = (window.network.agentMetadata || []).find(a => a && a.id && a.id.toLowerCase() === agentQuery);
                     if (agent) {
                         suggestions = (agent.commands || [])
@@ -581,9 +740,15 @@ window.onload = () => {
                             .map(c => ({ text: c, type: 'command' }));
                     }
                 }
+                
+                // Keep selection in bounds
+                if (selectedIndex >= suggestions.length) selectedIndex = suggestions.length - 1;
+                if (selectedIndex < 0 && suggestions.length > 0) selectedIndex = 0;
+                
                 renderSuggestions(suggestions);
             } else {
                 suggestionMenu.classList.add('hidden');
+                selectedIndex = -1;
             }
         };
         chatInput.oninput = updateSuggestions;

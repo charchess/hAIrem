@@ -21,18 +21,18 @@ class AgentRegistry:
         logger.info(f"AGENT_REGISTRY: Agent '{agent.config.name}' registered successfully.")
 
 class AgentFileHandler(FileSystemEventHandler):
-    def __init__(self, registry: AgentRegistry, loop: asyncio.AbstractEventLoop, redis_client, llm_client, surreal_client=None):
+    def __init__(self, registry: AgentRegistry, loop: asyncio.AbstractEventLoop, redis_client, llm_client, surreal_client=None, visual_service=None):
         self.registry = registry
         self.loop = loop
         self.redis = redis_client
         self.llm = llm_client
         self.surreal = surreal_client
+        self.visual_service = visual_service
 
     def on_modified(self, event):
         if event.is_directory: return
         filename = os.path.basename(event.src_path)
         if filename in ["manifest.yaml", "persona.yaml", "logic.py"]:
-            # For manifest or persona, we always reload the agent starting from manifest
             manifest_path = event.src_path
             if filename != "manifest.yaml":
                 manifest_path = os.path.join(os.path.dirname(event.src_path), "manifest.yaml")
@@ -41,19 +41,16 @@ class AgentFileHandler(FileSystemEventHandler):
                 self.loop.call_soon_threadsafe(asyncio.create_task, self._load_agent(manifest_path))
 
     async def _load_agent(self, manifest_path: str):
-        # This will be handled by the PluginLoader._load_agent which we'll call or replicate
-        # For simplicity in this specific setup, we'll let the PluginLoader instance handle it if we had a reference
-        # but here we'll need to replicate the logic or pass the call. 
-        # Actually, the handler in this file is a bit of a stub for the logic below.
         pass
 
 class PluginLoader:
-    def __init__(self, agents_dir: str, registry: AgentRegistry, redis_client, llm_client, surreal_client=None):
+    def __init__(self, agents_dir: str, registry: AgentRegistry, redis_client, llm_client, surreal_client=None, visual_service=None):
         self.agents_dir = os.path.abspath(agents_dir)
         self.registry = registry
         self.redis = redis_client
         self.llm = llm_client
         self.surreal = surreal_client
+        self.visual_service = visual_service
         self.observer = Observer()
         logger.info(f"PLUGIN_LOADER: Initialized with path {self.agents_dir}")
 
@@ -63,8 +60,7 @@ class PluginLoader:
         
         try:
             loop = asyncio.get_running_loop()
-            handler = AgentFileHandler(self.registry, loop, self.redis, self.llm, self.surreal)
-            # Re-binding the _load_agent to the handler to use the loader's method
+            handler = AgentFileHandler(self.registry, loop, self.redis, self.llm, self.surreal, self.visual_service)
             handler._load_agent = self._load_agent # type: ignore
             
             self.observer.schedule(handler, self.agents_dir, recursive=True)
@@ -82,7 +78,6 @@ class PluginLoader:
         count = 0
         for root, _dirs, files in os.walk(self.agents_dir):
             if "manifest.yaml" in files:
-                logger.info(f"PLUGIN_LOADER: Found agent manifest at {os.path.join(root, 'manifest.yaml')}")
                 await self._load_agent(os.path.join(root, "manifest.yaml"))
                 count += 1
         logger.info(f"PLUGIN_LOADER: Initial scan complete. {count} agents found.")
@@ -92,24 +87,19 @@ class PluginLoader:
         try:
             agent_dir = os.path.dirname(manifest_path)
             
-            # 1. Load Manifest (Technical)
             with open(manifest_path) as f:
                 manifest_data = yaml.safe_load(f) or {}
             
-            # 2. Load Persona (Narrative) if exists
             persona_path = os.path.join(agent_dir, "persona.yaml")
             persona_data = {}
             if os.path.exists(persona_path):
                 with open(persona_path) as f:
                     persona_data = yaml.safe_load(f) or {}
             
-            # 3. Merge Data (Persona overrides/completes Manifest)
-            # Map 'system_prompt' from persona to 'prompt' for AgentConfig
             combined_data = {**manifest_data, **persona_data}
             if "system_prompt" in combined_data and "prompt" not in combined_data:
                 combined_data["prompt"] = combined_data.pop("system_prompt")
             
-            # Ensure 'name' is present (fallback to id if needed)
             if "name" not in combined_data and "id" in combined_data:
                 combined_data["name"] = combined_data["id"]
 
@@ -117,25 +107,20 @@ class PluginLoader:
                 logger.error(f"PLUGIN_LOADER: Missing 'name' or 'id' in {manifest_path}")
                 return
 
-            # Default values for mandatory fields if missing
             if "role" not in combined_data:
                 combined_data["role"] = "Unknown"
 
             config = AgentConfig.model_validate(combined_data)
             
-            # Story 12.4: Handle per-agent LLM overrides
             agent_llm = self.llm
             if config.llm_config:
-                logger.info(f"PLUGIN_LOADER: Applying LLM overrides for {config.name}: {config.llm_config}")
                 from src.infrastructure.llm import LlmClient
                 agent_llm = LlmClient(cache=self.llm.cache, config_override=config.llm_config)
 
-            # Story 5.4: Handle custom logic.py
             agent_class = None
             logic_path = os.path.join(agent_dir, "logic.py")
             
             if os.path.exists(logic_path):
-                logger.info(f"PLUGIN_LOADER: Found custom logic for {config.name} at {logic_path}")
                 try:
                     spec = importlib.util.spec_from_file_location(f"agent_logic_{config.name.replace('-', '_')}", logic_path)
                     module = importlib.util.module_from_spec(spec) # type: ignore
@@ -145,11 +130,6 @@ class PluginLoader:
                         from src.domain.agent import BaseAgent
                         if issubclass(loaded_class, BaseAgent):
                             agent_class = loaded_class
-                            logger.info(f"PLUGIN_LOADER: Successfully loaded custom Agent class for {config.name}")
-                        else:
-                            logger.error(f"PLUGIN_LOADER: Custom Agent class in {logic_path} does not inherit from BaseAgent.")
-                    else:
-                        logger.error(f"PLUGIN_LOADER: logic.py found for {config.name} but 'Agent' class is missing.")
                 except Exception as e:
                     logger.error(f"PLUGIN_LOADER: Failed to load custom logic from {logic_path}: {e}")
 
@@ -157,19 +137,30 @@ class PluginLoader:
                 from src.domain.agent import BaseAgent
                 agent_class = BaseAgent
 
-            instance = agent_class(config=config, redis_client=self.redis, llm_client=agent_llm, surreal_client=self.surreal)
+            instance = agent_class(
+                config=config, 
+                redis_client=self.redis, 
+                llm_client=agent_llm, 
+                surreal_client=self.surreal, 
+                visual_service=self.visual_service
+            )
             
-            # STORY 5.9: Stop existing instance before replacement
             if config.name in self.registry.agents:
                 old_agent = self.registry.agents[config.name]
-                logger.info(f"PLUGIN_LOADER: Stopping existing instance of {config.name} before reload...")
                 await old_agent.stop()
 
             await instance.start()
             self.registry.add_agent(instance)
-            logger.info(f"PLUGIN_LOADER: Agent {config.name} is now LIVE.")
+
+            # STORY 25.1 DEVIATION: Automatic Avatar Bootstrap
+            if self.visual_service and config.name.lower() not in ["dieu", "system"]:
+                ref_path = os.path.join(agent_dir, "media", "character_sheet_neutral.png")
+                if not os.path.exists(ref_path):
+                    description = config.prompt or config.role or "A unique AI persona"
+                    asyncio.create_task(self.visual_service.bootstrap_agent_avatar(config.name, description))
+
         except Exception as e:
-            logger.error(f"PLUGIN_LOADER: Failed to load agent {file_path}: {e}")
+            logger.error(f"PLUGIN_LOADER: Failed to load agent {manifest_path}: {e}")
 
     def stop(self):
         if self.observer.is_alive():

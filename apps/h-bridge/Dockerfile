@@ -13,11 +13,14 @@ RUN pip install --no-cache-dir \
     "uvicorn[standard]" \
     redis \
     pydantic \
-    surrealdb==1.0.8 \
-    python-dotenv
+    surrealdb \
+    httpx \
+    google-genai \
+    Pillow
 
-# Copy the application
+# Copy the application and shared infrastructure
 COPY . .
+COPY src/infrastructure/graph_schema.surql src/infrastructure/graph_schema.surql
 
 ENV PYTHONPATH=/app
 

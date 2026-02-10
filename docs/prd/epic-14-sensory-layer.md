@@ -1,8 +1,8 @@
 # Epic 14: Sensory Layer (Ears & Voice)
 
-**Status:** In Definition
+**Status:** In Progress
 **Theme:** Pillar 2 - Deep Presence
-**PRD Version:** V3
+**PRD Version:** V4
 
 ## 1. Vision
 Donner un corps sonore aux agents. hAIrem doit pouvoir entendre (STT) et parler (TTS) avec une latence quasi humaine, tout en respectant la vie privée (traitement local prioritaire).
@@ -16,7 +16,7 @@ Donner un corps sonore aux agents. hAIrem doit pouvoir entendre (STT) et parler 
 - **Requirement 14.1 (Audio Ingestion) :** Capturation du flux micro via le navigateur (A2UI) ou un micro distant (ESP32-S3).
 - **Requirement 14.2 (Wakeword Engine) :** Détection locale et sécurisée du mot de réveil.
 - **Requirement 14.3 (Whisper Pipeline) :** Transcription locale (Faster-Whisper) avec support du contexte (mots-clés hAIrem).
-- **Requirement 14.4 (Neural TTS) :** Synthèse vocale hybride (Piper pour la rapidité, ElevenLabs pour la haute fidélité émotionnelle).
+- **Requirement 14.4 (Neural TTS) :** Synthèse vocale hybride (Piper pour la rapidité, ElevenLabs pour la haute fidélité émotionnelle). Les paramètres de voix (id, style, stabilité) doivent être extraits du fichier `persona.yaml` de l'agent.
 
 ## 4. Contraintes de Design
 - **Privacy :** L'audio n'est jamais envoyé au cloud pour le Wakeword ou le STT standard.

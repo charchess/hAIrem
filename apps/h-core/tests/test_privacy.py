@@ -5,7 +5,7 @@ def test_privacy_regex_redaction():
     pf = PrivacyFilter()
     
     # 1. Google API Key
-    text = "My key is AIzaSyAYZ8kJfPGg8Kqj5auPvT5qFeMeEvwffqo"
+    text = "My key is AIzaSy-MOCK-KEY-FOR-TESTING"
     redacted, detected = pf.redact(text)
     assert "[REDACTED]" in redacted
     assert "AIza" not in redacted

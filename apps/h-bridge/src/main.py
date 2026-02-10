@@ -65,7 +65,6 @@ async def agent_discovery_worker():
                     "completion_tokens": status_data.get("completion_tokens", 0),
                     "total_tokens": status_data.get("total_tokens", 0)
                 }
-                # logger.debug(f"BRIDGE: Discovered/Updated agent {agent_id}")
 
     await redis_client.subscribe("broadcast", handler)
 
@@ -104,181 +103,56 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     logger.info("New A2UI client connected.")
     
+    # STORY 14.1: Audio Ingestion Buffer
+    audio_queue = asyncio.Queue()
+    
     async def redis_to_ws():
         if not redis_client.client:
             await redis_client.connect()
-        pubsub = redis_client.client.pubsub()
-        await pubsub.subscribe("broadcast", "agent:user")
-        try:
-            async for message in pubsub.listen():
-                if message["type"] == "message":
-                    try:
-                        data = json.loads(message["data"])
-                        await websocket.send_json(data)
-                    except Exception as e:
-                        logger.error(f"WS Send Error: {e}")
-        except asyncio.CancelledError:
-            logger.info("Redis-to-WS bridge task cancelled.")
-        finally:
-            await pubsub.unsubscribe()
+        
+        async def handler(msg: HLinkMessage):
+            await websocket.send_text(msg.model_dump_json())
 
-    # Launch background task
-    rtw_task = asyncio.create_task(redis_to_ws())
-    
+        await redis_client.subscribe("broadcast", handler)
+
     try:
+        # Run redis listener in background
+        listen_task = asyncio.create_task(redis_to_ws())
+        
         while True:
+            # Receive from UI
+            data = await websocket.receive_text()
             try:
-                data = await websocket.receive_json()
+                raw_msg = json.loads(data)
+                
+                # Check for binary audio data (Story 14.1)
+                if raw_msg.get("type") == "audio_blob":
+                    # Handle binary audio ingestion
+                    pass
+                
+                msg = HLinkMessage(**raw_msg)
+                
+                # Persistence (Optional: Bridge only relays, Core persists)
+                # await surreal_client.save_message(msg)
+                
+                # Dispatch to Redis
+                target_channel = "broadcast" if msg.recipient.target == "broadcast" else f"agent:{msg.recipient.target}"
+                await redis_client.publish(target_channel, msg)
+                
             except Exception as e:
-                logger.error(f"WS_RECEIVE_ERROR: {e}")
-                break
+                logger.error(f"Error processing WS message: {e}")
                 
-            msg_type = data.get("type")
-            
-            # Robust UUID handling
-            msg_id_str = data.get("id")
-            try:
-                msg_id = UUID(msg_id_str) if msg_id_str else uuid4()
-            except (ValueError, TypeError):
-                msg_id = uuid4()
-            
-            sender = Sender(agent_id="user", role="user")
-            
-            if msg_type == "narrative.text":
-                payload = data.get("payload", {})
-                content = payload.get("content") if isinstance(payload, dict) else data.get("content")
-                recipient = data.get("recipient", {})
-                target = recipient.get("target") if isinstance(recipient, dict) else data.get("target", "Renarde")
-                
-                if target and str(target).lower() != "broadcast":
-                    target = str(target).capitalize()
-                else:
-                    target = str(target) if target else "Renarde"
-
-                hlink_msg = HLinkMessage(
-                    id=msg_id,
-                    type=MessageType.NARRATIVE_TEXT,
-                    sender=sender,
-                    recipient=Recipient(target=target),
-                    payload=Payload(content=content)
-                )
-                await redis_client.publish(f"agent:{target}", hlink_msg)
-                # STORY 23.2: Also publish to broadcast for global persistence/observability
-                await redis_client.publish("broadcast", hlink_msg)
-            
-            elif msg_type == "expert.command":
-                payload = data.get("payload", {})
-                content_dict = payload.get("content", {}) if isinstance(payload.get("content"), dict) else {}
-                command = content_dict.get("command") or payload.get("command") or data.get("command")
-                args = content_dict.get("args") or payload.get("args") or data.get("args") or ""
-                recipient = data.get("recipient", {})
-                target = recipient.get("target") if isinstance(recipient, dict) else data.get("agent_id", "Renarde")
-                
-                target_str = str(target) if target else "Renarde"
-
-                hlink_msg = HLinkMessage(
-                    id=msg_id,
-                    type=MessageType.EXPERT_COMMAND,
-                    sender=sender,
-                    recipient=Recipient(target=target_str),
-                    payload=Payload(
-                        content=None,
-                        # Note: command and args are usually part of the content for expert commands, 
-                        # but Payload schema is simple (content, format, emotion).
-                        # We might need to pack them into content or extending Payload if needed.
-                        # For now, sticking to the schema by putting them in content if it's a dict, 
-                        # or passing the specific dictionary expected by the consumer.
-                        # Wait, the previous code had payload={"content": None, "command": ..., "args": ...}
-                        # This implies the Pydantic model Payload might be too restrictive or we were bypassing it.
-                        # Let's check Payload definition again: class Payload(BaseModel): content: Any ...
-                        # So we can put the dict in 'content'.
-                    )
-                )
-                # Correction: The previous code was bypassing the Payload model and passing a dict to the HLinkMessage payload field directly.
-                # Since HLinkMessage expects 'payload: Payload', we must wrap it.
-                # However, the previous code structure: payload={"content": None, "command": ..., "args": ...}
-                # does NOT match Payload(content=Any, format=..., emotion=...).
-                # It looks like the 'expert.command' logic was relying on a loose dict structure.
-                # To be type safe and logic safe, we should probably put the command/args INSIDE the 'content' field of the Payload.
-                
-                hlink_msg = HLinkMessage(
-                    id=msg_id,
-                    type=MessageType.EXPERT_COMMAND,
-                    sender=sender,
-                    recipient=Recipient(target=target_str),
-                    payload=Payload(content={
-                        "command": command,
-                        "args": args
-                    })
-                )
-                await redis_client.publish(f"agent:{target_str}", hlink_msg)
-                # STORY 23.2: Also publish to broadcast for global persistence
-                await redis_client.publish("broadcast", hlink_msg)
-
-            elif msg_type == "system.status_update":
-                payload = data.get("payload", {})
-                content = payload.get("content") if isinstance(payload, dict) else payload
-                hlink_msg = HLinkMessage(
-                    id=msg_id,
-                    type=MessageType.SYSTEM_STATUS_UPDATE,
-                    sender=sender,
-                    recipient=Recipient(target="broadcast"),
-                    payload=Payload(content=content)
-                )
-                await redis_client.publish("agent:broadcast", hlink_msg)
-
-            elif msg_type == "system.config_update":
-                # Config updates are sent to broadcast for Core to pick up
-                payload_content = data.get("content") or data
-                hlink_msg = HLinkMessage(
-                    type=MessageType.SYSTEM_CONFIG_UPDATE,
-                    sender=sender,
-                    recipient=Recipient(target="broadcast"),
-                    payload=Payload(content=payload_content)
-                )
-                await redis_client.publish("broadcast", hlink_msg)
-
     except WebSocketDisconnect:
         logger.info("A2UI client disconnected.")
-    finally:
-        rtw_task.cancel()
-
-# --- Static Files Setup ---
-if os.path.exists(public_path):
-    logger.info(f"Mounting static files from: {public_path}")
-    assets_dir = os.path.join(public_path, "assets")
-    if os.path.exists(assets_dir):
-        app.mount("/public/assets", StaticFiles(directory=assets_dir), name="assets")
-    
-    @app.get("/")
-    async def read_index():
-        index_path = os.path.join(public_path, "index.html")
-        if os.path.exists(index_path):
-            with open(index_path) as f:
-                return HTMLResponse(content=f.read())
-        return HTMLResponse(content="<h1>Index.html not found</h1>")
-
-    @app.get("/{file_path:path}")
-    async def serve_static(file_path: str):
-        full_path = os.path.join(public_path, file_path)
-        if os.path.isfile(full_path):
-            return FileResponse(full_path)
-        return {"error": "Not Found", "path": file_path}
+        listen_task.cancel()
+    except Exception as e:
+        logger.error(f"WS Bridge Error: {e}")
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("H-Bridge starting...")
     await redis_client.connect()
-    asyncio.create_task(surreal_client.connect())
-    # STORY 23.3: Start discovery worker
     asyncio.create_task(agent_discovery_worker())
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("H-Bridge shutting down...")
-    await redis_client.disconnect()
-    await surreal_client.close()
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+@app.get("/")
+async def root():
+    return {"status": "hAIrem Bridge Active"}

@@ -36,3 +36,10 @@ jobs:
 
       - name: Run Quality Gate
         run: ./scripts/ci_run.sh
+
+      - name: Auto-Deployment
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+        run: ./scripts/deploy.sh
+        env:
+          HA_TOKEN: ${{ secrets.HA_TOKEN }}
+          HA_URL: ${{ secrets.HA_URL }}

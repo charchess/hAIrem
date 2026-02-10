@@ -60,13 +60,13 @@ class RedisClient:
                     while not self._stop_event.is_set():
                         message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
                         if message and message["type"] == "message":
-                            logger.info(f"DEBUG REDIS: Raw data on {channel}: {message['data'][:100]}...")
+                            logger.info(f"REDIS: Received message on {channel}: {message['data'][:100]}...")
                             try:
                                 data = json.loads(message["data"])
                                 hlink_msg = HLinkMessage.model_validate(data)
                                 await handler(hlink_msg)
                             except Exception as e:
-                                logger.error(f"Error processing message data: {e}")
+                                logger.error(f"REDIS: Message processing failed on {channel}: {e}")
             except redis.ConnectionError:
                 logger.error("Redis connection lost. Attempting to reconnect...")
                 self.client = None

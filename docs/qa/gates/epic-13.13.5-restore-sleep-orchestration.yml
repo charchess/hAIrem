@@ -1,0 +1,38 @@
+schema: 1
+story: '13.5'
+story_title: 'Restore Sleep & Cognition Orchestration'
+gate: PASS
+status_reason: 'Regression fix successfully implemented and verified with logic tests.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-01-28T12:00:00Z'
+
+top_issues: []
+
+waiver: { active: false }
+
+evidence:
+  tests_reviewed: 1
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4, 5]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Internal worker only.'
+  performance:
+    status: PASS
+    notes: 'Negligible CPU overhead.'
+  reliability:
+    status: PASS
+    notes: 'Exception handling in place.'
+  maintainability:
+    status: PASS
+    notes: 'Clean logic, but resides in main.py.'
+
+recommendations:
+  immediate: []
+  future:
+    - action: 'Extract worker to dedicated service module'
+      refs: ['apps/h-core/src/main.py']

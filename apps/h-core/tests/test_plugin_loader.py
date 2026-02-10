@@ -14,14 +14,14 @@ async def test_plugin_loader_load_valid_yaml(tmp_path):
     lisa_dir = agents_dir / "lisa"
     lisa_dir.mkdir()
     
-    expert_file = lisa_dir / "expert.yaml"
+    manifest_file = lisa_dir / "manifest.yaml"
     valid_data = {
         "name": "Lisa",
         "role": "Coordinator",
         "version": "1.0.0",
         "capabilities": ["chat", "orchestration"]
     }
-    expert_file.write_text(yaml.dump(valid_data))
+    manifest_file.write_text(yaml.dump(valid_data))
     
     mock_redis = MagicMock()
     mock_redis.subscribe = AsyncMock()
@@ -47,8 +47,8 @@ async def test_plugin_loader_invalid_yaml(tmp_path):
     bad_dir = agents_dir / "broken"
     bad_dir.mkdir()
     
-    expert_file = bad_dir / "expert.yaml"
-    expert_file.write_text("invalid: [yaml: structure") # Missing bracket
+    manifest_file = bad_dir / "manifest.yaml"
+    manifest_file.write_text("invalid: [yaml: structure") # Missing bracket
     
     mock_redis = MagicMock()
     mock_redis.subscribe = AsyncMock()

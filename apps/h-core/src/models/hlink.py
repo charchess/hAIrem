@@ -16,6 +16,8 @@ class MessageType(str, Enum):
     EXPERT_COMMAND = "expert.command"
     EXPERT_RESPONSE = "expert.response"
     AGENT_INTERNAL_NOTE = "agent.internal_note"
+    VISUAL_ASSET = "visual.asset"
+    VISUAL_RAW_PROMPT = "visual.raw_prompt"
 
 class Priority(str, Enum):
     NORMAL = "normal"
@@ -57,4 +59,9 @@ class HLinkMessage(BaseModel):
         except Exception as e:
             return None, str(e)
 
-    model_config = ConfigDict(use_enum_values=True)
+    model_config = ConfigDict(
+        use_enum_values=True,
+        extra="allow",
+        arbitrary_types_allowed=True,
+        populate_by_name=True
+    )

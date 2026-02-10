@@ -1,6 +1,6 @@
 # Epic 20: Test Infrastructure Cleanup & Hygiène
 
-**Status:** Approved
+**Status:** Done
 **Theme:** Qualité & Maintenabilité
 **PRD Version:** V3
 

@@ -1,0 +1,76 @@
+# hAIrem Product Requirements Document (PRD) - V4
+
+**Version:** 4.1
+**Status:** Approved ✅
+**Theme:** "Deep Cognition, True Presence & Visual Imagination"
+
+---
+
+## 1. Vision & Goals
+
+**V4 (The Goal):** Transformer hAIrem en une entité capable de cognition profonde et d'expression visuelle dynamique.
+*   **Deep Mind:** Mémoire subjective, hiérarchisation des stimuli et cycle de sommeil.
+*   **Deep Presence:** Voix neuronales, présence visuelle cohérente et conscience de l'état physique (tenue/lieu).
+*   **Deep Home:** Réactions proactives, architecture de compétences (Skills) pluggables et imagination anticipée.
+
+---
+
+## 2. Les Trois Piliers
+
+### Pilier 1 : Deep Mind (Architecture Cognitive)
+*   **Subjective Graph Memory (Epic 13) :** Graphe SurrealDB avec MDP.
+*   **Cognitive Cycle (New V4) :** Cycle de consolidation nocturne. Passage de la mémoire courte vers le long terme et génération de stimuli "rêvés" pour la proactivité du lendemain.
+*   **Stimuli Hierarchy (Epic 18) :** Hiérarchisation des flux gérée par le Social Arbiter.
+
+...
+
+## 4. Métriques de Succès
+- **Latence Visuelle :** Asset prêt en < 5s (Warm cache) ou < 20s (Génération + Détourage).
+- **Stabilité Système :** 100% de disponibilité des services LLM/Imaging grâce à la gestion de la file d'attente GPU (Inference Queue).
+- **Pertinence Cognitive :** Augmentation mesurable des références aux conversations passées suite au cycle de consolidation.
+*   **Social Dynamics (Epic 18) :** 
+    - **Onboarding :** Session d'initialisation des relations (entretien d'embauche virtuel).
+    - **Polyphonie :** Gestion des tours de parole et conscience de l'existence des autres agents.
+
+### Pilier 2 : Deep Presence (Corps & Sens)
+*   **Sensory Layer (Epic 14) :** Transcription (Whisper) et synthèse vocale agnostique (Piper/Luxa).
+*   **Imagination Visuelle (Epic 25) :** 
+    - **Visual Bible :** Pilotage scientifique (FACS/Mehrabian) et styles modulaires.
+    - **Vault System :** Inventaire nommé des tenues (Garde-robe) et décors de référence.
+*   **Spatial Presence (Core V4) :** 
+    - **Localization :** Capacité pour les agents d'être assignés à des lieux physiques (Cuisine, Bureau).
+    - **Device Hierarchy :**
+        - *Fixed Stages :* Tablettes murales liées à une pièce (affichage statique du lieu).
+        - *Mobile Stages :* Appareils nomades (tablettes/laptops) avec suivi de localisation.
+        - *Remote Stages :* Accès extérieur (Interface "Pocket"). Alfred agit comme concierge dans un espace virtuel extérieur (Jardin/Ville), mais les agents domestiques restent accessibles via le flux narratif global (ex: Electra répondant à une question sur la domotique).
+    - **Multi-Stage UI :** Support de plusieurs clients avec backgrounds locaux et bus audio global.
+
+### Pilier 3 : Deep Home (Habitat & Skills)
+*   **Architecture Persona-Skill (Epic 15) :** Découplage total entre l'identité et les capacités techniques.
+*   **Proactivité Mondiale (Epic 18/25) :** 
+    - **World State :** Gestion des thèmes globaux (Noël, Saisons, Météo) par Entropy (Dieu).
+    - **Thematic Cascade :** Un changement de thème (ex: Noël) déclenche automatiquement la ré-imagination des décors de tous les lieux et suggère des changements de tenues aux agents.
+
+---
+
+## 3. Roadmap des Epics (V4)
+
+| Epic | Titre | Statut |
+| :--- | :--- | :--- |
+| **13** | **Deep Cognitive Architecture** | DONE |
+| **25** | **Visual Imagination (Modular)** | IN PROGRESS |
+| **17** | **"The Stage" UI/UX (A2UI)** | DONE |
+| **14** | **Sensory Layer (Ears & Voice)** | IN PROGRESS |
+| **15** | **Living Home (Skills & Proactivity)** | IN PROGRESS |
+| **18** | **Social Dynamics & Social Arbiter** | TO DO |
+
+---
+
+## 4. Métriques de Succès
+- **Latence Visuelle :** Asset prêt en < 5s (Warm cache) ou < 20s (Génération + Détourage).
+- **Consistance Visuelle :** Identité des agents et décors préservés à > 90% via le système de Vaults.
+- **Réactivité Contextuelle :** 100% de succès sur les interactions liées à la "Burning Memory" (ex: réactions aux tenues).
+- **Fiabilité Stimuli :** Zéro collision de stimuli critiques grâce à la hiérarchisation.
+
+---
+*Approuvé par John (PM) le 28 Janvier 2026.

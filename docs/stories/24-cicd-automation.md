@@ -50,23 +50,119 @@
 
 # Story 24.3: Build Integrity & Auto-Deployment
 
-**Status:** In Progress
+**Status:** Ready for Dev
 **Epic:** 24 - CI/CD Pipeline
 
 ## Story
-**As a** User,
+**As a** DevOps Engineer,
 **I want** the latest validated code to be automatically deployed,
 **so that** I can enjoy new features without manual intervention.
 
 ## Acceptance Criteria
-1. **Docker Build:**
-    - CI must verify that `docker compose build` succeeds for all services.
-2. **Deploy Script:**
-    - Implement `scripts/deploy.sh` to update the local/target environment.
-3. **Post-Deploy Health:**
-    - The deployment is only considered successful if the `BRAIN` status (heartbeat) returns within 30 seconds.
+1. **Docker Build Validation:**
+    - CI (`scripts/ci_run.sh`) must verify that `docker compose build` succeeds for both `h-bridge` and `h-core`.
+2. **Deployment Script:**
+    - Create `scripts/deploy.sh` that performs a zero-downtime (or minimal downtime) update using `docker compose up -d`.
+3. **Post-Deploy Health Check:**
+    - The deployment is only considered successful if the `/api/agents` endpoint of `h-bridge` returns at least one agent and the `BRAIN` status (heartbeat) is "online" within 30 seconds.
 
 ## Tasks
-- [ ] Implement Docker build validation in CI.
-- [ ] Create `scripts/deploy.sh`.
-- [ ] Implement post-deploy health check script.
+- [x] **Docker CI Integration:** Add `docker compose build --quiet` to `scripts/ci_run.sh`.
+- [x] **Deploy Script Implementation:** Create `scripts/deploy.sh` with logic to pull latest (if applicable), rebuild and restart containers.
+- [x] **Health Check Tool:** Create `scripts/check_health.py` to poll the Bridge API and verify system readiness.
+- [x] **Final Integration:** Update `.github/workflows/ci.yml` or the local CI runner to call the deployment script only if all previous tests pass.
+
+## Dev Notes
+- **Endpoints:** Use `GET /api/agents` on `h-bridge` (port 8000).
+- **Health logic:** Look for component "brain" with status "online" in the system status messages relayed by the bridge.
+- **Environment:** Ensure the script handles `${HA_TOKEN}` and other secrets appropriately via `.env` loading.
+
+## Testing Scenarios
+- Run `./scripts/ci_run.sh` and verify it fails if a Dockerfile has a syntax error.
+- Run `./scripts/deploy.sh` and verify containers restart.
+- Simulate a crash of H-Core and verify the health check script detects the "offline" brain.
+
+## Dev Agent Record
+### Agent Model Used
+Gemini 2.5 Flash
+
+### Debug Log References
+- [2026-01-27] Phase 7 added to `scripts/ci_run.sh`.
+- [2026-01-27] Created `scripts/deploy.sh` and `scripts/check_health.py`.
+- [2026-01-27] Verified `/api/status` endpoint in `h-bridge` for "BRAIN" heartbeat.
+
+### Completion Notes List
+- Docker build validation integrated into CI quality gate.
+- Automated deployment script handles container recreation and health validation.
+- Health check verifies both agent discovery and core system heartbeat.
+
+### File List
+- `scripts/ci_run.sh`
+- `scripts/deploy.sh`
+- `scripts/check_health.py`
+- `apps/h-bridge/src/main.py`
+- `.github/workflows/ci.yml`
+
+### Change Log
+- Added Docker build integrity check to CI.
+- Implemented `/api/status` in H-Bridge to expose component health.
+- Added automated deployment and post-deployment health check logic.
+
+### Status
+Ready for Review
+
+## QA Results (Story 24.3)
+
+### Review Date: 2026-01-27
+
+### Reviewed By: Quinn (Test Architect)
+
+### Code Quality Assessment
+
+The implementation of Build Integrity and Auto-Deployment is robust and follows the requirements closely. 
+- **CI Integration**: Phase 7 was successfully added to `scripts/ci_run.sh` providing build validation.
+- **Deployment**: `scripts/deploy.sh` implements the requested minimal downtime strategy using Docker Compose.
+- **Health Check**: `scripts/check_health.py` provides excellent post-deployment validation by checking both agent discovery and system heartbeat (BRAIN status).
+
+### Refactoring Performed
+
+- **File**: `scripts/check_health.py`
+  - **Change**: Added environment variable support for `MAX_ATTEMPTS`, `SLEEP_INTERVAL`, and `TIMEOUT`.
+  - **Why**: To improve flexibility in different environments (e.g., CI vs Production) where startup times might vary.
+  - **How**: Used `os.getenv` with sensible defaults.
+
+### Compliance Check
+
+- Coding Standards: [✓] Shell and Python scripts follow project conventions.
+- Project Structure: [✓] Scripts placed in `scripts/` directory as expected.
+- Testing Strategy: [✓] Automated health check script acts as a smoke test for deployment.
+- All ACs Met: [✓] Build validation, deployment script, and health check all functional.
+
+### Improvements Checklist
+
+- [x] Refactored health check script for better configurability.
+- [x] Verified build integrity phase in CI script.
+- [x] Validated health check against live local environment.
+- [ ] Consider adding a rollback mechanism in `scripts/deploy.sh` if health check fails.
+- [ ] Update `.gitleaksignore` to handle false positives in test files to prevent CI blocking.
+
+### Security Review
+
+Deployment script uses Docker Compose which correctly handles secrets via `.env`. No secrets are hardcoded in the scripts. `HA_TOKEN` is passed via environment variables in CI.
+
+### Performance Considerations
+
+Docker build validation uses `--quiet` to reduce log noise. Deployment uses `-d` for background execution. Health check is efficient with a 1-second poll interval.
+
+### Files Modified During Review
+
+- `scripts/check_health.py`
+
+### Gate Status
+
+Gate: PASS → docs/qa/gates/24.3-build-integrity-auto-deployment.yml
+Risk profile: docs/qa/assessments/24.3-risk-20260127.md
+
+### Recommended Status
+
+[✓ Ready for Done]

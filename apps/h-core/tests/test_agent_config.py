@@ -15,7 +15,7 @@ async def test_per_agent_llm_config_loading(tmp_path):
     lisa_dir = agents_dir / "lisa"
     lisa_dir.mkdir()
     
-    expert_file = lisa_dir / "expert.yaml"
+    manifest_file = lisa_dir / "manifest.yaml"
     valid_data = {
         "name": "Lisa",
         "role": "Coordinator",
@@ -25,7 +25,7 @@ async def test_per_agent_llm_config_loading(tmp_path):
             "temperature": 0.2
         }
     }
-    expert_file.write_text(yaml.dump(valid_data))
+    manifest_file.write_text(yaml.dump(valid_data))
     
     # Mock infrastructure clients
     mock_redis = MagicMock()
@@ -56,13 +56,13 @@ async def test_agent_config_no_override(tmp_path):
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
     
-    expert_file = agents_dir / "standard" / "expert.yaml"
-    expert_file.parent.mkdir()
+    manifest_file = agents_dir / "standard" / "manifest.yaml"
+    manifest_file.parent.mkdir()
     valid_data = {
         "name": "StandardAgent",
         "role": "Assistant",
     }
-    expert_file.write_text(yaml.dump(valid_data))
+    manifest_file.write_text(yaml.dump(valid_data))
     
     mock_redis = MagicMock()
     mock_redis.subscribe = AsyncMock()

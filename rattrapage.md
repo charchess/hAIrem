@@ -3,66 +3,76 @@
 Ce document liste les actions nécessaires pour remettre le projet en conformité avec le flux de travail BMad™.
 
 ## 🏗️ À adresser par l'Architecte (Winston)
-- [x] **Documenter la Mémoire Subjective :** Compléter `docs/architecture/4-modles-de-donnes-mmoire-subjective.md`. 
-- [x] **Mettre à jour la Tech Stack :** Vérifier que `docs/architecture/3-tech-stack.md`.
-- [x] **Développer l'Architecture de Haut Niveau :** Compléter `docs/architecture/2-architecture-de-haut-niveau.md`.
-- [x] **Documenter l'Orchestration Narrative :** Étendre `docs/architecture/6-orchestration-narrative.md`.
-- [x] **Spécifier le Système de Plugins :** Détailler `docs/architecture/7-systme-hotplug-plugins.md`.
-- [x] **Infrastructure Cognitive :** Documenter le **Semantic Caching** et le **Privacy Filter** (Epic 9).
-- [x] **Pipeline Visuel :** Documenter le fonctionnement des Poses et de la génération d'assets (Epic 11).
-- [x] **Spécifier le "Social Arbiter" (Polyphonie V3) :** Créer un document dédié sur l'arbitrage des tours de parole via micro-modèle local (Llama-1B).
-    - *Fait :* Nouveau document `docs/architecture/10-social-arbiter.md`.
-- [x] **Refactoring H-Core :** Définir le plan de découplage du Bridge WebSocket vers un service dédié (`HLinkBridge`).
-    - *Fait :* Documenté dans `docs/architecture/8-rsilience-dploiement.md`.
+- [x] **Modularité Visuelle (Epic 25) :** Découplage du service visuel via des bibles YAML (`POSES`, `ATTITUDES`, `STYLE_GLOBAL`).
+- [x] **Système Pluggable :** Chaque agent porte désormais ses propres métadonnées visuelles via `persona.yaml`.
+- [x] **Détourage Automatique :** Pipeline intégré via `rembg` (La Découpeuse).
+- [x] **Observabilité :** Broadcast des prompts bruts (`RAW_PROMPT`) vers l'UI pour audit.
 
 ## 🚩 ALERTES CRITIQUES (Dette Technique & Bugs)
-- [x] **SÉCURITÉ :** Brancher le `PrivacyFilter` dans `main.py` pour caviarder les logs/DB.
-    - *Fait :* Intégré dans Story 19.1.
-- [x] **AUTOMATION :** Activer le cycle de sommeil dans le H-Core (instanciation du `MemoryConsolidator`).
-    - *Fait :* Activé dans Story 19.2.
-- [x] **DOUBLONS :** Supprimer les tags `[pose:X]` du texte final une fois que le payload supporte `visual_state`.
-    - *Fait :* Nettoyage UI implémenté dans Story 19.3.
+
+- [x] **SÉCURITÉ/CI :** Nettoyer les secrets détectés par Gitleaks.
+
+- [x] **SYNTAXE :** Résolution des erreurs de blocs `try/except` mal fermés dans `VisualImaginationService`.
+
+- [x] **COMPATIBILITÉ :** Correction des embeddings Gemini via LiteLLM (passage en mode v1beta fallback).
+
+- [x] **INFRA :** Mise à jour du Dockerfile `h-core` pour les dépendances binaires ONNX et Mesa.
+
+
 
 ## 📋 À adresser par le Product Manager (John)
-- [x] **Régularisation PRD (Epic 9, 10, 11, 12, 17) :** Rétro-documenter les besoins métier pour ces epics déjà codés.
-- [x] **Shard "Social Dynamics" :** Définir les règles de savoir-vivre et l'expérience utilisateur de la polyphonie (qui peut couper qui ?).
-    - *Fait :* Nouveau document `docs/prd/epic-18-social-dynamics.md`.
-- [x] **Epic 14 (Sensory Layer) :** Créer `docs/prd/epic-14-sensory-layer.md`.
-- [x] **Epic 15 (Living Home) :** Créer `docs/prd/epic-15-living-home.md`.
-- [x] **Audit PRD V3 :** Finaliser le brouillon de `docs/prd.md`.
-    - *Fait :* `docs/prd.md` mis à jour et passé en statut "Approved".
+
+- [x] **Régularisation Epic 25 :** Définir les besoins de la Story 25.2 (Asset Manager DB).
+
+- [x] **Bible Visuelle :** Valider la conformité scientifique des poses (FACS) et attitudes (Mehrabian).
+
+- [x] **Mise à jour PRD :** Passage à la PRD V4.1 (incluant Vaults, Skills et Social Arbiter).
+
+
 
 ## 🏃 À adresser par le Scrum Master (Bob)
-- [x] **Rétrospective Epic 13 (Graph Memory) :** Animer et enregistrer le bilan.
-    - *Fait :* `docs/retrospectives/sprint-13-retro.md` créé.
-- [x] **Découpage Stories "Stabilisation V3" :** Transformer les alertes critiques de Winston en stories actionnables par James.
-    - *Fait :* Stories 19.1, 19.2 et 19.3 créées dans `docs/stories/19-stabilization-v3.md`.
-- [x] **Cleanup Backlog :** Marquer les stories 13.x comme "Done".
-    - *Fait :* Statuts mis à jour dans les fichiers de stories.
+
+- [x] **Mise à jour du Backlog :** Structuration de `THOUGHTS.md` et alignement Roadmap.
+
+- [x] **Documentation des Dérives :** Création des ADR pour la modularité visuelle.
+
+
 
 ## ✅ À adresser par la QA (Quinn)
 
-- [x] **Validation Finale Epic 13 :** Signer les QA Gates 13.2, 13.3, 13.4.
+- [x] **Validation UI Finale :** Vérifier le rendu des poses transparentes sur différents fonds.
 
-    - *Fait :* Gates signées et statuts mis à jour.
-
-- [x] **Audit de Non-Régression :** Vérifier la Home Automation (Epic 5) après le refactoring UI du Sprint 17.
-
-    - *Fait :* Simulation réussie, routage expert fonctionnel.
-
-- [x] **Validation Epic 19 :** Vérifier l'intégration du Privacy Filter et du cycle de sommeil.
-
-    - *Fait :* Tests d'intégration passés avec succès. Statut PASS.
-
-- [x] **Test Cleanup Sprint :** Mettre à jour ou supprimer les 13 tests unitaires "legacy" qui échouent.
-
-    - *Fait :* Suite de tests 100% Green (47/47) validée par Quinn.
-
-- [x] **CI/CD Integration :** Intégrer `scripts/master_regression_v3.py` dans le pipeline de validation automatisé.
-    - *Fait :* Stratégie documentée (Doc 8) incluant le Secret Scanning et la compatibilité Kubernetes. Ready pour l'implémentation.
+- [x] **Test de Charge Logs :** S'assurer que le broadcast des prompts volumineux ne sature pas le WebSocket.
 
 
 
+---
 
 
 
+## Historique des sessions de rattrapage
+
+
+
+### 01 Février 2026 - Intégration Graphique & Qualité
+
+- **Architecture Visuelle :**
+    - Migration du provider par défaut vers `ImagenV2Provider` (SDXL/Pony via API interne).
+    - Endpoint cible : `http://192.168.199.119:8009` (GPU Serveur dédié).
+    - Intégration d'un **Negative Prompt** global dans `STYLE_GLOBAL.yaml` pour réduire les artefacts (anatomie, texte).
+- **Processus :**
+    - Validation du pipeline `/outfit` avec timestamp pour contournement de cache.
+    - Identification de l'absence de `rembg` (La Découpeuse) sur l'environnement actuel (fallback gracieux actif).
+
+### 28 Janvier 2026 - Stabilisation de l'Epic 25 & Alignement V4
+
+- **Secrets :** Nettoyage complet des secrets dans `.env`, tests et logs détectés par Gitleaks.
+- **Correction h-bridge :** Modification du endpoint `/generate` pour respecter le token d'autorisation envoyé par le Core ou utiliser `NANOBANANA_API_KEY`. Résolution de l'erreur 429 (quota exhausted) due à l'usage de la clé gratuite par défaut.
+- **Modèle d'Embedding :** Migration par défaut vers `gemini/text-embedding-004` (plus stable sur LiteLLM v1beta que `embedding-001`).
+- **Bootstrap Visuel :** Implémentation de `bootstrap_agent_avatar` dans `VisualImaginationService`. Correction du crash au chargement des agents (Entropy).
+- **Entités non-physiques :** Exclusion de "Dieu" et "system" du processus de génération d'avatars dans le `PluginLoader`.
+- **Résilience UI :** Ajout d'un flag `deactivatable: false` pour verrouiller l'état "Actif" des composants système dans le Crew Panel.
+- **Documentation :** Passage à l'Architecture V4.4 et PRD V4.1. Consolidation des ADR 13 et 14.
+- **Epic 25 :** Réouverture de l'Epic 25 (Status: IN PROGRESS) pour intégrer les Vaults et la Burning Memory.
+- **Backlog :** Réorganisation de `THOUGHTS.md` en format Kanban (Fait/Prévu/Idée) avec traçabilité.
+- **Vision :** Validation du système de Skills pluggables et de la hiérarchie des stimuli.

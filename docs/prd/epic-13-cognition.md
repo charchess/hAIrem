@@ -1,8 +1,8 @@
 # Epic 13: Deep Cognitive Architecture (Cognition Profonde)
 
-**Status:** In Review
+**Status:** Done
 **Theme:** Pillar 1 - Deep Mind
-**PRD Version:** V3
+**PRD Version:** V4
 
 ## 1. Executive Summary
 Transformer la mémoire de hAIrem d'un simple stockage de documents (RAG classique) en un modèle mental structuré (Graphe de connaissances). L'objectif est de permettre aux agents d'avoir des croyances subjectives, de "ressentir" le passage du temps via l'oubli (decay) et de résoudre activement les contradictions.

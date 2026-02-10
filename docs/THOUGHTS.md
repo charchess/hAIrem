@@ -1,136 +1,111 @@
-# Thoughts & Inspirations (Backlog)
+---
+workflowType: 'prd'
+workflow: 'edit'
+classification:
+  domain: 'AI Ecosystem / Smart Home'
+  projectType: 'Multi-Agent Framework'
+  complexity: 'High'
+inputDocuments: ['docs/prd-v2.md', 'docs/prd/epic-*.md', 'docs/THOUGHTS.md']
+stepsCompleted: ['step-e-01-discovery', 'step-e-02-review', 'step-e-03-edit']
+lastEdited: 'Sunday, February 8, 2026'
+editHistory:
+  - date: '2026-02-08'
+    changes: 'Refactored Epic 13 towards user value, detailed Epic 18 (Social Awareness), removed implementation leakage (tech names), added SMART Success Criteria and cost transparency requirements.'
+  - date: '2026-02-08'
+    changes: 'Cleaned remaining implementation leakage (Redis, SurrealDB, Gitleaks) and refined NFR-V4-02 with measurable metric.'
+  - date: '2026-02-08'
+    changes: 'Added User Journeys section to complete BMad traceability chain and justify V4 functional requirements.'
+---
 
-Ce document centralise les idées brutes, les retours d'expérience et les visions futures pour hAIrem.
-Le Scrum Master (Bob) met régulièrement à jour ce fichier pour intégrer les idées dans le roadmap (PRD).
+# hAIrem Product Requirements Document (PRD) - V4
 
-## ✅ Réalisé (Processed & Done)
-
-- [x] **Agents non-personifiés :** "Dieu" est un processus de fond sans corps physique.
-- [x] **Horodatage historique :** Ajout de l'heure sur les messages.
-- [x] **Adressage ciblé (Backend) :** Regex pour filtrer les messages (`@Lisa`, `Lisa, ...`).
-- [x] **Sondes/Logs monitoring (Backend) :** Logs configurables (DEBUG/INFO) et visibles via Redis.
-- [x] **Flux inter-agents (Technique) :** `send_internal_note` supporte `target='broadcast'`.
-- [x] **Mémoire Graphe (Backend) :** Relations `BELIEVES` et `ABOUT` implémentées.
-
-## 📅 Planifié (Scheduled / To Do)
-
-### Epic 14 - Sensory Layer (Prochain Epic)
-- [ ] **Continuous Listening (STT) :** Moteur d'écoute continue.
-- [ ] **Modèles de voix (TTS) :** Synthèse vocale par persona.
-- [ ] **Multi-user input :** Identification de la source audio.
-
-### Epic 15 - Visual Imagination
-- [ ] **Générateur d'image (NanoBanana) :** Connecteur pour illustrer les propos.
-- [ ] **Préparation graphique (Météo/Tenue) :** Dieu génère les assets du jour.
-
-### UI / UX Overhaul (Epic 17 - "The Stage")
-*Vision : Stage + 2 Boutons principaux (Control Panel & Crew).*
-- [ ] **Adressage UI :** Ajouter une Select Box ou un @menu dans l'input pour cibler explicitement un agent.
-- [ ] **Control Panel (Admin) :** 
-    - Dashboard technique pour configurer le système.
-    - Slider pour le `LOG_LEVEL` à chaud.
-    - Monitoring technique (Redis, LLM latency).
-- [ ] **Crew Panel (Team) :** 
-    - Liste des agents chargés.
-    - Détails : Scopes, Outils, **Consommation Tokens**.
-    - Toggle Switch : Activer/Désactiver un agent (Sommeil).
-    - *Note :* Renommer l'actuel "Dashboard" en "Crew".
-- [ ] **UX Fix :** Clic en dehors des fenêtres modales (Crew/Admin) doit les fermer.
-
-### Epic 18 - Social & Narrative (Cognitive Extension)
-- [ ] **Backstory Generator :** "S'inventer un passé". Au démarrage ou via Dieu, générer des souvenirs *antérieurs* à T0 (faux souvenirs cohérents) et les injecter dans le Graphe.
-- [ ] **Social Graph Init :** Initialiser la matrice relationnelle à T0. (Ex: "Lisa connaît Renarde").
-    - *Mécanisme :* Script qui lit les bios et génère les edges `KNOWS` ou `TRUSTS` initiaux.
-- [ ] **Inter-Agent Chat :** Vraie discussion entre agents (pas juste des notes techniques). "Electra parle à Lisa de la pluie".
-
-### Epic 16 - Home Automation (Electra Advanced)
-- [ ] **Abonnement Event Bus :** Capacité pour un agent de s'abonner dynamiquement à un event (ex: `ha:sensor:change`).
-- [ ] **Contrôle durci :** Configuration fine des domaines autorisés.
-
-## 💡 Inbox (Idées à qualifier)
-
-*   [ ] **UUID vs Names :** Le stockage mémoire graphe utilise le nom (`subject:lisa`). Étudier la migration vers des UUIDs immuables (`subject:uuid`) avec une table de lookup pour les noms, pour permettre le renommage.
-*   [ ] **Mise en scène dynamique :** Agents en arrière-plan qui s'avancent quand ils parlent.
-*   [ ] **Variété corporelle :** Expressions plus fines (grattage d'oreille, main hanche) et accessoires.
-*   [ ] **LLM Local (Embedding) :** Utiliser un petit modèle local pour réduire les coûts.
-*   [ ] **Police des mœurs (Dieu) :** Processus de fond de contrôle qualité persona.
-*   [ ] **Ingestion RAG Documentaire :** PDFs, factures.
-*   [ ] **Décor dynamique :** Vote pour le style du lieu.
-*   [ ] **Fantasmes & Désirs :** Système de pulsions cachées.
+**Version:** 4.3
+**Status:** In Progress 🚀
+**Theme:** "Cognitive Synergy & High-Fidelity Presence"
 
 ---
-*Note : Ajoutez vos nouvelles idées ci-dessous, Bob les triera.*
 
-* defaut de "conscience", quand je dis "les filles", chacune repond qu'elle
-  n'a pas connaissance de l'existence des autres
+## 1. Executive Summary & Vision
 
-* ouverture automatique d'issue sur github ? :p
+**V4 Vision (The Deep Stage) :** Transformer un système d'agents réactifs en un **équipage conscient et omniprésent** capable de maintenir une continuité narrative et relationnelle sans faille.
 
-* le crew n'affiche pas les personnage invisible comme dieu ... on doit
-  pouvoir le deconnecter quand meme donc ...faut afficher "tout le monde"
+### success-criteria
+- **Cohérence Sociale :** 100% des agents reconnaissent l'existence et le rôle de leurs collègues lors de tests de groupe.
+- **Transparence Économique :** Coût LLM de la session en cours visible en temps réel avec une précision de 0.01$.
+- **Réactivité Perçue :** Feedback visuel < 200ms et réponse audio < 1.2s (95ème percentile).
+- **Fiabilité Cognitive :** Zéro contradiction factuelle lors du rappel de faits mémorisés (Graph Retrieval).
 
-*   [ ] defaut de "conscience", quand je dis "les filles", chacune repond qu'elle
-  n'a pas connaissance de l'existence des autres
+---
 
-*   [ ] ouverture automatique d'issue sur github ? :p
+## 2. Product Scope & Pillars
 
-*   [ ] le crew n'affiche pas les personnage invisible comme dieu ... on doit
-  pouvoir le deconnecter quand meme donc ...faut afficher "tout le monde"
+### Pilier 1 : Deep Mind (Synergie Cognitive)
+*   **Social Awareness :** Système de matrice relationnelle. Les agents partagent une connaissance commune de l'équipage et collaborent via des flux inter-agents directs.
+*   **Subjective Knowledge Graph :** Persistance de la mémoire via un graphe de connaissances (Graph DB). Gestion de l'érosion temporelle (oubli) et résolution de conflits sémantiques.
+*   **Proactive Narrative :** L'agent de fond (Orchestrateur invisible) génère des stimuli autonomes pour maintenir l'illusion de vie.
 
-*   [x] pas encore d'affichage des tokens dans le dashboard ? :/
+### Pilier 2 : Deep Presence (Corps & Sens)
+*   **Vocal Identity :** Voix neuronales uniques par agent, synchronisées avec leur identité visuelle.
+*   **Dynamic Visual Generation (JIT) :** Capacité de générer des actifs visuels (poses, expressions) à la demande pour couvrir les besoins narratifs imprévus.
+*   **Multimodal Sensory Layer :** Écoute continue (STT) avec identification de la source (Source ID) et routage spatial intelligent.
 
-*   [ ] ajouter une "photo de profil" des filles dans le dashboard (crew
-  management), a ajouter dans les inputs demandés pour les personas
+### Pilier 3 : Deep Control (Transparence & Robustesse)
+*   **Unified Crew Dashboard :** Visualisation de tous les agents (actifs/invisibles). Monitoring granulaire des jetons (tokens) par persona et par modèle.
+*   **Spatial Awareness :** Routage automatique des flux audio et visuels vers le terminal le plus proche de l'utilisateur.
+*   **System Resilience :** Isolation complète des secrets, déploiement automatisé et sécurité proactive via des outils de scan de secrets.
 
-*   [ ] cliquer sur le bouton ouvre le panneau mais recliquer sur le bouton ne le
-  ferme pas
+---
 
-*   [x] clear log ne fonctionne pas dans la fenetre des logs
+## 3. User Journeys
 
-*   [ ] afficher la version du core et de l'ui dans le dashboard ou config ?
+### 3.1 La Polyphonie Émergente (Synergie Sociale)
+- **Scénario :** L'utilisateur interpelle le groupe ("Les filles...").
+- **Interaction :** Chaque agent évalue son intérêt pour le sujet. Lisa peut répondre avec enthousiasme, Renarde dériver sur une pensée philosophique, et Electra rester silencieuse. La discussion inter-agents est organique, sans obligation de résultat productif, respectant la subjectivité de chacune.
+- **Traceability :** Justifie FR-V4-01 et FR-V4-02.
 
-*   [ ] electra n'a pas de recall_memory ? ou de send_internal_note ? d'apres le
-  dashboard ?
+### 3.2 Le Poids du Souvenir (Mémoire Subjective)
+- **Scénario :** L'utilisateur évoque un événement passé important.
+- **Interaction :** L'agent consulte son graphe de connaissances. Si le souvenir est affaibli (Decay), il peut choisir de demander confirmation à l'utilisateur, interroger une collègue, ou consulter l'archive "froide" d'historique. L'agent agit selon sa personnalité, acceptant sa propre faillibilité.
+- **Traceability :** Justifie FR-V4-03.
 
-*   [ ] timer pour tiller dieu de temps en temps ? pour titiller les filles ?
+### 3.3 La Conscience Économique (Transparence)
+- **Scénario :** L'utilisateur souhaite connaître l'empreinte opérationnelle de sa maison.
+- **Interaction :** Il ouvre le Crew Panel et prend connaissance de la consommation exacte ($) de chaque membre de l'équipage, y compris les processus invisibles (Dieu). Cette consultation informe sans imposer d'ajustement technique immédiat.
+- **Traceability :** Justifie FR-V4-04 et FR-V4-05.
 
-*   [ ] la taille de l'espace de texte est parfois trop petite pour mettre tout le
-  texte et le temps d'affichage trop court pour les textes longs
+---
 
-*   [ ] tokens : ajouter une global et un "par persona" ?
+## 4. Roadmap des Epics (V4 Priority)
 
-*   [x] home assistant : est ce que electra a "conscience" de la reponse de l'api
-  ?
+| Epic | Titre | Statut | Valeur Utilisateur |
+| :--- | :--- | :--- | :--- |
+| **13** | **Deep Cognitive Memory** | **IN PROGRESS** | Permettre aux agents de "se souvenir" de manière cohérente et d'évoluer avec l'utilisateur. |
+| **17** | **The High-Fi Stage** | **IN PROGRESS** | Offrir un contrôle total sur l'équipage et les coûts sans briser l'immersion. |
+| **18** | **Social Dynamics** | **PLANNED** | Transformer la discussion "IA-User" en une interaction sociale riche entre agents. |
+| **14** | **Sensory Presence** | **PLANNED** | Entendre et parler avec le naturel d'une présence humaine. |
+| **15** | **Visual Imagination** | **PLANNED** | Visualiser instantanément n'importe quelle situation ou émotion décrite. |
 
+---
 
-* tokens : ajouter une global et un "par model" ? lecture from config.yaml,
-  dashboard (qui modifie le yaml), persona ? le persona precise quel llm il
-prefere mais defaulté par le genral si pas dispo ?
+## 5. Functional Requirements (V4 Specific)
 
-* home assistant : est ce que electra a "conscience" de la reponse de l'api
-  ?
+### 5.1 Intelligence & Mémoire
+- **FR-V4-01 Matrix Initialization :** Le système initialise les liens relationnels initiaux entre agents au démarrage.
+- **FR-V4-02 Conflict Resolution :** Le système arbitre entre deux faits contradictoires via un processus de synthèse.
+- **FR-V4-03 Semantic Decay :** Les faits non-renforcés perdent en force de rappel avec le temps.
 
-* extraire les token et autres information et les stocker dans .env ? ou
-  un config.yaml ? ou via le config panel ?
+### 5.2 Interaction & UI
+- **FR-V4-04 Real-time Token Billing :** Affichage du coût en dollars par agent dans le Crew Panel.
+- **FR-V4-05 Invisible Agent Control :** Capacité d'interagir et de configurer les agents sans avatar (ex: Dieu/Entropy).
+- **FR-V4-06 Spatial Routing Badge :** Indicateur visuel de la pièce active dans l'interface.
 
-* evoluer vers une structure a trunk based github ? avec obligation de creer
-  des branche et de les merges ? ajouter un validate.yaml avec verification
-(genre gitguardian ?) etudier les autres renfort possible
+---
 
-* onmousehover des indicateur (ws, bus, ai, brain) -> description de ce que
-  ca veut dire
+## 6. Non-Functional Requirements
 
-* declaration dans les persona de variable a importer (ha_token, ha_url) et
-  ajout de ces informations dans le panneau de config
+- **NFR-V4-01 Performance (Graph) :** Temps de recherche dans le graphe de connaissances < 500ms.
+- **NFR-V4-02 Privacy (STT) :** Traitement local (95% des requêtes effectuées localement) pour l'écoute continue et le mot de réveil.
+- **NFR-V4-03 Scalability :** Support de 10 agents actifs simultanés sans dégradation de la latence du bus d'événements.
 
-* privacy filter : utilisé un micro llm local pour detecter les secrets et
-  daire le filtering ?
-
-* grille de scorce d'interet de chaque fille pour un sujet + grille
-  relationnelle contre RNG
-
-
-
-
-
-
+---
+*Dernière mise à jour par John (PM) le 08 Février 2026.*

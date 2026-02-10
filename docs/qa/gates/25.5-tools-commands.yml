@@ -1,0 +1,50 @@
+schema: 1
+story: '25.5'
+story_title: 'Outils Narratifs & Commandes Slash'
+gate: PASS
+status_reason: 'Comprehensive implementation of narrative tools and slash commands with high observability and background processing.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-01-28T14:30:00Z'
+
+top_issues:
+  - id: MISSING_REMBG
+    title: 'Background removal dependency missing'
+    severity: low
+    description: 'rembg is not installed in the current environment. Background removal for character poses will be skipped until installed.'
+    suggested_owner: dev
+  - id: HARDCODED_AGENTS
+    title: 'Hardcoded agent names in CommandHandler'
+    severity: low
+    description: 'The CommandHandler uses a static list of known agents for parsing /outfit and /location commands.'
+    suggested_owner: dev
+
+quality_score: 90 # 100 - (10*0 FAILs) - (10*1 CONCERNS? No, these are low severity issues)
+
+evidence:
+  tests_reviewed: 3
+  risks_identified: 2
+  trace:
+    ac_covered: [1, 2, 3, 4]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Command execution is properly isolated.'
+  performance:
+    status: PASS
+    notes: 'Non-blocking generation using asyncio.create_task and run_in_executor.'
+  reliability:
+    status: PASS
+    notes: 'Graceful handling of missing dependencies and generation failures.'
+  maintainability:
+    status: PASS
+    notes: 'Clean tool decorator pattern in BaseAgent.'
+
+recommendations:
+  immediate:
+    - action: 'Install rembg and its dependencies to enable character pose extraction.'
+      refs: ['apps/h-core/src/services/visual/service.py']
+  future:
+    - action: 'Refactor CommandHandler to fetch known agents from the AgentRegistry instead of a hardcoded list.'
+      refs: ['apps/h-core/src/services/chat/commands.py']

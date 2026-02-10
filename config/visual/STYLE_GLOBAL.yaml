@@ -1,0 +1,22 @@
+# Global Art Direction and Engine Directives (High-Fi Edition)
+
+# Base style applied to characters
+global_style: "Masterpiece, high-fidelity digital painting, cinematic lighting, volumetric atmosphere, rim lighting, 8k resolution, professional illustration style, vibrant colors, sharp focus, style of wolfy-nail and miles-df"
+
+# Character specific traits
+character_style: "high-detail soft fur texture, expressive eyes with multiple catchlights, subsurface scattering, tactile quality"
+
+# Technical engine directives (quality tokens)
+engine_directives: "highly detailed, digital illustration, trending on ArtStation, award winning, masterpiece, score_9, score_8_up"
+
+# Background specific style
+background_style: "cinematic wide angle background, detailed environment, atmospheric perspective, masterpiece"
+
+# Technical constraints for character isolation (Mandatory for rembg)
+post_process_constraints: "Isolated on a solid flat white background, no shadows on the ground, high contrast between subject and background, centered composition, subject takes full height of frame"
+
+# Negative Prompt (Safety & Quality)
+negative_prompt: "low quality, bad anatomy, text, error, extra digit, fewer digits, cropped, worst quality, low quality, jpeg artifacts, signature, watermark, username, blurry, bad feet, distorted face, mutation, bad proportions"
+
+# Background specific technicals
+background_suffix: "ultra-detailed, wide angle view, high resolution landscape"

@@ -1,0 +1,137 @@
+# Thoughts & Inspirations (Backlog)
+
+Ce document centralise les idées brutes, les retours d'expérience et les visions futures pour hAIrem.
+Le Scrum Master (Bob) met régulièrement à jour ce fichier pour intégrer les idées dans le roadmap (PRD).
+
+## ✅ Réalisé (Processed & Done)
+
+- [x] **Agents non-personifiés :** "Dieu" est un processus de fond sans corps physique.
+- [x] **Horodatage historique :** Ajout de l'heure sur les messages.
+- [x] **Adressage ciblé (Backend) :** Regex pour filtrer les messages (`@Lisa`, `Lisa, ...`).
+- [x] **Sondes/Logs monitoring (Backend) :** Logs configurables (DEBUG/INFO) et visibles via Redis.
+- [x] **Flux inter-agents (Technique) :** `send_internal_note` supporte `target='broadcast'`.
+- [x] **Mémoire Graphe (Backend) :** Relations `BELIEVES` et `ABOUT` implémentées.
+
+## 📅 Planifié (Scheduled / To Do)
+
+### Epic 14 - Sensory Layer (Prochain Epic)
+- [ ] **Continuous Listening (STT) :** Moteur d'écoute continue.
+- [ ] **Modèles de voix (TTS) :** Synthèse vocale par persona.
+- [ ] **Multi-user input :** Identification de la source audio.
+
+### Epic 15 - Visual Imagination
+- [ ] **Générateur d'image (NanoBanana) :** Connecteur pour illustrer les propos.
+- [ ] **Préparation graphique (Météo/Tenue) :** Dieu génère les assets du jour.
+
+### UI / UX Overhaul (Epic 17 - "The Stage")
+*Vision : Stage + 2 Boutons principaux (Control Panel & Crew).*
+- [ ] **Adressage UI :** Ajouter une Select Box ou un @menu dans l'input pour cibler explicitement un agent.
+- [ ] **Control Panel (Admin) :** 
+    - Dashboard technique pour configurer le système.
+    - Slider pour le `LOG_LEVEL` à chaud.
+    - Monitoring technique (Redis, LLM latency).
+- [ ] **Crew Panel (Team) :** 
+    - Liste des agents chargés.
+    - Détails : Scopes, Outils, **Consommation Tokens**.
+    - Toggle Switch : Activer/Désactiver un agent (Sommeil).
+    - *Note :* Renommer l'actuel "Dashboard" en "Crew".
+- [ ] **UX Fix :** Clic en dehors des fenêtres modales (Crew/Admin) doit les fermer.
+
+### Epic 18 - Social & Narrative (Cognitive Extension)
+- [ ] **Backstory Generator :** "S'inventer un passé". Au démarrage ou via Dieu, générer des souvenirs *antérieurs* à T0 (faux souvenirs cohérents) et les injecter dans le Graphe.
+- [ ] **Social Graph Init :** Initialiser la matrice relationnelle à T0. (Ex: "Lisa connaît Renarde").
+    - *Mécanisme :* Script qui lit les bios et génère les edges `KNOWS` ou `TRUSTS` initiaux.
+- [ ] **Inter-Agent Chat :** Vraie discussion entre agents (pas juste des notes techniques). "Electra parle à Lisa de la pluie".
+
+### Epic 16 - Home Automation (Electra Advanced)
+- [ ] **Abonnement Event Bus :** Capacité pour un agent de s'abonner dynamiquement à un event (ex: `ha:sensor:change`).
+- [ ] **Contrôle durci :** Configuration fine des domaines autorisés.
+
+## 💡 Inbox (Idées à qualifier)
+
+*   [ ] **UUID vs Names :** Le stockage mémoire graphe utilise le nom (`subject:lisa`). Étudier la migration vers des UUIDs immuables (`subject:uuid`) avec une table de lookup pour les noms, pour permettre le renommage.
+*   [ ] **Mise en scène dynamique :** Agents en arrière-plan qui s'avancent quand ils parlent.
+*   [ ] **Variété corporelle :** Expressions plus fines (grattage d'oreille, main hanche) et accessoires.
+*   [ ] **LLM Local (Embedding) :** Utiliser un petit modèle local pour réduire les coûts.
+*   [ ] **Police des mœurs (Dieu) :** Processus de fond de contrôle qualité persona.
+*   [ ] **Ingestion RAG Documentaire :** PDFs, factures.
+*   [ ] **Décor dynamique :** Vote pour le style du lieu.
+*   [ ] **Fantasmes & Désirs :** Système de pulsions cachées.
+
+---
+*Note : Ajoutez vos nouvelles idées ci-dessous, Bob les triera.*
+
+* defaut de "conscience", quand je dis "les filles", chacune repond qu'elle
+  n'a pas connaissance de l'existence des autres
+
+* ouverture automatique d'issue sur github ? :p
+
+* le crew n'affiche pas les personnage invisible comme dieu ... on doit
+  pouvoir le deconnecter quand meme donc ...faut afficher "tout le monde"
+
+*   [ ] defaut de "conscience", quand je dis "les filles", chacune repond qu'elle
+  n'a pas connaissance de l'existence des autres
+
+*   [ ] ouverture automatique d'issue sur github ? :p
+
+*   [ ] le crew n'affiche pas les personnage invisible comme dieu ... on doit
+  pouvoir le deconnecter quand meme donc ...faut afficher "tout le monde"
+
+*   [x] pas encore d'affichage des tokens dans le dashboard ? :/
+
+*   [ ] ajouter une "photo de profil" des filles dans le dashboard (crew
+  management), a ajouter dans les inputs demandés pour les personas
+
+*   [ ] cliquer sur le bouton ouvre le panneau mais recliquer sur le bouton ne le
+  ferme pas
+
+*   [x] clear log ne fonctionne pas dans la fenetre des logs
+
+*   [ ] afficher la version du core et de l'ui dans le dashboard ou config ?
+
+*   [ ] electra n'a pas de recall_memory ? ou de send_internal_note ? d'apres le
+  dashboard ?
+
+*   [ ] timer pour tiller dieu de temps en temps ? pour titiller les filles ?
+
+*   [ ] la taille de l'espace de texte est parfois trop petite pour mettre tout le
+  texte et le temps d'affichage trop court pour les textes longs
+
+*   [ ] tokens : ajouter une global et un "par persona" ?
+
+*   [x] home assistant : est ce que electra a "conscience" de la reponse de l'api
+  ?
+
+
+* tokens : ajouter une global et un "par model" ? lecture from config.yaml,
+  dashboard (qui modifie le yaml), persona ? le persona precise quel llm il
+prefere mais defaulté par le genral si pas dispo ?
+
+* home assistant : est ce que electra a "conscience" de la reponse de l'api
+  ?
+
+* extraire les token et autres information et les stocker dans .env ? ou
+  un config.yaml ? ou via le config panel ?
+
+* evoluer vers une structure a trunk based github ? avec obligation de creer
+  des branche et de les merges ? ajouter un validate.yaml avec verification
+(genre gitguardian ?) etudier les autres renfort possible
+
+* onmousehover des indicateur (ws, bus, ai, brain) -> description de ce que
+  ca veut dire
+
+* declaration dans les persona de variable a importer (ha_token, ha_url) et
+  ajout de ces informations dans le panneau de config
+
+* privacy filter : utilisé un micro llm local pour detecter les secrets et
+  daire le filtering ?
+
+* grille de scorce d'interet de chaque fille pour un sujet + grille
+  relationnelle contre RNG
+
+* une interface dédié pour le debug avec les logs, prompts, acces aux
+  memoires pour les editer, monitoring du redis ......
+
+
+
+

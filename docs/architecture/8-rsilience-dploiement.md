@@ -1,36 +1,35 @@
 # 8. Résilience & Déploiement
 
-Pour supporter la complexité de la V3, hAIrem doit passer d'un monolithe FastAPI à une architecture de micro-services découplés par le bus Redis.
+hAIrem repose sur une architecture conteneurisée légère utilisant **Docker-Compose**, privilégiant la réactivité et la simplicité de déploiement sur des machines hôtes disposant de capacités d'inférence (GPU/NPU).
 
-## 8.1 Découplage du HLinkBridge
-La stratégie de refactoring consiste à extraire la gestion des WebSockets dans un service dédié : le **HLinkBridge**.
+## 8.1 Topologie des Services
 
-### Étapes de Migration
-1. **Extraction de l'A2UI** : Déplacer `apps/a2ui` vers `apps/h-bridge/static`.
-2. **Création du Bridge** : Développer `apps/h-bridge/src/main.py` (FastAPI pur).
-3. **Purification du Core** : Supprimer FastAPI/Uvicorn de `apps/h-core`. Remplacer la boucle principale par une boucle asyncio infinie.
-4. **Middleware de Confidentialité** : Migrer le `PrivacyFilter` dans un middleware Redis partagé ou l'injecter dans le Core comme un service de filtrage global.
+Le système est décomposé en services spécialisés isolés dans un réseau virtuel Docker (`hairem-net`) :
 
-### Avantages
-- **Résilience** : Un crash du H-Core ne déconnecte plus l'interface utilisateur.
-- **Scalabilité** : On peut déployer plusieurs instances du Bridge.
+- **redis** : Bus de communication central (Pub/Sub) pour tous les services.
+- **surrealdb** : Base de données multi-modèle persistante.
+- **h-core** : Cerveau narratif et orchestrateur des stimuli.
+- **h-bridge** : Pont E/S gérant les WebSockets (UI), l'authentification et le service de fichiers statiques.
 
-## 8.3 Stratégie CI/CD (Automatisation)
+## 8.2 Persistance & Volumes
 
-L'automatisation est le dernier rempart pour garantir la stabilité de hAIrem V3.
+La résilience des données est assurée par le montage de volumes hôtes, permettant au système de conserver sa mémoire après un redémarrage ou une mise à jour :
 
-### Pipeline de Continuité
-Tout changement de code doit franchir les étapes suivantes avant d'être éligible au déploiement :
-1. **Secret Scanning** : Utilisation de Gitleaks pour empêcher toute fuite de clé API dans le dépôt.
-2. **Validation Statique** : Analyse de type (Mypy) et linting.
-3. **Tests de Régression** : Exécution de la suite `pytest` intégrale (47+ tests).
-4. **Validation E2E** : Exécution du `scripts/master_regression_v3.py`.
-5. **Build Integrity** : Construction des images Docker.
+- `./surreal_data` : Stockage physique des graphes et vecteurs de SurrealDB.
+- `/media/generated` : Volume partagé entre le Core et le Bridge pour les images générées par "La Découpeuse".
+- `./agents` : Montage en lecture/écriture pour permettre le hotplug d'agents et la mise à jour des bibles visuelles.
 
-### Déploiement Continu (CD) & Kubernetes
-Le système est conçu pour être "K8s-Ready". 
-- Les services (Bridge/Core) sont découplés et scalables horizontalement.
-- Le déploiement futur pourra migrer vers une orchestration Kubernetes via Helm charts pour une résilience de niveau industriel.
+## 8.3 Communication Inter-Service
+
+Tous les services communiquent via le nom d'hôte Docker (ex: `ws://surrealdb:8000`).
+- **Healthchecks** : Le Core et le Bridge utilisent des clauses `depends_on` avec `service_healthy` pour s'assurer que Redis et SurrealDB sont prêts avant de démarrer, évitant les échecs de connexion au boot.
+
+## 8.4 Stratégie de Mise à Jour (CI/CD)
+
+Bien que le déploiement soit local, la qualité est maintenue par un pipeline de validation :
+1. **Secret Scanning** : Gitleaks sur le dépôt.
+2. **Tests Unitaires & Régression** : `pytest` et `master_regression_v3.py`.
+3. **Rebuild & Restart** : `docker-compose up --build -d`.
 
 ---
-*Spécifié par Winston (Architect) le 26 Janvier 2026.*
+*Spécifié par Winston (Architect) le 28 Janvier 2026.*

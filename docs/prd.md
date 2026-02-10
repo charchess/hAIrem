@@ -1,57 +1,83 @@
-# hAIrem Product Requirements Document (PRD) - V3
+# hAIrem Product Requirements Document (PRD) - V4
 
-**Version:** 3.0
+**Version:** 4.1
 **Status:** Approved ✅
-**Theme:** "Deep Cognition & True Presence"
+**Theme:** "Deep Cognition, True Presence & Visual Imagination"
 
 ---
 
 ## 1. Vision & Goals
 
-**V3 (The Goal):** Transformer le "Chatbot" en une **"Entité Vivante"**.
-*   **Deep Mind:** Les agents ont une mémoire subjective, évolutive et des croyances divergentes.
-*   **Deep Presence:** Les agents ont des oreilles (Continuous Listening), des voix (Neural TTS) et une présence visuelle cohérente.
-*   **Deep Home:** Les agents habitent la maison, réagissent aux événements et gèrent le contexte spatial.
+**V4 (The Goal):** Transformer hAIrem en une entité capable de cognition profonde et d'expression visuelle dynamique.
+*   **Deep Mind:** Mémoire subjective, hiérarchisation des stimuli et cycle de sommeil.
+*   **Deep Presence:** Voix neuronales, présence visuelle cohérente et conscience de l'état physique (tenue/lieu).
+*   **Deep Home:** Réactions proactives, architecture de compétences (Skills) pluggables et imagination anticipée.
 
 ---
 
 ## 2. Les Trois Piliers
 
 ### Pilier 1 : Deep Mind (Architecture Cognitive)
-*   **Subjective Graph Memory (Epic 13) :** Passage d'un RAG plat à un graphe de connaissances (SurrealDB).
-*   **Memory Decay :** Oubli actif des informations obsolètes.
-*   **Conflict Resolution :** Synthèse dialectique des contradictions.
-*   **Social Dynamics (Epic 18) :** Arbitrage des tours de parole et polyphonie émergente.
+*   **Subjective Graph Memory (Epic 13) :** Graphe SurrealDB avec MDP.
+*   **Cognitive Cycle (New V4) :** Cycle de consolidation nocturne. Passage de la mémoire courte vers le long terme et génération de stimuli "rêvés" pour la proactivité du lendemain.
+*   **Stimuli Hierarchy (Epic 18) :** Hiérarchisation des flux gérée par le Social Arbiter.
+
+...
+
+## 4. Métriques de Succès
+- **Latence Visuelle :** Asset prêt en < 5s (Warm cache) ou < 20s (Génération + Détourage).
+- **Stabilité Système :** 100% de disponibilité des services LLM/Imaging grâce à la gestion de la file d'attente GPU (Inference Queue).
+- **Pertinence Cognitive :** Augmentation mesurable des références aux conversations passées suite au cycle de consolidation.
+*   **Social Dynamics (Epic 18) :** 
+    - **Onboarding :** Session d'initialisation des relations (entretien d'embauche virtuel).
+    - **Polyphonie :** Gestion des tours de parole et conscience de l'existence des autres agents.
 
 ### Pilier 2 : Deep Presence (Corps & Sens)
-*   **Sensory Layer (Epic 14) :**
-    - Transcription vocale (Whisper) et détection de mot de réveil.
-    - Synthèse vocale neuronale (Piper/ElevenLabs) par agent.
-*   **Expression Visuelle (Epic 11) :** Poses émotionnelles et interface "The Stage" (Epic 17).
+*   **Sensory Layer (Epic 14) :** Transcription (Whisper) et synthèse vocale agnostique (Piper/Luxa).
+*   **Imagination Visuelle (Epic 25) :** 
+    - **Visual Bible :** Pilotage scientifique (FACS/Mehrabian) et styles modulaires.
+    - **Vault System :** Inventaire nommé des tenues (Garde-robe) et décors de référence.
+*   **Spatial Presence (Core V4) :** 
+    - **Localization :** Capacité pour les agents d'être assignés à des lieux physiques (Cuisine, Bureau).
+    - **Device Hierarchy :**
+        - *Fixed Stages :* Tablettes murales liées à une pièce (affichage statique du lieu).
+        - *Mobile Stages :* Appareils nomades (tablettes/laptops) avec suivi de localisation.
+        - *Remote Stages :* Accès extérieur (Interface "Pocket"). Alfred agit comme concierge dans un espace virtuel extérieur (Jardin/Ville), mais les agents domestiques restent accessibles via le flux narratif global (ex: Electra répondant à une question sur la domotique).
+    - **Multi-Stage UI :** Support de plusieurs clients avec backgrounds locaux et bus audio global.
 
-### Pilier 3 : Deep Home (Habitat)
-*   **Proactivité (Epic 15) :** Abonnement aux événements Home Assistant et réactions autonomes.
-*   **Conscience Spatiale :** Routage de l'interaction selon la position de l'utilisateur.
+### Pilier 3 : Deep Home (Habitat & Skills)
+*   **Architecture Persona-Skill (Epic 15) :** Découplage total entre l'identité et les capacités techniques.
+*   **Proactivité Mondiale (Epic 18/25) :** 
+    - **World State :** Gestion des thèmes globaux (Noël, Saisons, Météo) par Entropy (Dieu).
+    - **Thematic Cascade :** Un changement de thème (ex: Noël) déclenche automatiquement la ré-imagination des décors de tous les lieux et suggère des changements de tenues aux agents.
 
 ---
 
-## 3. Roadmap des Epics (V3)
+## 3. Roadmap des Epics (V4)
 
 | Epic | Titre | Statut |
 | :--- | :--- | :--- |
-| **13** | **Deep Cognitive Architecture** | DONE (Code) / REVIEW |
-| **14** | **Sensory Layer (Ears & Voice)** | TO DO |
-| **15** | **Living Home (Proactive HA)** | TO DO |
-| **17** | **"The Stage" UI/UX Overhaul** | DONE |
-| **18** | **Social Dynamics & Polyphony** | TO DO |
+| **13** | **Deep Cognitive Architecture** | DONE |
+| **25** | **Visual Imagination (Modular)** | IN PROGRESS |
+| **17** | **"The Stage" UI/UX (A2UI)** | DONE |
+| **14** | **Sensory Layer (Ears & Voice)** | IN PROGRESS |
+| **15** | **Living Home (Skills & Proactivity)** | IN PROGRESS |
+| **18** | **Social Dynamics & Social Arbiter** | TO DO |
+
+### Détails du Planning
+*   **Epic 13 (Done) :** Le coeur cognitif est fonctionnel. SurrealDB stocke les souvenirs.
+*   **Epic 17 (Done) :** L'interface "The Stage" est déployée avec le sélecteur d'agent (17.4) et le support mobile.
+*   **Epic 25 (Focus Actuel) :** Le provider NanoBanana (25.1) est prêt. Prochaine étape : Asset Manager DB (25.2) pour lier les images aux lieux/personnages.
+*   **Epic 14 & 15 :** En parallèle. L'intégration de Whisper/Piper (14) et l'architecture Skills (15) sont en cours de définition technique.
+*   **Epic 18 :** Futur proche. C'est ici que nous gérerons le "Pocket Mode" d'Alfred et la localisation dynamique.
 
 ---
 
 ## 4. Métriques de Succès
-- **Latence Vocale :** < 1.2s entre la fin de l'input et le début du TTS.
-- **Cohérence Narrative :** Zéro contradiction factuelle majeure en mémoire.
-- **Engagement :** > 30% des interactions initiées proactivement par les agents.
+- **Latence Visuelle :** Asset prêt en < 5s (Warm cache) ou < 20s (Génération + Détourage).
+- **Consistance Visuelle :** Identité des agents et décors préservés à > 90% via le système de Vaults.
+- **Réactivité Contextuelle :** 100% de succès sur les interactions liées à la "Burning Memory" (ex: réactions aux tenues).
+- **Fiabilité Stimuli :** Zéro collision de stimuli critiques grâce à la hiérarchisation.
 
 ---
-*Approuvé par John (PM) le 26 Janvier 2026.
-
+*Approuvé par John (PM) le 28 Janvier 2026.

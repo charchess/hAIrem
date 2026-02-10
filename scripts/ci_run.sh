@@ -58,5 +58,9 @@ else
     echo -e "${RED}⚠️ Skipping UI Test: H-Bridge ($TARGET_URL) not accessible. Is the Docker stack up?${NC}"
 fi
 
+# 7. Build Integrity (Docker)
+echo -e "\n${GREEN}🐳 Phase 7: Build Integrity (Docker)${NC}"
+docker compose build --quiet
+
 echo -e "\n${GREEN}✅ Quality Gate passed successfully!${NC}"
 

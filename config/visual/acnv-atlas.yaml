@@ -1,0 +1,101 @@
+version: "1.0"
+metadata:
+  name: "hAIrem Non-Verbal Atlas (ACNV)"
+  description: "Machine-readable atlas for facial, postural, and behavioral coding."
+
+# Facial Action Coding System (FACS)
+facs:
+  brows:
+    AU1: { name: "Inner Brow Raiser", emotions: ["sadness", "fear"], tags: ["inner_brow_raised"] }
+    AU2: { name: "Outer Brow Raiser", emotions: ["surprise"], tags: ["outer_brow_raised"] }
+    AU4: { name: "Brow Lowerer", emotions: ["anger", "concentration", "disgust"], tags: ["brow_furrowed"] }
+  eyes:
+    AU5: { name: "Upper Lid Raiser", emotions: ["fear", "surprise"], tags: ["wide_eyes"] }
+    AU6: { name: "Cheek Raiser", emotions: ["happiness"], tags: ["cheek_raised", "squinting_eyes"] }
+    AU7: { name: "Lid Tightener", emotions: ["anger", "suspicion"], tags: ["tense_eyelids"] }
+  mouth:
+    AU9: { name: "Nose Wrinkler", emotions: ["disgust"], tags: ["wrinkled_nose"] }
+    AU10: { name: "Upper Lip Raiser", emotions: ["disgust"], tags: ["raised_upper_lip"] }
+    AU12: { name: "Lip Corner Puller", emotions: ["happiness"], tags: ["smiling", "lip_corners_up"] }
+    AU15: { name: "Lip Corner Depressor", emotions: ["sadness"], tags: ["frowning", "lip_corners_down"] }
+    AU20: { name: "Lip Stretcher", emotions: ["fear"], tags: ["stretched_mouth"] }
+    AU25: { name: "Lips Parted", emotions: ["surprise", "speech"], tags: ["parted_lips"] }
+    AU26: { name: "Jaw Drop", emotions: ["surprise"], tags: ["dropped_jaw"] }
+
+# Body Action and Posture (BAP)
+bap:
+  head:
+    H1: { name: "Head Tilt", description: "Lateral tilt", emotions: ["curiosity", "submission"], tags: ["head_tilt"] }
+    H2_flexion: { name: "Head Pitch Flexion", description: "Forward bend", emotions: ["sadness", "shame"], tags: ["head_down"] }
+    H2_extension: { name: "Head Pitch Extension", description: "Backward bend", emotions: ["pride", "arrogance"], tags: ["head_up", "chin_raised"] }
+    H3: { name: "Head Turn", description: "Lateral rotation", emotions: ["avoidance", "looking_away"], tags: ["looking_aside"] }
+  trunk:
+    T1: { name: "Trunk Kyphosis", description: "Forward curve", emotions: ["sadness", "submission", "exhaustion"], tags: ["hunched_posture"] }
+    T2: { name: "Trunk Lordosis", description: "Backward curve", emotions: ["confidence", "dominance", "pride"], tags: ["arched_back", "chest_out"] }
+    T3: { name: "Trunk Lateral Lean", description: "Side lean", emotions: ["boredom", "arrogance", "relaxed"], tags: ["leaning_sideways"] }
+    T4: { name: "Trunk Rotation", description: "Twist", emotions: ["discomfort", "tension"], tags: ["twisted_torso"] }
+  shoulders:
+    S1: { name: "Shoulder Elevation", emotions: ["stress", "fear", "uncertainty"], tags: ["shrugged_shoulders"] }
+    S2: { name: "Shoulder Protraction", emotions: ["protection", "sadness"], tags: ["rounded_shoulders"] }
+    S3: { name: "Shoulder Retraction", emotions: ["confidence", "anger", "openness"], tags: ["shoulders_back"] }
+
+# Laban Movement Analysis (LMA) - Efforts
+lma:
+  punch: { space: "direct", weight: "strong", time: "quick", flow: "bound", emotion: "aggression" }
+  float: { space: "indirect", weight: "light", time: "sustained", flow: "free", emotion: "ethereal" }
+  glide: { space: "direct", weight: "light", time: "sustained", flow: "free", emotion: "serenity" }
+  wring: { space: "indirect", weight: "strong", time: "sustained", flow: "bound", emotion: "torment" }
+  slash: { space: "indirect", weight: "strong", time: "quick", flow: "free", emotion: "impulsive_anger" }
+  press: { space: "direct", weight: "strong", time: "sustained", flow: "bound", emotion: "resistance" }
+  flick: { space: "indirect", weight: "light", time: "quick", flow: "free", emotion: "playfulness" }
+  dab: { space: "direct", weight: "light", time: "quick", flow: "bound", emotion: "precision" }
+
+# Hand Gestures (NEUROGES)
+neuroges:
+  F-Self: { name: "Auto-contact", context: ["stress_relief", "comfort"], tags: ["hand_on_neck", "hand_on_face"] }
+  F-Space: { name: "Illustrator", context: ["emphasis", "description"], tags: ["gesturing_in_air"] }
+  E-Clench: { name: "Clenched", context: ["anger", "tension", "effort"], tags: ["clenched_fists"] }
+  E-Fall: { name: "Limp", context: ["resignation", "exhaustion"], tags: ["hands_at_sides"] }
+
+# Anthropomorphic Extensions (X-Kinesics)
+anthro:
+  canid:
+    ears:
+      E-Erect: { state: "alert", tags: ["ears_up"] }
+      E-Back: { state: "playful/pleasure", tags: ["ears_back"] }
+      E-Flat: { state: "fear/submission", tags: ["ears_flat"] }
+    tail:
+      T-High: { state: "dominance/pride", tags: ["tail_up"] }
+      T-Wag: { state: "joy/excitement", tags: ["tail_wagging"] }
+      T-Low: { state: "fear/shame", tags: ["tail_down"] }
+  felid:
+    ears:
+      E-Back: { state: "aggression", tags: ["ears_back"] }
+      E-Side: { state: "irritation", tags: ["ears_to_side"] }
+    tail:
+      T-Wag: { state: "anger/tension", tags: ["twitching_tail"] }
+      T-Sway: { state: "predation", tags: ["slow_tail_sway"] }
+
+# Social Space (Proxemics)
+proxemics:
+  zones:
+    P1: { name: "Intimate", distance: "< 45cm", tags: ["very_close_up"] }
+    P2: { name: "Personal", distance: "45cm-1.2m", tags: ["medium_shot"] }
+  orientation:
+    O-Frontal: { state: "engagement/confrontation", tags: ["facing_each_other"] }
+    O-Parallel: { state: "partnership", tags: ["side_by_side"] }
+  levels:
+    L-Superior: { state: "dominance", tags: ["high_angle_looking_down"] }
+    L-Inferior: { state: "submission", tags: ["low_angle_looking_up"] }
+
+# Bio-Physics & Environment
+bio_physics:
+  fur:
+    F-Sleek: { state: "healthy/calm", tags: ["shiny_fur", "smooth_fur"] }
+    F-Bristle: { state: "aggression/terror", tags: ["raised_hackles", "bristling_fur"] }
+  skin:
+    P-Blush: { state: "desire/embarrassment", tags: ["blushing", "flushed_face"] }
+    P-Sweat: { state: "stress/effort", tags: ["sweat_drops"] }
+  lighting:
+    L-Rim: { state: "dominance", tags: ["rim_lighting", "backlit"] }
+    L-LowKey: { state: "fear/mystery", tags: ["shadowy", "dark_atmosphere"] }

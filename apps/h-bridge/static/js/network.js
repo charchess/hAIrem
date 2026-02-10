@@ -29,7 +29,10 @@ class NetworkClient {
                 }, 2000);
                 
                 // Temporary Fallback
-                this.agentMetadata = [{ id: "Renarde", commands: ["ping"] }];
+                this.agentMetadata = [
+                    { id: "Renarde", commands: ["ping"] },
+                    { id: "system", commands: ["imagine"] }
+                ];
             }
             
             console.log("Agent metadata loaded:", this.agentMetadata);
@@ -118,6 +121,7 @@ class NetworkClient {
     }
 
     handleMessage(message) {
+        console.log(`NETWORK: Received ${message.type} from ${message.sender ? message.sender.agent_id : 'unknown'}`);
         // Clear processing state on any narrative response
         if ((message.type === "narrative.text" || message.type === "narrative.chunk" || message.type === "expert.response") && window.renderer) {
             window.renderer.setProcessingState(false);
@@ -177,6 +181,35 @@ class NetworkClient {
                 statusPayload.total_tokens,
                 statusPayload.commands
             );
+        } else if (message.type === "visual.asset") {
+            const payload = message.payload.content;
+            let url = payload.url;
+            
+            // Map internal paths/hosts to web-accessible paths
+            if (url.startsWith('file:///media/generated/')) {
+                url = url.replace('file:///media/generated/', '/media/');
+            } else if (url.includes('/media/generated/')) {
+                // Handle cases where it might be a full URI or mixed path
+                url = '/media/' + url.split('/media/generated/')[1];
+            }
+            
+            if (url.startsWith('http://h-bridge:8000/')) {
+                url = url.replace('http://h-bridge:8000/', '/');
+            }
+            
+            // Story 25.6: Add cache busting
+            url += (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+            
+            console.log("NETWORK: Visual asset received:", url);
+            if (window.renderer) {
+                window.renderer.addLog(`🎨 Image reçue: ${url}`);
+                window.renderer.renderVisualAsset({
+                    url: url,
+                    alt_text: payload.alt_text,
+                    agent_id: payload.agent_id,
+                    asset_type: payload.asset_type || "background"
+                });
+            }
         }
     }
 
@@ -226,8 +259,11 @@ class NetworkClient {
         if (!text.trim()) return;
 
         let message;
-        if (text.startsWith('/')) {
-            // Slash Command Mode: /target_agent command_name args...
+        const globalCommands = ['imagine', 'outfit', 'vault', 'location'];
+        const firstWord = text.slice(1).split(' ')[0].toLowerCase();
+
+        if (text.startsWith('/') && !globalCommands.includes(firstWord)) {
+            // Slash Command Mode for specific agents: /target_agent command_name args...
             const parts = text.slice(1).split(' ');
             const slashTarget = parts[0] || "broadcast";
             const command = parts[1] || "ping";

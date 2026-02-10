@@ -57,7 +57,7 @@ class SurrealDbClient:
                 # Only try to define if we are root
                 try:
                     await self._call('query', f"DEFINE NAMESPACE {self.ns};")
-                    await self._call('use', namespace=self.ns) # Set context first
+                    await self._call('use', namespace=self.ns, database=self.db) # Set context first
                     await self._call('query', f"DEFINE DATABASE {self.db};")
                 except Exception as def_e:
                     logger.warning(f"Could not define NS/DB: {def_e}")
@@ -80,11 +80,9 @@ class SurrealDbClient:
         """Basic schema setup and graph model initialization."""
         if not self.client: return
         try:
-            # 1. Base tables (Legacy/Infrastructure)
-            await self._call('query', "DEFINE TABLE IF NOT EXISTS messages SCHEMAFULL;")
-            await self._call('query', "DEFINE FIELD IF NOT EXISTS timestamp ON TABLE messages TYPE datetime;")
-            await self._call('query', "DEFINE FIELD IF NOT EXISTS agent_id ON TABLE messages TYPE string;")
-            await self._call('query', "DEFINE FIELD IF NOT EXISTS processed ON TABLE messages TYPE bool DEFAULT false;")
+            # 1. Base tables (Flexible Schema)
+            await self._call('query', "DEFINE TABLE messages SCHEMALESS;")
+            await self._call('query', "DEFINE INDEX IF NOT EXISTS msg_time ON TABLE messages FIELDS timestamp;")
             
             # 2. Load Graph Schema from file if exists
             schema_path = os.path.join(os.path.dirname(__file__), "graph_schema.surql")
@@ -147,11 +145,12 @@ class SurrealDbClient:
         """Save a message to SurrealDB."""
         if not self.client or not SURREAL_AVAILABLE: return
         try:
+            from datetime import timezone
             data = {
                 "agent_id": message.get("sender", {}).get("agent_id", "unknown"),
                 "type": message.get("type", "unknown"),
                 "payload": message.get("payload", {}),
-                "timestamp": message.get("timestamp", datetime.utcnow().isoformat() if not message.get("timestamp") else message.get("timestamp")),
+                "timestamp": message.get("timestamp", datetime.now(timezone.utc).isoformat() if not message.get("timestamp") else message.get("timestamp")),
                 "processed": False
             }
             await self._call('create', "messages", data)
@@ -275,15 +274,28 @@ class SurrealDbClient:
             logger.error(f"Failed to resolve memory conflict: {e}")
 
     async def get_messages(self, limit: int = 50) -> list[dict[str, Any]]:
-        """Retrieve recent messages."""
+        """Retrieve recent messages in chronological order."""
         if not self.client or not SURREAL_AVAILABLE: return []
         try:
-            res = await self._call('query', f"SELECT * FROM messages ORDER BY timestamp DESC LIMIT {limit};")
-            if res and isinstance(res, list) and len(res) > 0:
-                # Library returns a list of results for each query part
-                result_data = res[0].get("result", []) if isinstance(res[0], dict) else res
-                return result_data
-            return []
+            # Query latest messages but return them in ascending order for UI reconstruction
+            res = await self._call('query', f"SELECT * FROM (SELECT * FROM messages ORDER BY timestamp DESC LIMIT {limit}) ORDER BY timestamp ASC;")
+            
+            if not res:
+                return []
+                
+            # Handle SurrealDB 2.x response format (list of Result objects or list of lists)
+            result_data = []
+            if isinstance(res, list) and len(res) > 0:
+                # Part 1: Check if it's a list of results
+                first_part = res[0]
+                if isinstance(first_part, dict) and "result" in first_part:
+                    result_data = first_part["result"]
+                elif isinstance(first_part, list):
+                    result_data = first_part
+                else:
+                    result_data = res
+            
+            return result_data if isinstance(result_data, list) else []
         except Exception as e:
             logger.error(f"Failed to retrieve messages from SurrealDB: {e}")
             return []

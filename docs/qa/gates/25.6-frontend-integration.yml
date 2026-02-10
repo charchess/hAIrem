@@ -1,0 +1,21 @@
+# QA Quality Gate Decision
+story_id: "25.6"
+story_title: "Intégration Frontend & Transitions Fluides"
+date: "2026-01-27"
+decision: "PASS"
+rationale: |
+  The frontend integration is complete and of high quality. 
+  The dual-layer background transition system provides a professional 
+  cross-fade effect. Shared volume management via Docker Compose is correct. 
+  Alt-text and modal overlays meet the UX requirements.
+concerns:
+  - Technical: Background transition logic uses a fixed 2s timeout; ensure this aligns with CSS transition duration.
+  - UI: Overlay modals currently require manual closing; consider an auto-close or click-outside-to-close behavior in future polish sprints.
+risk_assessment:
+  probability: Low
+  impact: Low
+  mitigation: "Verified via code review and functional tracing of message handling."
+nfr_validation:
+  performance: "Pre-loading background images prevents layout shift."
+  usability: "Alt-text included for accessibility."
+approver: "Quinn (QA)"

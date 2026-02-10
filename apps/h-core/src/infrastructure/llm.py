@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 from collections.abc import AsyncGenerator
@@ -6,33 +7,37 @@ from typing import Any
 
 try:
     import litellm
-    from litellm import acompletion, aembedding
+    from litellm import acompletion
     LITELLM_AVAILABLE = True
 except ImportError:
     litellm = None  # type: ignore
     acompletion = None
-    aembedding = None
     LITELLM_AVAILABLE = False
     print("WARNING: litellm library not found. LLM features will be disabled.")
+
+try:
+    from fastembed import TextEmbedding
+    FASTEMBED_AVAILABLE = True
+except ImportError:
+    FASTEMBED_AVAILABLE = False
+    print("WARNING: fastembed library not found. Local embeddings will be disabled.")
 
 logger = logging.getLogger(__name__)
 
 # Configure litellm
 if LITELLM_AVAILABLE:
     litellm.drop_params = True
-    litellm.success_callback = [] # Disable callbacks like cost tracking
+    litellm.success_callback = [] 
     litellm.failure_callback = []
 
 class LlmClient:
     api_key: Any = None
     base_url: Any = None
+    embedding_model = None
 
     def __init__(self, cache: Any | None = None, config_override: dict[str, Any] | None = None):
         config_override = config_override or {}
         self.model = config_override.get("model") or os.getenv("LLM_MODEL", "ollama/mistral")
-        
-        # DEBUG: Check api_key type
-        print(f"DEBUG: api_key type: {type(self.api_key)} value: {self.api_key}")
         
         raw_key = config_override.get("api_key") or os.getenv("LLM_API_KEY")
         self.api_key = str(raw_key) if raw_key else None
@@ -42,22 +47,24 @@ class LlmClient:
         self.cache = cache
         
         # Ensure provider-specific keys are in environment for LiteLLM
-        gemini_key = os.getenv("GEMINI_API_KEY")
-        if gemini_key:
-            os.environ["GEMINI_API_KEY"] = gemini_key
-            logger.info("Gemini API Key detected.")
-            
         openrouter_key = os.getenv("OPENROUTER_API_KEY")
         if openrouter_key:
             os.environ["OPENROUTER_API_KEY"] = openrouter_key
             logger.info(f"OpenRouter API Key detected. Using Model: {self.model}")
         
-        if not LITELLM_AVAILABLE:
-            logger.warning("LiteLLM is NOT available. AI features will be disabled.")
+        # Initialize Local Embedding Engine
+        if FASTEMBED_AVAILABLE:
+            try:
+                # Default: BAAI/bge-small-en-v1.5 or sentence-transformers/all-MiniLM-L6-v2
+                # We use multilingual model for better French support (384 dim)
+                self.embedding_model = TextEmbedding(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+                logger.info("FastEmbed initialized with model: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 (384 dim)")
+            except Exception as e:
+                logger.error(f"Failed to initialize FastEmbed: {e}")
         else:
-            logger.info("LiteLLM initialized successfully.")
+            logger.warning("FastEmbed not available. Embeddings will fail.")
         
-        logger.info(f"Initializing LlmClient with Model: {self.model} (Temp: {self.temperature})")
+        logger.info(f"Initializing LlmClient with Model: {self.model}")
 
     async def get_completion(self, messages: list[dict[str, str]], stream: bool = False, tools: list[dict[str, Any]] | None = None, return_full_object: bool = False) -> str | AsyncGenerator[str, None] | Any:
         """
@@ -86,8 +93,7 @@ class LlmClient:
 
             logger.info(f"LLM_CALL: Model={self.model}, Tools={len(tools) if tools else 0}")
             response = await asyncio.wait_for(acompletion(**kwargs), timeout=60.0)
-            logger.info(f"LLM_RESPONSE_RECEIVED: {type(response)}")
-
+            
             if stream:
                 return self._stream_generator(response)
             
@@ -108,46 +114,42 @@ class LlmClient:
         """Helper to yield content chunks from the stream."""
         async for chunk in response:
             delta = chunk.choices[0].delta
-            # Capture standard content
             if hasattr(delta, 'content') and delta.content is not None:
                 yield delta.content
-            # Capture Grok reasoning content if standard content is empty
             elif hasattr(delta, 'reasoning_content') and delta.reasoning_content is not None:
                 yield delta.reasoning_content
 
     async def get_embedding(self, text: str) -> list[float]:
         """
-        Generate a vector embedding for the given text.
+        Generate a vector embedding for the given text using local FastEmbed model.
+        Returns a list of floats (dimension 384 for MiniLM).
         """
-        if not LITELLM_AVAILABLE or not text: return []
+        if not text: return []
         
         # 1. Check Cache
         if self.cache:
             cached = await self.cache.get(text)
             if cached:
-                logger.info(f"Embedding cache hit for: {text[:30]}...")
+                logger.info(f"Embedding cache hit.")
                 return cached
 
-        # 2. Call Provider
-        logger.info(f"get_embedding called for text: {text[:50]}...")
-        try:
-            # FORCE GEMINI EMBEDDING since we have the key
-            model = os.getenv("EMBEDDING_MODEL", "gemini/text-embedding-004")
-            
-            logger.info(f"Generating embedding using model: {model}")
-            response = await aembedding(
-                model=model,
-                input=[text]
-            )
-            emb = response.data[0]['embedding']
-            logger.info(f"Successfully generated embedding of length {len(emb)}")
-            
-            # 3. Store in Cache
-            if self.cache:
-                await self.cache.set(text, emb)
-                
-            return emb
-        except Exception as e:
-            logger.error(f"Failed to generate embedding: {e}")
-            return None  # type: ignore
+        # 2. Generate Locally
+        if self.embedding_model:
+            try:
+                # FastEmbed returns a generator of vectors (numpy or list)
+                embeddings = list(self.embedding_model.embed([text]))
+                if embeddings:
+                    # Convert numpy array to list if necessary
+                    vec = embeddings[0].tolist() if hasattr(embeddings[0], 'tolist') else list(embeddings[0])
+                    
+                    # 3. Store in Cache
+                    if self.cache:
+                        await self.cache.set(text, vec)
+                    
+                    return vec
+            except Exception as e:
+                logger.error(f"FastEmbed generation failed: {e}")
+        
+        logger.error("No embedding model available.")
+        return []
         

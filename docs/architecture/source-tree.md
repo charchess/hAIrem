@@ -16,6 +16,7 @@ Applications principales et services exécutables.
 ### `/config`
 Fichiers de configuration globaux (YAML, JSON).
 *   `prompts.yaml`, `system.yaml` : Configurations du système et des prompts IA.
+*   `visual/` : Bibles visuelles modulaires (`POSES.yaml`, `ATTITUDES.yaml`, `STYLE_GLOBAL.yaml`) pilotant l'imagination visuelle.
 
 ### `/docs`
 Documentation du projet.

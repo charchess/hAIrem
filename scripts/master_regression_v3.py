@@ -43,7 +43,7 @@ async def master_regression_v3():
     from src.main import RedisLogHandler
     log_handler = RedisLogHandler(redis)
     # Simulate a sensitive log
-    record = logging.LogRecord("test", logging.INFO, "", 0, "Secret key: AIzaSyA12345678901234567890123456789012", (), None)
+    record = logging.LogRecord("test", logging.INFO, "", 0, "Secret key: [MOCK_GCP_KEY]", (), None)
     
     # Subscribe to broadcast to check the log
     pubsub = redis.client.pubsub()

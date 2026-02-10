@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import inspect
 from datetime import datetime
 from typing import Any
 
@@ -25,81 +26,219 @@ class SurrealDbClient:
     async def _call(self, method_name: str, *args, **kwargs):
         """Helper to call client methods whether they are sync or async."""
         if not self.client: return None
-        if not hasattr(self.client, method_name): return None
         
         func = getattr(self.client, method_name)
-        if asyncio.iscoroutinefunction(func):
-            return await func(*args, **kwargs)
-        else:
-            return func(*args, **kwargs)
+        
+        async def _exec():
+            res = func(*args, **kwargs)
+            if inspect.isawaitable(res):
+                res = await res
+            return res
+
+        try:
+            res = await _exec()
+            
+            # Detect missing scope/auth in response string
+            err_msg = str(res).lower()
+            if "namespace" in err_msg or "database" in err_msg or "permissions" in err_msg or "iam error" in err_msg:
+                logger.warning(f"SURREAL_SESSION_LOSS: {res}. Re-connecting...")
+                await self.connect()
+                return await _exec()
+
+            logger.debug(f"SURREAL_CALL: {method_name} success")
+            return res
+        except Exception as e:
+            err_msg = str(e).lower()
+            if "namespace" in err_msg or "database" in err_msg or "iam" in str(e) or "auth" in err_msg:
+                logger.warning(f"SURREAL_EXCEPTION: {e}. Re-connecting...")
+                await self.connect()
+                try:
+                    return await _exec()
+                except Exception as retry_e:
+                    logger.error(f"SURREAL_RETRY_FAILED: {retry_e}")
+                    return None
+            
+            logger.error(f"SURREAL_ERROR: {method_name} failed: {e}")
+            return None
 
     async def connect(self):
-        """Connect to SurrealDB with exponential backoff."""
+        """Connect to SurrealDB via HTTP for stability."""
         global SURREAL_AVAILABLE
-        if not SURREAL_AVAILABLE:
-            logger.warning("SurrealDB connection skipped (library missing).")
-            return
+        if not SURREAL_AVAILABLE: return
 
-        attempt = 0
-        while not self._stop_event.is_set():
+        # STORY 25.7: Reset connection state
+        if self.client:
+            try: await self.client.close()
+            except: pass
+            
+        http_url = self.url.replace("ws://", "http://").replace("/rpc", "")
+        self.client = Surreal(http_url)
+        
+        try:
+            u = self.user or "root"
+            p = self.password or "root"
+            
+            # Helper to try signin
+            async def try_auth(creds):
+                try:
+                    res = self.client.signin(creds)
+                    if inspect.isawaitable(res): await res
+                    return True
+                except Exception as e:
+                    logger.debug(f"Auth failed for {creds.keys()}: {e}")
+                    return False
+
+            # Try common credential formats
+            auth_success = False
+            # Option A: Protocol standard
+            if await try_auth({"user": u, "pass": p}):
+                auth_success = True
+            # Option B: Pythonic
+            elif await try_auth({"username": u, "password": p}):
+                auth_success = True
+            # Option C: Hybrid
+            elif await try_auth({"user": u, "password": p}):
+                auth_success = True
+            
+            if not auth_success:
+                raise Exception("Authentication failed with all credential formats.")
+
+            # 2. Use (Namespace/Database)
+            # Try dict first (standard)
             try:
-                self.client = Surreal(self.url)
-                await self._call('connect')
-                
-                # Try authenticating as root
-                creds = {"user": self.user, "pass": self.password}
-                try:
-                    await self._call('signin', creds)
-                except Exception:
-                    creds = {"username": self.user, "password": self.password}
-                    await self._call('signin', creds)
-                
-                # Only try to define if we are root
-                try:
-                    await self._call('query', f"DEFINE NAMESPACE {self.ns};")
-                    await self._call('use', namespace=self.ns) # Set context first
-                    await self._call('query', f"DEFINE DATABASE {self.db};")
-                except Exception as def_e:
-                    logger.warning(f"Could not define NS/DB: {def_e}")
-
-                await self._call('use', namespace=self.ns, database=self.db)
-                
-                logger.info(f"Successfully connected to SurrealDB at {self.url}")
-                await self.setup_schema()
-                return
-            except Exception as e:
-                if attempt % 5 == 0: 
-                    logger.error(f"SurrealDB still not connected (attempt {attempt+1}): {e}")
-                attempt += 1
-                await asyncio.sleep(min(60, 5 * attempt)) 
-                
-                if "authentication" in str(e).lower() or "permissions" in str(e).lower() or "IAM" in str(e):
-                    logger.error("Auth/IAM Error detected. Keeping retries slow.")
+                res = self.client.use({"namespace": self.ns, "database": self.db})
+                if inspect.isawaitable(res): await res
+            except:
+                # Fallback to positional
+                res = self.client.use(self.ns, self.db)
+                if inspect.isawaitable(res): await res
+            
+            logger.info(f"Connected and Scoped SurrealDB: {self.ns}:{self.db} as {u}")
+        except Exception as e:
+            logger.error(f"SurrealDB connection failed: {e}")
 
     async def setup_schema(self):
         """Basic schema setup and graph model initialization."""
         if not self.client: return
         try:
-            # 1. Base tables (Legacy/Infrastructure)
-            await self._call('query', "DEFINE TABLE IF NOT EXISTS messages SCHEMAFULL;")
-            await self._call('query', "DEFINE FIELD IF NOT EXISTS timestamp ON TABLE messages TYPE datetime;")
-            await self._call('query', "DEFINE FIELD IF NOT EXISTS agent_id ON TABLE messages TYPE string;")
-            await self._call('query', "DEFINE FIELD IF NOT EXISTS processed ON TABLE messages TYPE bool DEFAULT false;")
+            # STORY 25.1: Refresh visual_asset with correct dimensions (384 for FastEmbed/MiniLM)
+            logger.info("SYSTEM: Initializing schema...")
             
+            # Atomic setup queries
+            setup_queries = [
+                f"DEFINE NAMESPACE IF NOT EXISTS {self.ns};",
+                f"USE NAMESPACE {self.ns};",
+                f"DEFINE USER IF NOT EXISTS root ON NAMESPACE PASSWORD 'root' ROLES OWNER;",
+                f"DEFINE DATABASE IF NOT EXISTS {self.db};",
+                f"USE DATABASE {self.db};",
+                f"DEFINE USER IF NOT EXISTS root ON DATABASE PASSWORD 'root' ROLES OWNER;",
+                "REMOVE TABLE visual_asset;",
+                "DEFINE TABLE visual_asset SCHEMAFULL PERMISSIONS FULL;",
+                "DEFINE FIELD url ON TABLE visual_asset TYPE string;",
+                "DEFINE FIELD prompt ON TABLE visual_asset TYPE string;",
+                "DEFINE FIELD agent_id ON TABLE visual_asset TYPE string;",
+                "DEFINE FIELD tags ON TABLE visual_asset TYPE array<string>;",
+                "DEFINE FIELD embedding ON TABLE visual_asset TYPE array<float, 384>;",
+                "DEFINE FIELD last_used ON TABLE visual_asset TYPE datetime DEFAULT time::now();",
+                "DEFINE FIELD reference_image_used ON TABLE visual_asset TYPE option<string>;",
+                "DEFINE INDEX asset_mt ON TABLE visual_asset FIELDS embedding MTREE DIMENSION 384 DIST COSINE;",
+                "DEFINE INDEX asset_url ON TABLE visual_asset FIELDS url UNIQUE;",
+                "REMOVE TABLE vault;",
+                "DEFINE TABLE vault SCHEMAFULL PERMISSIONS FULL;",
+                "DEFINE FIELD agent_id ON TABLE vault TYPE string;",
+                "DEFINE FIELD prompt ON TABLE visual_asset TYPE string;",
+                "DEFINE FIELD agent_id ON TABLE visual_asset TYPE string;",
+                "DEFINE FIELD tags ON TABLE visual_asset TYPE array<string>;",
+                "DEFINE FIELD embedding ON TABLE visual_asset TYPE array<float, 384>;",
+                "DEFINE FIELD last_used ON TABLE visual_asset TYPE datetime DEFAULT time::now();",
+                "DEFINE FIELD reference_image_used ON TABLE visual_asset TYPE string;",
+                "DEFINE INDEX asset_mt ON TABLE visual_asset FIELDS embedding MTREE DIMENSION 384 DIST COSINE;",
+                "DEFINE INDEX asset_url ON TABLE visual_asset FIELDS url UNIQUE;",
+                "REMOVE TABLE vault;",
+                "DEFINE TABLE vault SCHEMAFULL PERMISSIONS FULL;",
+                "DEFINE FIELD agent_id ON TABLE vault TYPE string;",
+                "DEFINE FIELD name ON TABLE vault TYPE string;",
+                "DEFINE FIELD asset_id ON TABLE vault TYPE record;",
+                "DEFINE FIELD uri ON TABLE vault TYPE string;",
+                "DEFINE FIELD prompt ON TABLE vault TYPE string;",
+                "DEFINE FIELD timestamp ON TABLE vault TYPE datetime DEFAULT time::now();",
+                "DEFINE INDEX vault_unique ON TABLE vault FIELDS agent_id, name UNIQUE;",
+                "DEFINE TABLE IF NOT EXISTS messages SCHEMALESS PERMISSIONS FULL;"
+            ]
+            
+            for q in setup_queries:
+                await self.client.query(q)
+                
+            logger.info("SYSTEM: SurrealDB Schema established.")
+
             # 2. Load Graph Schema from file if exists
             schema_path = os.path.join(os.path.dirname(__file__), "graph_schema.surql")
             if os.path.exists(schema_path):
                 with open(schema_path) as f:
                     schema_queries = f.read()
-                await self._call('query', schema_queries)
-                logger.info("SurrealDB Graph Schema loaded from file.")
-            else:
-                logger.warning(f"Graph schema file not found at {schema_path}. Skipping detailed schema.")
+                await self.client.query(schema_queries)
+                logger.info("SurrealDB Graph Schema loaded.")
 
         except Exception as e:
             logger.error(f"Failed to setup SurrealDB schema: {e}")
 
-    async def insert_graph_memory(self, fact_data: dict[str, Any]):
+
+
+    async def save_asset_record(self, data: dict[str, Any]) -> str | None:
+        """
+        Creates a visual_asset record and returns its ID.
+        Uses raw query to ensure native functions like time::now() work.
+        """
+        q = """
+        CREATE visual_asset CONTENT {
+            url: $url,
+            prompt: $prompt,
+            embedding: $embedding,
+            agent_id: $agent_id,
+            tags: $tags,
+            last_used: time::now(),
+            reference_image_used: $ref
+        };
+        """
+        params = {
+            "url": data.get("url"),
+            "prompt": data.get("prompt", ""),
+            "embedding": data.get("embedding", []),
+            "agent_id": data.get("agent_id", "system"),
+            "tags": data.get("tags", []),
+            "ref": data.get("reference_image_used", "")
+        }
+
+        try:
+            res = await self._call("query", q, params)
+            logger.info(f"DB_SAVE_ASSET_RES: {res}")
+            
+            # Parse result
+            if isinstance(res, list) and len(res) > 0:
+                first_item = res[0]
+                
+                # CASE 1: Standard 'query' response with 'result' wrapper
+                if isinstance(first_item, dict) and "result" in first_item:
+                    results = first_item["result"]
+                # CASE 2: Direct list of records (e.g. from CREATE inside query sometimes)
+                elif isinstance(first_item, dict) and "id" in first_item:
+                    results = res
+                # CASE 3: List of lists (rare)
+                elif isinstance(first_item, list):
+                    results = first_item
+                else:
+                    results = res # Fallback
+
+                if results and isinstance(results, list) and len(results) > 0:
+                    record = results[0]
+                    # Handle RecordID object if it's not a string
+                    asset_id = record.get("id")
+                    if asset_id:
+                        return str(asset_id)
+            return None
+        except Exception as e:
+            logger.error(f"DB_SAVE_ASSET_FAILED: {e}")
+            return None
         """
         Stores an atomic fact using the graph model.
         RELATE <agent>->BELIEVES-><fact>
@@ -273,6 +412,76 @@ class SurrealDbClient:
                 
         except Exception as e:
             logger.error(f"Failed to resolve memory conflict: {e}")
+
+    async def update_agent_state(self, agent_id: str, relation_type: str, target_data: dict[str, Any]):
+        """
+        Updates a transient state (like WEARS, IS_IN).
+        Ensures uniqueness: Deletes old edges of this type for this agent.
+        """
+        if not self.client or not SURREAL_AVAILABLE: return
+
+        try:
+            aid = f"subject:`{agent_id.lower().replace(' ', '_')}`"
+            
+            # 1. Invalidate old state (Delete existing edges)
+            await self._call('query', f"DELETE {relation_type} WHERE in = {aid};")
+            
+            # 2. Prepare target node
+            # target_table determined by relation_type
+            target_table = "outfit" if relation_type == "WEARS" else "location"
+            
+            # Generate a simple ID key if not provided
+            raw_id = target_data.get("id", target_data.get("name", "unknown")).lower()
+            # Sanitize ID
+            safe_id = "".join(c for c in raw_id if c.isalnum() or c in ('_', '-'))[:30]
+            if not safe_id: safe_id = f"gen_{int(datetime.now().timestamp())}"
+            
+            target_record_id = f"{target_table}:`{safe_id}`"
+            
+            # Create/Update target node
+            content = target_data.get("description", target_data.get("name", "Unknown"))
+            name = target_data.get("name", "Unknown")
+            
+            # Escape single quotes in content
+            content = content.replace("'", "\\'")
+            name = name.replace("'", "\\'")
+
+            # Use UPDATE to Create or Update (upsert-ish)
+            await self._call('query', f"UPDATE {target_record_id} SET description = '{content}', name = '{name}';")
+            
+            # 3. Create new edge
+            await self._call('query', f"RELATE {aid}->{relation_type}->{target_record_id} SET timestamp = time::now();")
+            
+            logger.info(f"STATE_UPDATE: {agent_id} now {relation_type} {target_record_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to update agent state: {e}")
+
+    async def get_agent_state(self, agent_id: str) -> list[dict[str, Any]]:
+        """
+        Retrieves all active transient states (edges and target nodes) for an agent.
+        """
+        if not self.client or not SURREAL_AVAILABLE: return []
+        try:
+            aid = f"subject:`{agent_id.lower().replace(' ', '_')}`"
+            
+            # Query for WEARS and IS_IN relations
+            # We want the relation type, and the target node's description/name
+            query = f"""
+            SELECT 
+                meta::table(id) as relation,
+                out.name as name,
+                out.description as description
+            FROM WEARS, IS_IN
+            WHERE in = {aid};
+            """
+            res = await self._call('query', query)
+            if res and isinstance(res, list) and len(res) > 0:
+                return res[0].get("result", []) if isinstance(res[0], dict) else res
+            return []
+        except Exception as e:
+            logger.error(f"Failed to get agent state: {e}")
+            return []
 
     async def get_messages(self, limit: int = 50) -> list[dict[str, Any]]:
         """Retrieve recent messages."""

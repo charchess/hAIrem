@@ -25,7 +25,7 @@ async def test_redis_log_handler_redaction_integration():
         level=logging.INFO,
         pathname="test.py",
         lineno=10,
-        msg="My secret key is AIzaSyA12345678901234567890123456789012",
+        msg="My secret key is [MOCK_SECRET_KEY]",
         args=(),
         exc_info=None
     )
@@ -40,7 +40,7 @@ async def test_redis_log_handler_redaction_integration():
     assert mock_redis.publish.called
     published_msg = mock_redis.publish.call_args[0][1]
     assert "[REDACTED]" in published_msg.payload.content
-    assert "AIza" not in published_msg.payload.content
+    assert "[MOCK_SECRET_KEY]" not in published_msg.payload.content
 
 @pytest.mark.asyncio
 async def test_message_persistence_redaction_logic():

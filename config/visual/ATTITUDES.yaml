@@ -1,0 +1,18 @@
+# Body Attitude and Kinesics Bible (Visual Novel Style)
+
+# Mehrabian Immediacy
+high_immediacy: "Attitude: Waist-up portrait, leaning forward towards viewer, open torso, direct orientation."
+low_immediacy: "Attitude: Waist-up portrait, leaning back, folded arms, turning away slightly."
+
+# Power and Status (Cuddy / Kinesics)
+dominance: "Attitude: Waist-up portrait, expanded posture, hands on hips (Power Pose), high status."
+submissiveness: "Attitude: Waist-up portrait, shoulders hunched, neck protected, looking slightly down."
+
+# Legacy / Presets (Modified for VN Style)
+standing: "Attitude: Waist-up portrait, centered in frame, looking at viewer, confident posture."
+sitting: "Attitude: Sitting gracefully, waist-up composition, relaxed limbs."
+alluring: "Attitude: Seductive waist-up posture, hand on hip, subtle curve, inviting gaze."
+combat: "Attitude: Dynamic action waist-up pose, ready for battle, tensed muscles."
+
+# Full Body option (if needed)
+full_body: "Attitude: Full body standing pose (plein pied), head to toe, the subject takes the full height of the image, centered in frame."

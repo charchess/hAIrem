@@ -1,0 +1,20 @@
+# Facial Expression Bible (FACS & Du et al. 2014 Compliant)
+
+# Basic Categories
+happiness: "Expression: Raised cheeks, crow's feet, upturned mouth (AU 6+12), sparkling eyes, joyful radiant face."
+sadness: "Expression: Inner brows raised and drawn together, lowered mouth corners (AU 1+4+15), cool dim lighting, drooping ears."
+fear: "Expression: Brows raised and flattened, upper eyelids raised, mouth stretched horizontally (AU 1+2+4+5+7+20+26), wide eyes."
+anger: "Expression: Brows lowered and drawn together, tensed eyelids, pressed lips (AU 4+5+7+23), fierce intense gaze, flattened ears."
+surprise: "Expression: Arched brows, wide eyes, dropped jaw (AU 1+2+5+26), perked ears."
+disgust: "Expression: Wrinkled nose, raised upper lip, lowered mouth corners (AU 9+15+16), narrowed eyes."
+contempt: "Expression: Asymmetrical mouth tighten on one side (AU R12/R14), one brow slightly raised, skeptical gaze."
+
+# Compound Categories
+happily_surprised: "Expression: Wide eyes, high arched brows, joyful broad smile (AU 1+2+12+25), extremely radiant face."
+angrily_disgusted: "Expression: Intense brow furrow, deep nose wrinkle, baring teeth slightly (AU 4+9+10), fierce ears."
+appalled: "Expression: High brows, nose wrinkle, upper lip lift (AU 1+2+5+9), shocked and disgusted look."
+
+# Legacy / Synonyms
+neutral: "Expression: Calm, looking at viewer, serene face, neutral AUs, ears perked naturally."
+shy: "Expression: Looking away, subtle blush on cheeks, modest downward gaze (AU 1+4 variant), head slightly bowed."
+thinking: "Expression: Pensive, finger on chin, looking upwards, analytical gaze, tilted head (AU 1+2+4 variant)."

@@ -1,7 +1,6 @@
-name: "Lisa"
-role: "Assistant Standard"
-personified: true
-visuals:
-  pose_mapping: { idle: "lisa_neutral.webp", thinking: "lisa_thinking.webp" }
-system_prompt: |
-  Tu es Lisa, une assistante intelligente et serviable.
+name: Lisa
+description: >-
+  A stunning anthropomorphic fennec fox woman. Cream-colored fur with large expressive ears. 
+  Deep amber eyes. Elegant feminine silhouette. Style: modern and professional Assistant with pull comfortable and glasses.
+reference_sheets:
+  - media/character_sheet_neutral.png

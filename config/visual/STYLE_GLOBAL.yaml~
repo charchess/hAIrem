@@ -1,0 +1,19 @@
+# Global Art Direction and Engine Directives
+
+# Base style applied to everything
+global_style: "high quality furry digital art, vibrant colors, detailed texture, style of wolfy-nail and miles-df"
+
+# Specific character style (optional, fallback to global_style)
+character_style: "high-fidelity digital painting, cinematic lighting, rim lighting, soft fur texture, expressive eyes, subsurface scattering"
+
+# Specific background style
+background_style: "masterpiece, background, detailed environment, wide angle, volumetric atmosphere"
+
+# Technical engine directives (quality tokens)
+engine_directives: "8k resolution, score_9, score_8_up, score_7_up, masterpiece, sharp focus"
+
+# Background specific technicals
+background_suffix: "ultra-detailed landscape, high resolution"
+
+# Character technical constraints (for rembg)
+post_process_constraints: "Isolated on a solid flat white background, no shadows on the ground, high contrast, centered composition"

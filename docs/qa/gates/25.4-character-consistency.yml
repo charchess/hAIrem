@@ -1,0 +1,21 @@
+# QA Quality Gate Decision
+story_id: "25.4"
+story_title: "Consistance Personnage & Character Vault"
+date: "2026-01-27"
+decision: "PASS"
+rationale: |
+  The Character Vault infrastructure is correctly established. 
+  The VisualImaginationService provides a clean interface for resolving 
+  character sheets and injecting them into the generation pipeline. 
+  Unit tests cover the core logic, including fallbacks.
+concerns:
+  - Technical: The service currently relies on the caller to handle the downloading of images from provider URLs before indexing.
+  - Performance: Base64 encoding for reference images is fine for current character sheet sizes but should be monitored.
+risk_assessment:
+  probability: Low
+  impact: Low
+  mitigation: "Fallback logic ensures system remains functional even if reference images are missing."
+nfr_validation:
+  performance: "Acceptable for asset generation workflows."
+  security: "Basic path traversal protection via id sanitization."
+approver: "Quinn (QA)"

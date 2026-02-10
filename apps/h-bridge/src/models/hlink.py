@@ -16,6 +16,7 @@ class MessageType(str, Enum):
     EXPERT_COMMAND = "expert.command"
     EXPERT_RESPONSE = "expert.response"
     AGENT_INTERNAL_NOTE = "agent.internal_note"
+    VISUAL_ASSET = "visual.asset"
 
 class Priority(str, Enum):
     NORMAL = "normal"
