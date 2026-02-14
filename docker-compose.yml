@@ -1,8 +1,8 @@
-version: '3.8'
-
 services:
   redis:
     image: redis:7-alpine
+    ports:
+      - "6377:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -16,17 +16,35 @@ services:
   surrealdb:
     image: surrealdb/surrealdb:latest
     ports:
-      - "8001:8000"
+      - "8002:8000"
     command: start --user root --pass root rocksdb:/mydata
     volumes:
       - ./surreal_data:/mydata
     networks:
       - hairem-net
     healthcheck:
-      test: ["CMD", "/surreal", "is-ready"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8000/health"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - hairem-net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          memory: 4G
 
   h-core:
     build:
@@ -37,7 +55,7 @@ services:
     volumes:
       - ./apps/h-core/src:/app/src
       - ./agents:/app/agents
-      - ./config/visual:/app/config/visual # STORY 25.1: Visual Bibles
+      - ./config/visual:/app/config/visual
       - /media/generated:/media/generated
     environment:
       - PYTHONUNBUFFERED=1
@@ -46,13 +64,16 @@ services:
       - SURREALDB_URL=ws://surrealdb:8000/rpc
       - SURREALDB_USER=root
       - SURREALDB_PASS=root
-      - LLM_MODEL=openrouter/x-ai/grok-4.1-fast
+      - LLM_MODEL=ollama/mistral
+      - LLM_BASE_URL=http://ollama:11434
       - NANOBANANA_BASE_URL=http://h-bridge:8000
     depends_on:
       redis:
         condition: service_healthy
       surrealdb:
-        condition: service_healthy
+        condition: service_started
+      ollama:
+        condition: service_started
     networks:
       - hairem-net
 
@@ -65,13 +86,16 @@ services:
     volumes:
       - ./apps/h-bridge/src:/app/src
       - ./apps/h-bridge/static:/app/static
-      - ./agents:/app/agents # STORY 25.1 FIX: Serve agent media
-      - /media/generated:/media/generated # STORY 25.6: Shared persistent volume
+      - ./apps/h-bridge/models:/app/models
+      - ./agents:/app/agents
+      - /media/generated:/media/generated
+      - hf_cache:/root/.cache/huggingface
     environment:
       - REDIS_HOST=redis
       - SURREALDB_URL=ws://surrealdb:8000/rpc
       - SURREALDB_USER=root
       - SURREALDB_PASS=root
+      - DEBUG=1
     ports:
       - "8000:8000"
     depends_on:
@@ -86,3 +110,5 @@ networks:
 
 volumes:
   redis_data:
+  hf_cache:
+  ollama_data:
