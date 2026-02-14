@@ -1,0 +1,109 @@
+/* Zen UI - Audio & Voice Controls */
+.audio-controls {
+    position: fixed;
+    top: 25px;
+    right: 80px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 8px 20px;
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(15px);
+    border-radius: 40px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.audio-controls:hover {
+    background: rgba(0, 0, 0, 0.4);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.audio-btn {
+    background: transparent;
+    color: #fff;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.7;
+    transition: all 0.3s ease;
+}
+
+.audio-btn:hover {
+    opacity: 1;
+    color: var(--accent-color);
+}
+
+.audio-btn.active {
+    color: #ff4444;
+    opacity: 1;
+}
+
+/* Minimalist Status Dot */
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.status-ready { background: #00ff88; box-shadow: 0 0 10px rgba(0, 255, 136, 0.5); }
+.status-recording { background: #ff4444; box-shadow: 0 0 10px rgba(255, 68, 68, 0.5); animation: pulse-red 1.5s infinite; }
+.status-processing { background: var(--accent-color); animation: pulse-blue 1s infinite; }
+.status-error { background: #ffcc00; }
+
+@keyframes pulse-red {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pulse-blue {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
+}
+
+/* Discrete Transcript */
+.whisper-transcript {
+    position: fixed;
+    bottom: 110px;
+    right: 30px;
+    width: 280px;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(20px);
+    border-radius: 15px;
+    padding: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    z-index: 90;
+    transition: all 0.5s ease;
+}
+
+.whisper-transcript.hidden {
+    opacity: 0;
+    transform: translateY(20px);
+    pointer-events: none;
+}
+
+.transcript-segment {
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: #eee;
+    line-height: 1.5;
+}
+
+.transcript-meta {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.3);
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+}

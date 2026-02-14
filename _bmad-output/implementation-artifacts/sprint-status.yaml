@@ -1,0 +1,136 @@
+# generated: 2026-02-13
+# project: hairem
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+# ============================================================
+# SPRINT 2026-02-13
+# Stories created: E3 (6), E6 (7), E7 (5), E9 (5) = 23 stories
+# Total ready-for-dev: 23 stories
+# ============================================================
+
+generated: 2026-02-13
+project: hairem
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # ============================================================
+  # EPICS IN PROGRESS
+  # ============================================================
+  
+  # Epic 3: Social Arbiter (MVP BLOCKER - REBUILD)
+  epic-3: done
+  3-1-determine-which-agent-responds: done
+  3-2-interest-based-scoring: done
+  3-3-emotional-context-evaluation: done
+  3-4-named-agent-priority: done
+  3-5-turn-taking-management: done
+  3-6-suppress-low-priority-responses: done
+  epic-3-retrospective: optional
+
+  # Epic 13: La Mémoire de l'Équipage (existing)
+  epic-13: done
+  13-1-migration-vers-le-schema-de-graphe-subjectif: done
+  13-2-l-algorithme-d-oubli-semantic-decay: done
+  13-3-subjective-retrieval: done
+  13-3-synthese-dialectique-des-conflits: done
+  epic-13-retrospective: optional
+
+  # ============================================================
+  # EPICS COMPLETED
+  # ============================================================
+  
+  # Epic 14: Sensory Layer (Voices & Vision)
+  epic-14: done
+  14-1-audio-ingestion: done
+  14-2-wakeword-engine: done
+  14-3-whisper-pipeline: done
+  14-4-neural-tts: done
+  14-5-neural-voice-assignment: cancelled
+  epic-14-retrospective: done
+
+  # Epic 20: Test Infrastructure Cleanup
+  epic-20: done
+  20-1-signature-alignment: done
+  20-2-logging-formatting-cleanup: done
+  20-3-dead-test-removal-standardization: done
+  epic-20-retrospective: done
+
+  # Emergency Fixes (completed)
+  emergency-ui-validation-fixes: done
+  fix-background-data-testid: done
+  fix-avatar-data-testid: done
+  fix-dashboard-icon-data-testid: done
+  fix-crew-icon-data-testid: done
+  websocket-bridge-module-installation: done
+
+  # ============================================================
+  # EPICS BACKLOG (Growth Phase)
+  # ============================================================
+  
+  # Epic 6: Multi-User & Social Grid (NEW)
+  epic-6: done
+  6-1-voice-recognition: done
+  6-2-per-user-memory: done
+  6-3-emotional-history-tracking: done
+  6-4-agent-to-agent-relationships: done
+  6-5-agent-to-user-relationships: done
+  6-6-tone-varies-quality-constant: done
+  6-7-evolving-social-grid: done
+  epic-6-retrospective: optional
+  6-2-per-user-memory: ready-for-dev
+  6-3-emotional-history-tracking: ready-for-dev
+  6-4-agent-to-agent-relationships: ready-for-dev
+  6-5-agent-to-user-relationships: ready-for-dev
+  6-6-tone-varies-quality-constant: ready-for-dev
+  6-7-evolving-social-grid: ready-for-dev
+  epic-6-retrospective: optional
+
+  # Epic 7: Administration (NEW)
+  epic-7: done
+  7-1-view-token-consumption: done
+  7-2-enable-disable-agents: done
+  7-3-configure-agent-parameters: done
+  7-4-add-new-agents: done
+  7-5-configure-llm-providers: done
+  epic-7-retrospective: optional
+  7-2-enable-disable-agents: ready-for-dev
+  7-3-configure-agent-parameters: ready-for-dev
+  7-4-add-new-agents: ready-for-dev
+  7-5-configure-llm-providers: ready-for-dev
+  epic-7-retrospective: optional
+
+  # Epic 9: Spatial Presence (NEW)
+  epic-9: done
+  9-1-room-assignment: done
+  9-2-location-tracking: done
+  9-3-mobile-location: done
+  9-4-exterior-space: done
+  9-5-world-themes: done
+  epic-9-retrospective: optional
+  9-2-location-tracking: ready-for-dev
+  9-3-mobile-location: ready-for-dev
+  9-4-exterior-space: ready-for-dev
+  9-5-world-themes: ready-for-dev
+  epic-9-retrospective: optional

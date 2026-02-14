@@ -1,5 +1,7 @@
 # 10. Le Social Arbiter (Moteur d'Arbitrage Narratif)
 
+> **NOTE:** Ce composant était anciennement nommé **"Sentinel"**. Le nom a été changé pour éviter la confusion. C'est le même composant.
+
 Le Social Arbiter est le composant responsable de la fluidité et de la cohérence de la polyphonie au sein de hAIrem. Il remplace le routage statique par une orchestration basée sur l'intérêt.
 
 ## 10.1 Concept : L'Urge-to-Speak (UTS)

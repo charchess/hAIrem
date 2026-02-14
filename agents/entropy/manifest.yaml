@@ -3,6 +3,11 @@ version: "1.0"
 type: "background"
 name: "Dieu"
 description: "Agent invisible qui surveille le silence et injecte des étincelles de vie."
+personified: false
 capabilities:
   - "proactivity"
   - "monitoring"
+llm_config:
+  provider: "ollama"
+  model: "ollama/mistral"
+  base_url: "http://ollama:11434"

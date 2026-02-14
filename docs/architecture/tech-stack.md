@@ -11,14 +11,20 @@
 
 ## AI & Cognitive Services
 *   **Inference Orchestration:** LiteLLM (Supports Local, Remote GPU, and Cloud providers)
-*   **Image Generation:** 
-    *   **Primary:** Imagen V2 (SDXL / Pony Diffusion V6 XL) via Internal API (`http://192.168.199.119:8009`)
-    *   **Legacy:** NanoBanana / ComfyUI (Data-driven generation)
-*   **Image Processing:** `rembg` (La Découpeuse - Background removal) [Optional dependency]
+*   **LLM Providers (Modular):**
+    *   **Cloud:** OpenRouter, Gemini, Grok, OpenAI, Anthropic
+    *   **Local:** Ollama, LM Studio, Oobabooga (via LiteLLM)
+*   **Image Generation (Modular):**
+    *   **Primary:** NanoBanana (ComfyUI-based)
+    *   **Secondary:** Imagen (projet connexe)
+    *   **Others:** Configurable via LiteLLM-like abstraction
+*   **Image Processing:** `rembg` (La Découpeuse - Background removal)
 *   **Speech-to-Text (STT):** Whisper (Local execution or Dockerized)
-*   **Text-to-Speech (TTS):** 
-    *   Piper (Local, low latency)
-    *   ElevenLabs (Cloud Hybrid, high quality)
+*   **Text-to-Speech (TTS - Modular):**
+    *   **Primary:** MeloTTS (Open Source, local)
+    *   **Secondary:** OpenVoice (voice cloning)
+    *   **Cloud Fallback:** ElevenLabs (high quality)
+*   **Voice Modulation:** Prosody/intonation injection via LLM
 
 ## Tooling & Quality
 *   **Linting/Formatting:** Ruff

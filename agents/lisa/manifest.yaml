@@ -4,3 +4,7 @@ version: "1.0.0"
 type: "standard"
 name: "Lisa"
 color: "#27AE60"
+llm_config:
+  provider: "ollama"
+  model: "ollama/mistral"
+  base_url: "http://ollama:11434"

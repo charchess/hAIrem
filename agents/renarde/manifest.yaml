@@ -6,3 +6,7 @@ description: "Le visage de hAIrem. Elle gère l'accueil, la coordination entre a
 capabilities:
   - "narrative"
   - "orchestration"
+llm_config:
+  provider: "ollama"
+  model: "ollama/mistral"
+  base_url: "http://ollama:11434"

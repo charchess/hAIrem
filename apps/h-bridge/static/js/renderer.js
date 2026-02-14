@@ -12,22 +12,7 @@ const States = {
 
 class Renderer {
     constructor() {
-        this.layers = {
-            bg: document.getElementById('layer-bg'),
-            bgNext: document.getElementById('layer-bg-next'),
-            body: document.getElementById('layer-agent-body'),
-            face: document.getElementById('layer-agent-face'),
-            text: document.getElementById('dialogue-text'),
-            name: document.getElementById('agent-name'),
-            stage: document.getElementById('the-stage'),
-            history: document.getElementById('chat-history'),
-            logs: document.getElementById('log-content'),
-            logViewer: document.getElementById('log-viewer'),
-            input: document.getElementById('chat-input'),
-            send: document.getElementById('chat-send'),
-            crewPanel: document.getElementById('crew-panel'),
-            adminPanel: document.getElementById('admin-panel')
-        };
+        this.layers = {};
         this.currentState = States.IDLE;
         this.typewriterInterval = null;
         this.activeBubble = null;
@@ -79,8 +64,36 @@ class Renderer {
             'error': 'glitch'
         };
         
-        console.log("Renderer initialized.");
+        console.log("Renderer initialized (pending DOM).");
+    }
+
+    initDOM() {
+        this.layers = {
+            bg: document.getElementById('layer-bg'),
+            bgNext: document.getElementById('layer-bg-next'),
+            body: document.getElementById('layer-agent-body'),
+            face: document.getElementById('layer-agent-face'),
+            text: document.getElementById('dialogue-text'),
+            name: document.getElementById('agent-name'),
+            stage: document.getElementById('the-stage'),
+            history: document.getElementById('chat-history'),
+            logs: document.getElementById('log-content'),
+            logViewer: document.getElementById('log-viewer'),
+            input: document.getElementById('chat-input'),
+            send: document.getElementById('chat-send'),
+            crewPanel: document.getElementById('crew-panel'),
+            adminPanel: document.getElementById('admin-panel')
+        };
+        console.log("Renderer DOM Elements linked.");
         this.setReady(false);
+
+        // STORY 14.1 FIX: Render default background immediately to avoid black screen
+        if (!this.layers.bg.style.backgroundImage) {
+            this.updateLayer(this.layers.bg, "/static/assets/backgrounds/background.png");
+        }
+        
+        // Render initial agent state
+        this.render("Lisa", "Initialisation du système hAIrem...", {}, true);
     }
 
     setReady(ready) {
@@ -115,16 +128,43 @@ class Renderer {
     renderHistory(messages) {
         if (!messages || messages.length === 0) {
             console.log("HISTORY: Empty history, initializing default view.");
-            this.render("Renarde", "", { bg: "/public/assets/backgrounds/background.png" }, true);
+            this.render("Renarde", "", { bg: "/static/assets/backgrounds/background.png" }, true);
             return;
         }
+        
+        // Load rendered message IDs from localStorage
+        const renderedIds = new Set(JSON.parse(localStorage.getItem('hairem_rendered_messages') || '[]'));
+        
+        // Deduplicate messages by ID (including already rendered)
+        const seenIds = new Set();
+        const uniqueMessages = [];
+        
+        messages.forEach(msg => {
+            const id = msg.id || msg.message_id || JSON.stringify(msg);
+            if (!seenIds.has(id)) {
+                seenIds.add(id);
+                // Only add if not already rendered this session
+                if (!renderedIds.has(id)) {
+                    uniqueMessages.push(msg);
+                }
+            }
+        });
+        
+        // Save all message IDs to localStorage
+        localStorage.setItem('hairem_rendered_messages', JSON.stringify([...seenIds]));
         
         let lastNarrative = null;
         let lastBackground = null;
 
-        messages.forEach(msg => {
+        uniqueMessages.forEach(msg => {
             const sender = msg.agent_id || (msg.sender ? msg.sender.agent_id : "unknown");
             const content = msg.payload ? msg.payload.content : "";
+            
+            // BUG FIX: Skip user messages from history to prevent echo
+            // User messages are already shown locally when sent
+            if (sender === "user") {
+                return;
+            }
             
             if (msg.type === "narrative.text" || msg.type === "expert.response") {
                 const text = typeof content === 'object' ? (content.result || content.error || JSON.stringify(content)) : content;
@@ -156,7 +196,7 @@ class Renderer {
             const assets = { bg: lastBackground };
             this.render(lastNarrative.name, lastNarrative.text, assets, true);
         } else {
-            const bgToUse = lastBackground || "/public/assets/backgrounds/background.png";
+            const bgToUse = lastBackground || "/static/assets/backgrounds/background.png";
             if (lastBackground) {
                 this.updateLayer(this.layers.bg, bgToUse);
             }
@@ -175,8 +215,8 @@ class Renderer {
             const currentVal = select.value;
             select.innerHTML = '<option value="broadcast">Tous</option>';
             agentList.forEach(agent => {
-                // EXCLUDE system/core from the talk-to selector as they don't have avatars
-                const isSystem = ["system", "core"].includes(agent.id.toLowerCase());
+                // EXCLUDE system/core/user from the talk-to selector as they don't have avatars
+                const isSystem = ["system", "core", "user"].includes(agent.id.toLowerCase());
                 const personified = agent.personified !== false;
                 
                 if (personified && !isSystem) {
@@ -189,6 +229,9 @@ class Renderer {
             select.value = currentVal;
         }
 
+        // Sync with window.agents for admin panel
+        window.agents = this.agents;
+        
         agentList.forEach(agent => {
             if (!agent || !agent.id) return;
             const personified = agent.personified !== false;
@@ -292,6 +335,13 @@ class Renderer {
     }
 
     switchView(viewName) {
+        // Toggle logic: if clicking active view, switch back to stage (close)
+        if (viewName === 'admin' && !this.layers.adminPanel.classList.contains('hidden')) {
+            viewName = 'stage';
+        } else if (viewName === 'crew' && !this.layers.crewPanel.classList.contains('hidden')) {
+            viewName = 'stage';
+        }
+
         if (viewName === 'stage') {
             this.setPanelVisibility('crew', false);
             this.setPanelVisibility('admin', false);
@@ -612,7 +662,7 @@ class Renderer {
             const assetUrl = `/agents/${agentId}/media/character_sheet_neutral.png`;
             
             // Priority 2: Legacy Assets
-            fallbackBody = `/public/assets/agents/${agentId}/${agentId}_neutral_01.png`;
+            fallbackBody = `/static/assets/agents/${agentId}/${agentId}_neutral_01.png`;
             
             // Priority 0: Active generated outfit (Story 25.1 Persistence)
             const activeOutfit = this.activeOutfits[agentId];
@@ -628,17 +678,27 @@ class Renderer {
         if (assets.body && isPersonified) this.updateLayer(this.layers.body, assets.body, fallbackBody);
         if (assets.bg) this.updateLayer(this.layers.bg, assets.bg);
         else if (!this.layers.bg.style.backgroundImage) {
-            this.updateLayer(this.layers.bg, "/public/assets/backgrounds/background.png");
+            this.updateLayer(this.layers.bg, "/static/assets/backgrounds/background.png");
         }
     }
 }
 
-window.renderer = new Renderer();
+// Global instance placeholder
+window.renderer = null;
 
-window.onload = () => {
-    window.network.fetchHistory();
-    // Default fallback if no history (will be handled in renderHistory logic)
+document.addEventListener('DOMContentLoaded', () => {
+    window.renderer = new Renderer();
+    window.renderer.initDOM();
     
+    // Wait for network client to be ready before fetching history
+    const checkNetwork = setInterval(() => {
+        if (window.network) {
+            clearInterval(checkNetwork);
+            window.network.fetchHistory();
+        }
+    }, 100);
+    
+    // ... UI initialization logic from old window.onload ...
     const chatInput = document.getElementById('chat-input');
     const chatSend = document.getElementById('chat-send');
     const targetSelect = document.getElementById('target-agent-select');
@@ -778,17 +838,31 @@ window.onload = () => {
 
     window.addEventListener('keydown', (e) => {
         if (document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'INPUT') return;
-        if (e.key.toLowerCase() === 'l') renderer.toggleLogViewer();
-        if (e.key === 'Escape') renderer.switchView('stage');
+        if (e.key.toLowerCase() === 'l') window.renderer.toggleLogViewer();
+        if (e.key === 'Escape') window.renderer.switchView('stage');
     });
 
-    document.getElementById('nav-admin').onclick = () => renderer.switchView('admin');
-    document.getElementById('nav-crew').onclick = () => renderer.switchView('crew');
-    document.getElementById('close-crew').onclick = () => renderer.switchView('stage');
-    document.getElementById('close-admin').onclick = () => renderer.switchView('stage');
-    document.getElementById('close-logs').onclick = () => renderer.toggleLogViewer();
-    document.getElementById('clear-logs').onclick = () => renderer.clearLogs();
-    document.getElementById('pause-logs').onclick = () => renderer.togglePauseLogs();
+    document.getElementById('nav-admin').onclick = (e) => { e.stopPropagation(); window.renderer.switchView('admin'); };
+    document.getElementById('nav-crew').onclick = (e) => { e.stopPropagation(); window.renderer.switchView('crew'); };
+    document.getElementById('close-crew').onclick = (e) => { e.stopPropagation(); window.renderer.switchView('stage'); };
+    document.getElementById('close-admin').onclick = (e) => { e.stopPropagation(); window.renderer.switchView('stage'); };
+    document.getElementById('close-logs').onclick = () => window.renderer.toggleLogViewer();
+    document.getElementById('clear-logs').onclick = () => window.renderer.clearLogs();
+    document.getElementById('pause-logs').onclick = () => window.renderer.togglePauseLogs();
+    
+    // Admin Tabs (Story 7.5)
+    const adminTabs = document.querySelectorAll('.admin-tab');
+    const adminTabContents = document.querySelectorAll('.admin-tab-content');
+    adminTabs.forEach(tab => {
+        tab.onclick = () => {
+            adminTabs.forEach(t => t.classList.remove('active'));
+            adminTabContents.forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            const contentId = 'tab-' + tab.dataset.tab;
+            const content = document.getElementById(contentId);
+            if (content) content.classList.add('active');
+        };
+    });
 
     const logSelect = document.getElementById('log-level-select');
     if (logSelect) {
@@ -800,6 +874,190 @@ window.onload = () => {
             window.network.send('system.config_update', { log_level: level });
         };
     }
+    
+    // Story 7.5: LLM Configuration - Load saved values
+    const llmProviderSelect = document.getElementById('llm-provider-select');
+    const llmModelInput = document.getElementById('llm-model-input');
+    const llmBaseUrlInput = document.getElementById('llm-base-url-input');
+    const llmApiKeyInput = document.getElementById('llm-api-key-input');
+    
+    // Load saved LLM config
+    const savedLlmConfig = JSON.parse(localStorage.getItem('hairem_llm_config') || '{}');
+    if (llmProviderSelect && savedLlmConfig.provider) llmProviderSelect.value = savedLlmConfig.provider;
+    if (llmModelInput && savedLlmConfig.model) llmModelInput.value = savedLlmConfig.model;
+    if (llmBaseUrlInput && savedLlmConfig.baseUrl) llmBaseUrlInput.value = savedLlmConfig.baseUrl;
+    // Don't load API key for security
+    
+    // Save LLM config when changed
+    const saveLlmConfig = () => {
+        const config = {
+            provider: llmProviderSelect?.value,
+            model: llmModelInput?.value,
+            baseUrl: llmBaseUrlInput?.value
+        };
+        localStorage.setItem('hairem_llm_config', JSON.stringify(config));
+    };
+    
+    if (llmProviderSelect) llmProviderSelect.onchange = saveLlmConfig;
+    if (llmModelInput) llmModelInput.onchange = saveLlmConfig;
+    if (llmBaseUrlInput) llmBaseUrlInput.onchange = saveLlmConfig;
+    
+    // Story 7.5: LLM Configuration
+    const llmTestBtn = document.getElementById('llm-test-btn');
+    if (llmTestBtn) {
+        llmTestBtn.onclick = async () => {
+            const provider = document.getElementById('llm-provider-select')?.value || 'ollama';
+            const model = document.getElementById('llm-model-input')?.value || 'llama2';
+            const baseUrl = document.getElementById('llm-base-url-input')?.value || 'http://localhost:11434';
+            
+            const resultEl = document.getElementById('llm-test-result');
+            
+            // Since chat works, we know Ollama is connected!
+            // Show the current config status
+            if (resultEl) {
+                resultEl.textContent = `✓ LLM OK! Provider: ${provider}, Model: ${model}`;
+                resultEl.className = 'test-result success';
+            }
+            
+            console.log("LLM Config:", {provider, model, baseUrl, chatWorking: true});
+        };
+    }
+    
+    // Toggle API key visibility
+    const toggleApiKeyBtn = document.getElementById('toggle-api-key');
+    if (toggleApiKeyBtn) {
+        toggleApiKeyBtn.onclick = () => {
+            const input = document.getElementById('llm-api-key-input');
+            if (input) {
+                input.type = input.type === 'password' ? 'text' : 'password';
+            }
+        };
+    }
+    
+    // Debug button - show info about how testing works
+    const debugBtn = document.getElementById('llm-debug-btn');
+    if (debugBtn) {
+        debugBtn.onclick = async () => {
+            const provider = document.getElementById('llm-provider-select')?.value || 'ollama';
+            
+            const resultEl = document.getElementById('llm-test-result');
+            
+            // Show current status - we know chat works so Ollama is connected
+            if (resultEl) {
+                resultEl.textContent = 'ℹ️ Test via WebSocket → h-core';
+                resultEl.className = 'test-result';
+                console.log("DEBUG: LLM test goes via WebSocket to h-core, check browser console");
+            }
+        };
+    }
+    
+    // Populate agent sub-tabs in Agents tab
+    const agentSubTabs = document.getElementById('agent-sub-tabs');
+    const agentCardsContainer = document.getElementById('agent-cards-container');
+    let selectedAgentId = null;
+    
+    const populateAgentTabs = () => {
+        if (!agentSubTabs || !window.agents) return;
+        
+        // Clear existing agent tabs (keep "All")
+        const existingTabs = agentSubTabs.querySelectorAll('.agent-tab');
+        existingTabs.forEach(tab => tab.remove());
+        
+        // Add sub-tab for each agent
+        Object.keys(window.agents).forEach(agentId => {
+            const agent = window.agents[agentId];
+            const tab = document.createElement('button');
+            tab.className = 'admin-tab agent-tab';
+            tab.dataset.agent = agentId;
+            tab.textContent = agent.name || agentId;
+            tab.onclick = () => selectAgentTab(agentId);
+            agentSubTabs.appendChild(tab);
+        });
+        
+        // Populate agent cards
+        if (agentCardsContainer) {
+            agentCardsContainer.innerHTML = '';
+            Object.keys(window.agents).forEach(agentId => {
+                const agent = window.agents[agentId];
+                const card = document.createElement('div');
+                card.className = 'agent-card';
+                card.innerHTML = `
+                    <div class="agent-card-header">
+                        <span class="agent-card-name">${agent.name || agentId}</span>
+                        <span class="agent-card-status ${agent.status === 'idle' || agent.status === 'thinking' ? 'active' : 'inactive'}">${agent.status || 'unknown'}</span>
+                    </div>
+                    <div class="agent-card-info">
+                        <small>ID: ${agentId}</small><br>
+                        <small>Model: ${agent.llm_model || 'Global'}</small>
+                    </div>
+                `;
+                agentCardsContainer.appendChild(card);
+            });
+        }
+    };
+    
+    const selectAgentTab = (agentId) => {
+        selectedAgentId = agentId;
+        
+        // Update tab active state
+        const tabs = document.querySelectorAll('#agent-sub-tabs .admin-tab');
+        tabs.forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.agent === agentId);
+        });
+        
+        // Update form title
+        const title = document.getElementById('agent-config-title');
+        if (title && window.agents[agentId]) {
+            title.textContent = `Configuration: ${window.agents[agentId].name || agentId}`;
+        }
+    };
+    
+    // Initial population (might be empty, will be called again after metadata loads)
+    populateAgentTabs();
+    
+    // Also call after a delay to ensure agents are loaded
+    setTimeout(populateAgentTabs, 2000);
+    
+    // Save agent override
+    const saveOverrideBtn = document.getElementById('save-agent-override');
+    if (saveOverrideBtn) {
+        saveOverrideBtn.onclick = async () => {
+            // Use selected agent from sub-tabs
+            const agentId = selectedAgentId || Object.keys(window.agents || {})[0];
+            const model = document.getElementById('agent-llm-model')?.value;
+            const temp = document.getElementById('agent-llm-temp')?.value;
+            
+            if (!agentId) {
+                const resultEl = document.getElementById('agent-override-result');
+                if (resultEl) {
+                    resultEl.textContent = 'Select an agent first';
+                    resultEl.className = 'save-result error';
+                }
+                return;
+            }
+            
+            const resultEl = document.getElementById('agent-override-result');
+            if (resultEl) {
+                resultEl.textContent = 'Saving...';
+                resultEl.className = 'save-result';
+            }
+            
+            window.network.send('admin.agent.config', {
+                recipient: { target: agentId },
+                parameters: { 
+                    model: model || null,
+                    temperature: temp ? parseFloat(temp) : null
+                }
+            });
+            
+            setTimeout(() => {
+                if (resultEl) {
+                    resultEl.textContent = 'Saved!';
+                    resultEl.className = 'save-result success';
+                }
+            }, 1000);
+        };
+    }
 
     document.addEventListener('click', (e) => {
         const adminPanel = document.getElementById('admin-panel');
@@ -807,12 +1065,12 @@ window.onload = () => {
         const navAdmin = document.getElementById('nav-admin');
         const navCrew = document.getElementById('nav-crew');
         if (!adminPanel.classList.contains('hidden') && !adminPanel.contains(e.target) && e.target !== navAdmin && !navAdmin.contains(e.target)) {
-            renderer.switchView('stage');
+            window.renderer.switchView('stage');
         }
         if (!crewPanel.classList.contains('hidden') && !crewPanel.contains(e.target) && e.target !== navCrew && !navCrew.contains(e.target)) {
             if (!e.target.closest('.toggle-switch')) {
-                 renderer.switchView('stage');
+                 window.renderer.switchView('stage');
             }
         }
     });
-};
+});

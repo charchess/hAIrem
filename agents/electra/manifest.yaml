@@ -9,3 +9,7 @@ capabilities:
   - "system_optimization"
 dependencies:
   - "home-assistant-client"
+llm_config:
+  provider: "ollama"
+  model: "ollama/mistral"
+  base_url: "http://ollama:11434"

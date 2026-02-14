@@ -74,13 +74,17 @@ class NetworkClient {
 
     connect() {
         console.log(`Connecting to H-Core at ${this.url}...`);
-        if (window.renderer) window.renderer.updateSystemStatus('ws', 'checking');
+        if (window.renderer && window.renderer.updateSystemStatus) {
+            window.renderer.updateSystemStatus('ws', 'checking');
+        }
         
         this.socket = new WebSocket(this.url);
 
         this.socket.onopen = () => {
             console.log("Connected to H-Core bus.");
-            if (window.renderer) window.renderer.updateSystemStatus('ws', 'ok');
+            if (window.renderer && window.renderer.updateSystemStatus) {
+                window.renderer.updateSystemStatus('ws', 'ok');
+            }
             
             // STORY 17.2: Sync initial log level
             const savedLevel = localStorage.getItem('hairem_log_level') || 'INFO';
@@ -108,7 +112,7 @@ class NetworkClient {
 
         this.socket.onclose = () => {
             console.warn("Disconnected from H-Core. Retrying in 5s...");
-            if (window.renderer) {
+            if (window.renderer && window.renderer.setReady) {
                 window.renderer.setReady(false);
                 window.renderer.updateSystemStatus('ws', 'error');
             }
@@ -123,16 +127,21 @@ class NetworkClient {
     handleMessage(message) {
         console.log(`NETWORK: Received ${message.type} from ${message.sender ? message.sender.agent_id : 'unknown'}`);
         // Clear processing state on any narrative response
-        if ((message.type === "narrative.text" || message.type === "narrative.chunk" || message.type === "expert.response") && window.renderer) {
+        if ((message.type === "narrative.text" || message.type === "narrative.chunk" || message.type === "expert.response") && window.renderer && window.renderer.setProcessingState) {
             window.renderer.setProcessingState(false);
         }
 
         // Route to renderer
         if (message.type === "narrative.text") {
+            // BUG FIX: Skip messages from "user" to prevent echo
+            if (message.sender && message.sender.agent_id === "user") {
+                console.log("NETWORK: Skipping user message to prevent echo");
+                return;
+            }
             // Queue narrative messages
             if (window.speechQueue) {
                 window.speechQueue.enqueue(message);
-            } else {
+            } else if (window.renderer && window.renderer.render) {
                 // Fallback if queue not loaded
                 const agentName = message.sender.agent_id;
                 const text = message.payload.content;
@@ -141,17 +150,28 @@ class NetworkClient {
             }
         } else if (message.type === "narrative.chunk") {
             // Handle streaming chunks in history with full message context
-            window.renderer.handleChunk(message);
+            if (window.renderer && window.renderer.handleChunk) {
+                window.renderer.handleChunk(message);
+            }
             
         } else if (message.type === "expert.response") {
+            // BUG FIX: Skip messages from "user" to prevent echo
+            if (message.sender && message.sender.agent_id === "user") {
+                console.log("NETWORK: Skipping user expert.response to prevent echo");
+                return;
+            }
             const agentName = message.sender.agent_id;
             const payload = message.payload.content;
             const text = typeof payload === 'object' ? (payload.result || payload.error || JSON.stringify(payload)) : payload;
-            window.renderer.addMessageToHistory(agentName, text);
+            if (window.renderer && window.renderer.addMessageToHistory) {
+                window.renderer.addMessageToHistory(agentName, text);
+            }
             
         } else if (message.type === "system.log") {
             const logEntry = message.payload.content;
-            window.renderer.addLog(logEntry);
+            if (window.renderer && window.renderer.addLog) {
+                window.renderer.addLog(logEntry);
+            }
         } else if (message.type === "system.status_update") {
             const agentId = message.sender.agent_id;
             const statusPayload = message.payload.content;
@@ -160,7 +180,7 @@ class NetworkClient {
             // Handle Global System Health Updates
             // STORY 23.3: Recognize both "system" target or "brain" component
             if ((message.recipient && message.recipient.target === "system") || statusPayload.component === "brain") {
-                if (statusPayload.component) {
+                if (statusPayload.component && window.renderer && window.renderer.updateSystemStatus) {
                     window.renderer.updateSystemStatus(statusPayload.component, statusPayload.status);
                 }
                 return;
@@ -172,15 +192,17 @@ class NetworkClient {
                 if (statusPayload.commands) existingAgent.commands = statusPayload.commands;
             }
 
-            window.renderer.updateAgentStatus(
-                agentId, 
-                statusPayload.status, 
-                statusPayload.mood, 
-                statusPayload.prompt_tokens, 
-                statusPayload.completion_tokens, 
-                statusPayload.total_tokens,
-                statusPayload.commands
-            );
+            if (window.renderer && window.renderer.updateAgentStatus) {
+                window.renderer.updateAgentStatus(
+                    agentId, 
+                    statusPayload.status, 
+                    statusPayload.mood, 
+                    statusPayload.prompt_tokens, 
+                    statusPayload.completion_tokens, 
+                    statusPayload.total_tokens,
+                    statusPayload.commands
+                );
+            }
         } else if (message.type === "visual.asset") {
             const payload = message.payload.content;
             let url = payload.url;
@@ -201,7 +223,7 @@ class NetworkClient {
             url += (url.includes('?') ? '&' : '?') + 't=' + Date.now();
             
             console.log("NETWORK: Visual asset received:", url);
-            if (window.renderer) {
+            if (window.renderer && window.renderer.renderVisualAsset) {
                 window.renderer.addLog(`🎨 Image reçue: ${url}`);
                 window.renderer.renderVisualAsset({
                     url: url,
@@ -210,6 +232,20 @@ class NetworkClient {
                     asset_type: payload.asset_type || "background"
                 });
             }
+        } else if (message.type === "admin.llm.test_connection_response") {
+            // Story 7.5: Handle LLM test response
+            const result = message.payload.content;
+            const resultEl = document.getElementById('llm-test-result');
+            if (resultEl) {
+                if (result.success) {
+                    resultEl.textContent = `✓ ${result.message}`;
+                    resultEl.className = 'test-result success';
+                } else {
+                    resultEl.textContent = `✗ ${result.message}`;
+                    resultEl.className = 'test-result error';
+                }
+            }
+            console.log("NETWORK: LLM test result:", result);
         }
     }
 
@@ -317,10 +353,26 @@ class NetworkClient {
 
     send(type, content) {
         if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-            this.socket.send(JSON.stringify({ type, content }));
+            const message = {
+                id: this.generateUUID(),
+                timestamp: new Date().toISOString(),
+                type: type,
+                sender: { agent_id: "user", role: "user" },
+                recipient: { target: "system" },
+                payload: { content: content },
+                metadata: { priority: "normal", ttl: 5 }
+            };
+            console.log("NETWORK.send:", type, content);
+            this.socket.send(JSON.stringify(message));
+        } else {
+            console.warn("NETWORK.send: Socket not ready", this.socket?.readyState);
         }
     }
 }
 
-// Global instance
-window.network = new NetworkClient();
+// Global instance placeholder
+window.network = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.network = new NetworkClient();
+});

@@ -86,5 +86,9 @@ class SpeechQueue {
     }
 }
 
-// Attach to window for global access
-window.speechQueue = new SpeechQueue();
+// Global instance placeholder
+window.speechQueue = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.speechQueue = new SpeechQueue();
+});
