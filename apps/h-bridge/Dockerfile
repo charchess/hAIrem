@@ -5,6 +5,12 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
+    libsndfile1 \
+    ffmpeg \
+    espeak-ng \
+    alsa-utils \
+    libasound2-dev \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -16,7 +22,16 @@ RUN pip install --no-cache-dir \
     surrealdb \
     httpx \
     google-genai \
-    Pillow
+    Pillow \
+    websockets \
+    faster-whisper \
+    pyttsx3 \
+    librosa \
+    soundfile \
+    numpy \
+    torch \
+    torchaudio \
+    --extra-index-url https://download.pytorch.org/whl/cpu
 
 # Copy the application and shared infrastructure
 COPY . .

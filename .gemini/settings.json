@@ -1,53 +1,8 @@
 {
   "mcpServers": {
-    "playwright": {
-      "url": "http://192.168.200.67:3000/sse"
-    }
-  },
-  "security": {
-    "auth": {
-      "selectedType": "oauth-personal"
-    },
-    "enablePermanentToolApproval": true
-  },
-  "ui": {
-    "theme": "ANSI",
-    "showStatusInTitle": true,
-    "footer": {
-      "hideContextPercentage": false
-    },
-    "hideFooter": false,
-    "showMemoryUsage": true,
-    "showLineNumbers": true,
-    "showCitations": true,
-    "useAlternateBuffer": true
-  },
-  "general": {
-    "vimMode": false,
-    "previewFeatures": true,
-    "enablePromptCompletion": false,
-    "sessionRetention": {
-      "enabled": false
-    }
-  },
-  "output": {
-    "format": "text"
-  },
-  "context": {
-    "loadMemoryFromIncludeDirectories": true
-  },
-  "tools": {
-    "shell": {
-      "showColor": true
-    },
-    "useRipgrep": true
-  },
-  "ide": {
-    "enabled": true
-  },
-  "experimental": {
-    "introspectionAgentSettings": {
-      "enabled": true
+    "NOM_DU_SERVEUR_SPECIFIQUE": {
+      "command": "command_to_run_mcp",
+      "args": []
     }
   }
 }

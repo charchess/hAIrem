@@ -40,17 +40,25 @@ class AgentFileHandler(FileSystemEventHandler):
             if os.path.exists(manifest_path):
                 self.loop.call_soon_threadsafe(asyncio.create_task, self._load_agent(manifest_path))
 
+    def on_created(self, event):
+        if event.is_directory:
+            manifest_path = os.path.join(event.src_path, "manifest.yaml")
+            if os.path.exists(manifest_path):
+                logger.info(f"PLUGIN_LOADER: New agent folder detected: {event.src_path}")
+                self.loop.call_soon_threadsafe(asyncio.create_task, self._load_agent(manifest_path))
+
     async def _load_agent(self, manifest_path: str):
         pass
 
 class PluginLoader:
-    def __init__(self, agents_dir: str, registry: AgentRegistry, redis_client, llm_client, surreal_client=None, visual_service=None):
+    def __init__(self, agents_dir: str, registry: AgentRegistry, redis_client, llm_client, surreal_client=None, visual_service=None, token_tracking_service=None):
         self.agents_dir = os.path.abspath(agents_dir)
         self.registry = registry
         self.redis = redis_client
         self.llm = llm_client
         self.surreal = surreal_client
         self.visual_service = visual_service
+        self.token_tracking_service = token_tracking_service
         self.observer = Observer()
         logger.info(f"PLUGIN_LOADER: Initialized with path {self.agents_dir}")
 
@@ -142,7 +150,8 @@ class PluginLoader:
                 redis_client=self.redis, 
                 llm_client=agent_llm, 
                 surreal_client=self.surreal, 
-                visual_service=self.visual_service
+                visual_service=self.visual_service,
+                token_tracking_service=self.token_tracking_service
             )
             
             if config.name in self.registry.agents:
@@ -167,3 +176,30 @@ class PluginLoader:
             self.observer.stop()
             self.observer.join()
         logger.info("PLUGIN_LOADER: Stopped.")
+
+    async def load_agent_from_folder(self, folder_path: str):
+        manifest_path = os.path.join(folder_path, "manifest.yaml")
+        if os.path.exists(manifest_path):
+            await self._load_agent(manifest_path)
+            return True
+        logger.warning(f"PLUGIN_LOADER: No manifest.yaml found in {folder_path}")
+        return False
+
+    async def create_agent_folder(self, agent_data: dict[str, Any]) -> str | None:
+        try:
+            agent_name = agent_data.get("name")
+            if not agent_name:
+                return None
+            
+            agent_folder = os.path.join(self.agents_dir, agent_name)
+            os.makedirs(agent_folder, exist_ok=True)
+            
+            manifest_path = os.path.join(agent_folder, "manifest.yaml")
+            with open(manifest_path, "w") as f:
+                yaml.dump(agent_data, f, default_flow_style=False)
+            
+            logger.info(f"PLUGIN_LOADER: Created agent folder at {agent_folder}")
+            return agent_folder
+        except Exception as e:
+            logger.error(f"PLUGIN_LOADER: Failed to create agent folder: {e}")
+            return None

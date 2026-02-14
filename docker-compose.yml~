@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - hairem-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  surrealdb:
+    image: surrealdb/surrealdb:latest
+    ports:
+      - "8002:8000"
+    command: start --user root --pass root rocksdb:/mydata
+    volumes:
+      - ./surreal_data:/mydata
+    networks:
+      - hairem-net
+    healthcheck:
+      test: ["CMD", "/surreal", "is-ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  h-core:
+    build:
+      context: ./apps/h-core
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - ./apps/h-core/src:/app/src
+      - ./agents:/app/agents
+      - ./config/visual:/app/config/visual # STORY 25.1: Visual Bibles
+      - /media/generated:/media/generated
+    environment:
+      - PYTHONUNBUFFERED=1
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SURREALDB_URL=ws://surrealdb:8000/rpc
+      - SURREALDB_USER=root
+      - SURREALDB_PASS=root
+      - LLM_MODEL=openrouter/x-ai/grok-4.1-fast
+      - NANOBANANA_BASE_URL=http://h-bridge:8000
+    depends_on:
+      redis:
+        condition: service_healthy
+      surrealdb:
+        condition: service_healthy
+    networks:
+      - hairem-net
+
+  h-bridge:
+    build:
+      context: ./apps/h-bridge
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - ./apps/h-bridge/src:/app/src
+      - ./apps/h-bridge/static:/app/static
+      - ./agents:/app/agents # STORY 25.1 FIX: Serve agent media
+      - /media/generated:/media/generated # STORY 25.6: Shared persistent volume
+    environment:
+      - REDIS_HOST=redis
+      - SURREALDB_URL=ws://surrealdb:8000/rpc
+      - SURREALDB_USER=root
+      - SURREALDB_PASS=root
+      - DEBUG=1
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - hairem-net
+
+networks:
+  hairem-net:
+    driver: bridge
+
+volumes:
+  redis_data:

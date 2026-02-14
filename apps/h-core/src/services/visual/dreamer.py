@@ -1,7 +1,16 @@
 import logging
 from datetime import datetime
 
-from agents.electra.drivers.ha_client import HaClient
+try:
+    from electra.drivers.ha_client import HaClient
+except ImportError:
+    # Handle both absolute and relative if sys.path is messed up
+    try:
+        from agents.electra.drivers.ha_client import HaClient
+    except ImportError:
+        logger.warning("Dreamer: HaClient not found, using mock")
+        class HaClient:
+            async def get_state(self, *args, **kwargs): return {}
 from src.services.visual.service import VisualImaginationService
 
 logger = logging.getLogger(__name__)

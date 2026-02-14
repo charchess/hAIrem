@@ -91,13 +91,22 @@ class MemoryConsolidator:
         # 2. Format conversation for LLM
         convo_lines = []
         msg_ids = []
+        user_ids_in_batch = set()
         for m in messages:
             sender = m.get('sender', {}).get('agent_id', 'unknown')
             content = m.get('payload', {}).get('content', '')
             if isinstance(content, dict):
                 content = content.get('content') or json.dumps(content)
             convo_lines.append(f"{sender}: {content}")
-            msg_ids.append(m.get('id').split(':')[-1].strip('`')) # type: ignore
+            msg_ids.append(m.get('id').split(':')[-1].strip('`'))
+            
+            payload = m.get('payload', {})
+            if isinstance(payload, dict):
+                msg_user_id = payload.get('user_id') or payload.get('session_user_id')
+                if msg_user_id:
+                    user_ids_in_batch.add(msg_user_id)
+        
+        primary_user_id = list(user_ids_in_batch)[0] if user_ids_in_batch else None
 
         conversation_text = "\n".join(convo_lines)
 
@@ -123,6 +132,10 @@ class MemoryConsolidator:
                 # If subject is user, default belief to 'system' (Universal)
                 if fact_data.get('subject') == 'user' and not fact_data.get('agent'):
                     fact_data['agent'] = 'system'
+                
+                # STORY 6.2: Associate user_id with the fact
+                if primary_user_id:
+                    fact_data['user_id'] = primary_user_id
                 
                 # Generate embedding for the fact
                 embedding = await self.llm.get_embedding(fact_data['fact'])
@@ -157,12 +170,13 @@ class MemoryConsolidator:
     async def apply_decay(self, decay_rate: float | None = None, threshold: float = 0.1):
         """Manually trigger memory decay."""
         if decay_rate is None:
+            # Default to 0.9 reduction (10% decay) if not in environment
             import os
-            decay_rate = float(os.getenv("DECAY_RATE", "0.0001"))
+            decay_rate = float(os.getenv("DECAY_RATE", "0.9"))
         
         logger.info(f"Applying memory decay (rate={decay_rate}, threshold={threshold})...")
-        await self.surreal.apply_decay_to_all_memories(decay_rate, threshold)
-        await self._broadcast_log(f"Memory decay applied (rate={decay_rate}).")
+        removed_count = await self.surreal.apply_decay_to_all_memories(decay_rate, threshold)
+        await self._broadcast_log(f"Memory decay applied (rate={decay_rate}). {removed_count} memories faded.")
 
     async def _broadcast_log(self, content: str, level: str = "info"):
         """Utility to send a system log message."""

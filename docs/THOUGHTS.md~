@@ -1,90 +1,24 @@
-# hAIrem Thoughts & Inspirations (Backlog)
+# THOUGHTS
 
-Ce document centralise les visions et idées pour hAIrem. Organisé par thématique.
+suite a la perte de données (du a un non git push de 2 semaines de la part
+des agents ...) ce fichier à été perdu et est reconstruit de memoire, au mieux
+...
 
----
+Il est necessaire de le restructurer sans perdre d'information, l'utlisateur
+y pose des pensées et idées qu'il faudra creuser pour ajouter de novuelle
+fonctions ou faire evoluer celles existente.
 
-## 🧠 COGNITION & SOCIAL
-* [x] [Fait | V3/Core] **Agents non-personifiés** : "Dieu" est un processus de fond sans corps physique.
-* [x] [Fait | V3/Core] **Adressage ciblé** : Filtrage des messages via Regex (@Lisa, etc.).
-* [x] [Fait | Epic 13] **Mémoire Graphe** : Implémentation des relations `BELIEVES` et `ABOUT`.
-* [x] [Fait | Epic 15] **Conscience HA** : Confirmation que les agents (Electra) ont conscience des retours API.
-* [x] [Fait | Epic 8/13] **RAG Sémantique** : Outil `recall_memory` disponible pour tous les agents (BaseAgent).
-* [ ] [Prévu | Epic 13/18] **Mémoire Brûlante (Visual Context) + ACNV** : Registre d'état visuel immédiat (tenue, lieu) injecté en contexte court. **Extension** : Inclure les codes ACNV de la pose actuelle pour que l'agent puisse commenter son propre état physique (ex: "Je me sens un peu voutée aujourd'hui...").
-* [ ] [Prévu | Epic 18] **Phase de Rêve (Consolidation Sémantique)** : Processus nocturne (ou periodique) de synthèse des logs bruts vers les nœuds de croyances (BELIEVES/ABOUT) pour maintenir la pertinence du RAG et éviter le bruit.
-* [ ] [Prévu | Epic 18] **Conscience collective** : Résoudre le défaut de conscience de l'existence des autres (ex: réponse à "les filles").
-* [ ] [Prévu | Epic 18] **Backstory Generator** : Génération de "faux souvenirs" antérieurs à T0 via Dieu/Entropy.
-* [ ] [Prévu | Epic 18] **Onboarding Virtuel** : Session d'entretien d'embauche pour initialiser les relations et les edges `TRUSTS`/`KNOWS`.
-* [ ] [Prévu | Epic 18] **Social Graph Init** : Initialisation de la matrice relationnelle (`KNOWS`, `TRUSTS`) à T0.
-* [ ] [Prévu | Epic 18] **Inter-Agent Chat** : Discussions narratives autonomes entre agents.
-* [ ] [Prévu | Epic 18] **Proactive Tickler** : Timer pour forcer Dieu ou les agents à "titiller" l'utilisateur. Dieu injecte des "stimuli" (idées parasites) que l'agent est libre d'intégrer ou non.
-* [ ] [Prévu | Epic 18] **Hiérarchie des Stimuli** : Niveaux d'urgence (0: Critique, 1: Narratif, 2: Whisper, 3: Background) permettant au Social Arbiter de prioriser les flux.
-* [ ] [Idée | Epic 18] **Drives & Pulsions** : Système de moteurs internes (peurs, envie d'apprendre, curiosité, goûts comme le chocolat).
-* [ ] [Idée | Low Prio | à étudier] **Atmosphere Engine** : Calcul d'un score d'ambiance global (Cozy, Tense, Productive) basé sur HA/Météo/Heure pour biaiser les prompts ACNV de tous les agents de manière cohérente.
-* [ ] [Idée | Low Prio | à étudier] **Social Mirroring** : Synchronisation des postures/efforts ACNV (LMA/BAP) entre agents ayant un haut niveau de confiance (`TRUSTS`) pour renforcer la cohésion visuelle du groupe.
-* [ ] [Idée | Low Prio | à étudier] **Social Presence Matrix (SPM)** : Utilisation de la matrice relationnelle pour définir des formations de groupe (cercle, fer à cheval) basées sur la hiérarchie sociale et les interactions proxémiques.
-* [ ] [Idée | Low Prio | à étudier] **Social Feedback Loop** : Ajustement auto des relations basé sur les interactions utilisateur (sentiments, réactivité). *Risque de friction élevé entre personas, à manipuler avec précaution.*
-* [ ] [Idée | Low Prio | à étudier] **Sentiment Aligner (Behavioral Sync)** : Système de vérification assurant que le sentiment du texte de l'agent est cohérent avec les codes ACNV choisis pour l'image associée.
-* [ ] [Idée | Low Prio | à étudier] **Note de réflexion : Event-Physicality Mapping** : Réfléchir à la traduction des événements du monde (ex: HA) en réponses physiques. Couche d'interprétation émotionnelle vs mapping direct ?
-* [ ] [Idée | Backlog] **Grille d'intérêt** : Score d'intérêt par sujet croisé avec une grille relationnelle vs RNG.
-* [ ] [Idée | Backlog] **Conscience d'environnement** : Conscience de sa propre tenue, de ses accessoires et du lieu.
+La premiere section reprends toutes les données de la seconde section mais
+formalisée sous ce format : 
+* [ ] (done #13.2 | planned #15.1 | to study) : definition et reprise des
+elements importants, usecases...
 
-## 🎭 UI/UX - "THE STAGE"
-* [x] [Fait | V3/Core] **Horodatage** : Ajout de l'heure sur les messages.
-* [ ] [Prévu | Epic 17] **Adressage UI** : Select Box ou `@menu` dans l'input pour cibler un agent.
-* [ ] [Prévu | Epic 17] **Focus Visuel** : Agents qui s'avancent ou s'illuminent quand ils prennent la parole.
-* [ ] [Prévu | Epic 17] **Texte Display** : Ajuster la taille de la zone de texte et le temps d'affichage.
-* [ ] [Prévu | Epic 17] **History Recall** : Flèches Haut/Bas dans l'input pour rappeler les phrases précédentes.
-* [ ] [Idée | Epic 17] **Indicateurs de Status** : Tooltips au survol (WS, Bus, AI, Brain) avec code couleur.
-* [ ] [Idée | Epic 17] **Mise en scène** : Expressions fines (grattage d'oreille, main hanche) et accessoires dynamiques.
+## liste consoliée
 
-## 🛠️ UI/UX - DASHBOARD & CONFIG
-* [x] [Fait | Epic 17] **Clear Log** : Correction du bug de vidage de la fenêtre de logs.
-* [x] [Fait | Epic 17] **Token Display** : Affichage de la consommation globale.
-* [ ] [Prévu | Epic 17] **Crew Management** : Afficher "Tout le monde" pour pouvoir les déconnecter.
-* [ ] [Prévu | Epic 17] **Audit des Skills UI** : Bug d'affichage des outils selon les agents.
-* [ ] [Prévu | Epic 17] **Profils Personas** : Ajouter la photo de profil (character sheet) dans le dashboard.
-* [ ] [Prévu | Epic 17] **Toggle Status** : Switch pour Activer/Désactiver un agent ou le mettre en sommeil.
-* [ ] [Prévu | Epic 17] **Admin Panel** : Dashboard technique.
-* [ ] [Prévu | Epic 17] **Secrets UI** : Gestion des tokens et `.env` via le panneau de config.
 
-## 🎨 IMAGINATION VISUELLE (EPIC 25)
-* [x] [Fait | Epic 25] **Réutilisation (K-NN Search)** : Similarité du prompt > 0.95.
-* [x] [Fait | Epic 25] **Système d'Outfits** : Commande `/outfit` fonctionnelle.
-* [x] [Fait | Epic 25] **Observabilité** : Broadcast des `RAW_PROMPT`.
-* [x] [Fait | Epic 25] **Atlas ACNV v2.0** : Centralisation des codes FACS, BAP, NEUROGES, LMA et Proxémique.
-* [ ] [Idée | Epic 25] **Signature Non-Verbale (SNV)** : Base comportementale par défaut intégrée dans le persona.
-* [ ] [Idée | Epic 25] **Prompt Generator / Orchestrator** : Automatiser la construction de prompts complexes via blocs ACNV.
-* [ ] [Idée | Epic 25] **Pose-o-Meter** : Script utilitaire pour valider les chaînages ACNV sans GPU.
-* [ ] [Idée | Epic 25] **Patterns de Scènes Proxémiques** : Presets de placement multi-agents (Section XV).
-* [ ] [Idée | Low Prio | à étudier] **Boucle de Rétroaction Sensorielle (Vision Loop)** : VLM pour validation de l'asset par l'agent.
-* [ ] [Idée | Low Prio | à étudier] **Architecture des Affordances (World Anchors)** : Codes ACNV attachés aux objets/lieux pour automatiser la cohérence des poses d'interaction.
-* [ ] [Prévu | Epic 25] **Waist-up vs Plein pied** : Découpage dynamique à l'affichage.
-* [ ] [Idée | Epic 25] **Background Vault** : Variations saisonnières/temporelles cohérentes.
-* [ ] [Idée | Epic 25] **Garde-robe (Named Assets)** : Inventaire de tenues validées.
+## idées en vrac
 
-## 🏗️ INFRA & TOOLING
-* [x] [Fait | V3/Core] **Sondes Monitoring** : Logs via Redis.
-* [ ] [Prévu | Epic 23] **UUID Migration** : Passage aux UUIDs pour le renommage sans perte.
-* [ ] [Prévu | Epic 24] **Trunk-based Workflow** : CI/CD et validation auto.
 
-## 🎙️ SENSORY LAYER (EPIC 14)
-* [ ] [Prévu | Epic 14] **Continuous Listening** : Moteur STT.
-* [ ] [Prévu | Epic 14] **Voice Models** : TTS spécifiques par persona.
 
----
 
-**BUGS :**
-* le background remover enleve le blanc des oreilles de la renarde. **Idée de fix** : Modèle SAM ou "Feature Shield".
-
-**FEAT :**
-* couleur en fonction des roles ? (persona, system, dieu).
-* /debug plutot que /outfit, /imagine... avec switch debug on/off.
-
-* creer un framework/librairie de conversion des poses (BAP)
-  en openpose ou autre input compatible controlnet (ou similaire)
--> etudier la faisabilité pour les autres formalisme, mediapipe facemesh ?
-controlnet canny/lineart ? 
--> couche d'adaptation furry (maper les sourcils humain vers les oreilles
-furry par exemple)
 

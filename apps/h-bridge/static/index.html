@@ -4,30 +4,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>hAIrem - The Stage</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/ui_zen.css">
+    <script src="/static/js/network.js?v=7.5"></script>
+    <script src="/static/js/audio.js"></script>
+    <script src="/static/js/wakeword.js"></script>
+    <script src="/static/js/whisper.js"></script>
+    <script src="/static/js/audio_player.js"></script>
 </head>
 <body>
     <div id="view-nav">
         <!-- New Icon Navigation -->
-        <button id="nav-admin" class="nav-btn" title="Control Panel">⚙️</button>
-        <button id="nav-crew" class="nav-btn" title="Crew Management">👥</button>
+        <button id="nav-admin" data-testid="dashboard-icon" class="nav-btn" title="Control Panel">⚙️</button>
+        <button id="nav-crew" data-testid="crew-icon" class="nav-btn" title="Crew Management">👥</button>
         
         <div id="system-status-indicators">
-            <div class="status-indicator" id="status-ws" title="WebSocket Connection">WS</div>
-            <div class="status-indicator" id="status-redis" title="Redis Bus">BUS</div>
-            <div class="status-indicator" id="status-llm" title="LLM Connectivity">AI</div>
-            <div class="status-indicator" id="status-brain" title="Cognitive Core Health">BRAIN</div>
+            <!-- Status indicators -->
         </div>
     </div>
-
+    
+    <!-- Audio Controls -->
+    <div id="audio-controls" class="audio-controls">
+        <button id="voice-trigger" class="audio-btn">
+            <span>🎤</span> <label>Parler</label>
+        </button>
+        <div id="voice-status-dot" class="status-dot" title="Système Prêt"></div>
+    </div>
+    <div id="whisper-transcript" class="whisper-transcript hidden"></div>
+    
     <div id="the-stage">
         <!-- Z-0: Background -->
-        <div id="layer-bg" class="layer"></div>
+        <div id="layer-bg" class="layer" data-testid="background"></div>
         <div id="layer-bg-next" class="layer" style="opacity: 0;"></div>
         
         <!-- Z-10: Agents -->
-        <div id="layer-agent-body" class="layer agent-layer"></div>
-        <div id="layer-agent-face" class="layer agent-layer"></div>
+        <div id="avatar" data-testid="avatar" class="avatar">
+            <div id="layer-agent-body" class="layer agent-layer"></div>
+            <div id="layer-agent-face" class="layer agent-layer"></div>
+        </div>
         
         <!-- Z-20: Data Rails (Placeholder for future) -->
         <div id="layer-data" class="layer"></div>
@@ -63,42 +77,129 @@
                 <span>System Control</span>
                 <button id="close-admin">×</button>
             </div>
+            
+            <!-- Tabs -->
+            <div class="admin-tabs">
+                <button class="admin-tab active" data-tab="system">⚙️ System</button>
+                <button class="admin-tab" data-tab="llm">🤖 LLM</button>
+                <button class="admin-tab" data-tab="logs">📋 Logs</button>
+                <button class="admin-tab" data-tab="agents">👥 Agents</button>
+            </div>
+            
             <div class="panel-content">
-                <div class="config-section">
-                    <h3>Logging</h3>
-                    <label for="log-level-select">System Log Level:</label>
-                    <select id="log-level-select">
-                        <option value="DEBUG">DEBUG (Verbose)</option>
-                        <option value="INFO" selected>INFO (Standard)</option>
-                        <option value="WARNING">WARNING</option>
-                        <option value="ERROR">ERROR</option>
-                    </select>
+                <!-- Tab: System -->
+                <div class="admin-tab-content active" id="tab-system">
+                    <div class="config-section">
+                        <h3>System Health</h3>
+                        <div id="admin-status-indicators">
+                            <div class="status-item">
+                                <span>WebSocket:</span>
+                                <span id="status-ws-admin" class="status-indicator">CHECKING</span>
+                            </div>
+                            <div class="status-item">
+                                <span>Redis Bus:</span>
+                                <span id="status-redis-admin" class="status-indicator">CHECKING</span>
+                            </div>
+                            <div class="status-item">
+                                <span>LLM Connectivity:</span>
+                                <span id="status-llm-admin" class="status-indicator">CHECKING</span>
+                            </div>
+                            <div class="status-item">
+                                <span>Cognitive Core:</span>
+                                <span id="status-brain-admin" class="status-indicator">CHECKING</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="config-section">
+                        <h3>Logging</h3>
+                        <label for="log-level-select">System Log Level:</label>
+                        <select id="log-level-select">
+                            <option value="DEBUG">DEBUG (Verbose)</option>
+                            <option value="INFO" selected>INFO (Standard)</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                        </select>
+                    </div>
                 </div>
                 
-                <div class="config-section">
-                    <h3>System Health</h3>
-                    <div id="admin-status-indicators">
-                        <div class="status-item">
-                            <span>WebSocket:</span>
-                            <span id="status-ws-admin" class="status-indicator">CHECKING</span>
-                        </div>
-                        <div class="status-item">
-                            <span>Redis Bus:</span>
-                            <span id="status-redis-admin" class="status-indicator">CHECKING</span>
-                        </div>
-                        <div class="status-item">
-                            <span>LLM Connectivity:</span>
-                            <span id="status-llm-admin" class="status-indicator">CHECKING</span>
-                        </div>
-                        <div class="status-item">
-                            <span>Cognitive Core:</span>
-                            <span id="status-brain-admin" class="status-indicator">CHECKING</span>
+                <!-- Tab: LLM -->
+                <div class="admin-tab-content" id="tab-llm">
+                    <div class="config-section">
+                        <h3>🤖 Global LLM Configuration</h3>
+                        <p class="config-desc">Default LLM settings for all agents.</p>
+                        
+                        <label for="llm-provider-select">Provider:</label>
+                        <select id="llm-provider-select">
+                            <option value="ollama">Ollama (Local)</option>
+                            <option value="openrouter">OpenRouter</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="anthropic">Anthropic</option>
+                            <option value="google">Google Gemini</option>
+                            <option value="deepseek">DeepSeek</option>
+                            <option value="mistral">Mistral AI</option>
+                            <option value="azure">Azure OpenAI</option>
+                        </select>
+                        
+                        <label for="llm-model-input">Model:</label>
+                        <input type="text" id="llm-model-input" placeholder="e.g., llama2, mistral, gpt-4">
+                        
+                        <label for="llm-base-url-input">Base URL:</label>
+                        <input type="text" id="llm-base-url-input" placeholder="http://localhost:11434">
+                        
+                        <label for="llm-api-key-input">API Key:</label>
+                        <input type="password" id="llm-api-key-input" placeholder="Optional">
+                        <button id="toggle-api-key" class="btn-small">👁️</button>
+                        
+                        <div class="llm-test-row">
+                            <button id="llm-test-btn" class="btn-secondary">Test Connection</button>
+                            <button id="llm-debug-btn" class="btn-small" title="Debug">🐛</button>
+                            <span id="llm-test-result" class="test-result"></span>
                         </div>
                     </div>
                 </div>
+                
+                <!-- Tab: Logs -->
+                <div class="admin-tab-content" id="tab-logs">
+                    <div class="config-section">
+                        <h3>📋 System Logs</h3>
+                        <div class="log-controls">
+                            <button id="pause-logs" title="Pause/Resume">⏸️</button>
+                            <button id="clear-logs" title="Clear">🗑️</button>
+                        </div>
+                        <div id="log-content" class="log-viewer"></div>
+                    </div>
+                </div>
+                
+                <!-- Tab: Agents -->
+                <div class="admin-tab-content" id="tab-agents">
+                    <!-- Agent sub-tabs (populated dynamically) -->
+                    <div class="admin-tabs" id="agent-sub-tabs">
+                        <button class="admin-tab active" data-agent="all">All</button>
+                    </div>
+                    
+                    <!-- Agent config for selected agent -->
+                    <div id="agent-config-panel" class="config-section">
+                        <div id="agent-config-form">
+                            <h3 id="agent-config-title">Select an agent</h3>
+                            <p class="config-desc">Override global LLM settings for this agent.</p>
+                            
+                            <label for="agent-llm-model">Model Override:</label>
+                            <input type="text" id="agent-llm-model" placeholder="Leave empty for global">
+                            
+                            <label for="agent-llm-temp">Temperature:</label>
+                            <input type="number" id="agent-llm-temp" step="0.1" min="0" max="2" placeholder="0.7">
+                            
+                            <button id="save-agent-override" class="btn-primary">Save Override</button>
+                            <span id="agent-override-result" class="save-result"></span>
+                        </div>
+                    </div>
+                    
+                    <!-- Agent cards summary -->
+                    <div id="agent-cards-container"></div>
+                </div>
             </div>
         </div>
-        
         <!-- Z-30: Dialogue Overlay -->
         <div id="dialogue-container">
             <div id="agent-name">Renarde</div>
@@ -114,12 +215,9 @@
         <input type="text" id="chat-input" placeholder="Parler aux agents..." autocomplete="off">
         <button id="chat-send">Envoyer</button>
     </div>
-
-        <button id="mock-speak" style="position:absolute; top:10px; right:10px; padding:10px; opacity:0.5;">Mock: User Speaking</button>
     </div>
 
-    <script src="js/network.js?v=4.1"></script>
-    <script src="js/speechQueue.js?v=4.1"></script>
-    <script src="js/renderer.js?v=4.1"></script>
+    <script src="/static/js/speechQueue.js?v=7.5"></script>
+    <script src="/static/js/renderer.js?v=7.5"></script>
 </body>
 </html>

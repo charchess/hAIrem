@@ -13,6 +13,7 @@ class AgentConfig(BaseModel):
     llm_config: dict | None = None
     personified: bool = True
     use_default_tools: bool = True
+    room_id: str | None = Field(default=None, description="Room assignment identifier")
 
 class AgentInstance(BaseModel):
     config: AgentConfig
