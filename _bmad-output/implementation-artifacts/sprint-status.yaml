@@ -172,16 +172,15 @@ epic-14_retrospective: done
 
 # ============================================================
 # Summary
-# ============================================================
 summary:
   total_epics: 11
   completed_epics: 10
   in_progress_epics: 0
   backlog_epics: 2
-  total_stories: 58
+  total_stories: 68
   stories_completed: 54
   stories_in_progress: 0
-  stories_backlog: 4
+  stories_backlog: 14
 
 # Current Sprint
 current_sprint: 21
