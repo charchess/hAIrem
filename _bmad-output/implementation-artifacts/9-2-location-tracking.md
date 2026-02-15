@@ -1,6 +1,6 @@
 # Story 9.2: Location Tracking
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -37,7 +37,7 @@ so that I know where agents are.
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+opencode/big-pickle
 
 ### File List
 - apps/h-core/src/features/home/spatial/location/models.py

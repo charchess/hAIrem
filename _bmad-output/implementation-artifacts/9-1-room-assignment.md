@@ -1,6 +1,6 @@
 # Story 9.1: Room Assignment
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -36,7 +36,7 @@ so that I know which agent is in which room.
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+opencode/big-pickle
 
 ### File List
 

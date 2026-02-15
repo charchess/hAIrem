@@ -1,6 +1,6 @@
 # Story 6.2: Per-User Memory
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -39,10 +39,31 @@ so that I remember interactions with each person differently.
 
 opencode/big-pickle
 
-### File List
+### Implementation Plan
+
+Story 6.2 was already fully implemented with:
+- UserMemoryContext class for managing per-user memory context
+- UserMemoryService for storing/retrieving memories with user association
+- MemoryConsolidator updated to associate user_id with consolidated facts
+
+### Debug Log
+
+- 2026-02-14: Found bug in test `test_consolidate_uses_primary_user_id` - failed because `user_ids_in_batch` was a set (unordered), causing non-deterministic first user_id selection. Fixed by using list with seen_user_ids set for deduplication.
+
+### Completion Notes
+
+✅ Story implementation verified and bug fix applied
+- Fixed MemoryConsolidator to preserve user_id insertion order (set → list)
+- All 22 memory-related tests pass
+- AC1, AC2, AC3 satisfied by existing implementation
+
+## Change Log
+
+- 2026-02-14: Fixed bug in MemoryConsolidator where user_ids_in_batch used set instead of list, causing non-deterministic primary_user_id selection. Changed to list with deduplication to preserve insertion order.
+- 2026-02-14: Code Review - Fixed File List (removed surrealdb.py, agent.py - not modified in this session)
+
+## File List
 
 - apps/h-core/src/features/home/per_user_memory/__init__.py (new)
 - apps/h-core/src/features/home/per_user_memory/service.py (new)
-- apps/h-core/src/infrastructure/surrealdb.py (modified)
-- apps/h-core/src/domain/agent.py (modified)
-- apps/h-core/src/domain/memory.py (modified)
+- apps/h-core/src/domain/memory.py (modified - bug fix: user_ids_in_batch set→list)

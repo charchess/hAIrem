@@ -7,6 +7,6 @@ capabilities:
   - "narrative"
   - "orchestration"
 llm_config:
-  provider: "ollama"
-  model: "ollama/mistral"
-  base_url: "http://ollama:11434"
+  provider: "openrouter"
+  model: "openrouter/nvidia/nemotron-3-nano-30b-a3b:free"
+  base_url: "https://openrouter.ai/api/v1"

@@ -91,7 +91,8 @@ class MemoryConsolidator:
         # 2. Format conversation for LLM
         convo_lines = []
         msg_ids = []
-        user_ids_in_batch = set()
+        user_ids_in_batch = []  # Use list to preserve order
+        seen_user_ids = set()   # Track seen to avoid duplicates
         for m in messages:
             sender = m.get('sender', {}).get('agent_id', 'unknown')
             content = m.get('payload', {}).get('content', '')
@@ -103,10 +104,11 @@ class MemoryConsolidator:
             payload = m.get('payload', {})
             if isinstance(payload, dict):
                 msg_user_id = payload.get('user_id') or payload.get('session_user_id')
-                if msg_user_id:
-                    user_ids_in_batch.add(msg_user_id)
+                if msg_user_id and msg_user_id not in seen_user_ids:
+                    user_ids_in_batch.append(msg_user_id)
+                    seen_user_ids.add(msg_user_id)
         
-        primary_user_id = list(user_ids_in_batch)[0] if user_ids_in_batch else None
+        primary_user_id = user_ids_in_batch[0] if user_ids_in_batch else None
 
         conversation_text = "\n".join(convo_lines)
 

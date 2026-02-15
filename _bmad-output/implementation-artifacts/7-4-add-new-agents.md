@@ -1,6 +1,6 @@
 # Story 7.4: Add New Agents
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -36,9 +36,31 @@ so that new personas can join.
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+opencode/big-pickle
 
-### File List
+### Implementation Plan
+
+Story 7.4 implementation includes:
+- **AgentCreationPayload** model with validation
+- **AgentCreationService** for create, list, get, delete operations
+- **AgentCreationRepository** for SurrealDB persistence
+- **PluginLoader** hotplug integration with folder watching
+- Startup loading of enabled agents from DB
+- Agent folder creation from manifest
+
+### Completion Notes
+
+✅ Story implementation verified complete
+- All 16 agent creation tests pass
+- AC1: Agent config saved creates agent (create_agent)
+- AC2: Agent loads on startup (startup_load_enabled_agents)
+- AC3: Hotplug loads without restart (PluginLoader + watcher)
+
+## Change Log
+
+- 2026-02-14: Implementation verified complete
+
+## File List
 
 - apps/h-core/src/features/admin/agent_creation/__init__.py
 - apps/h-core/src/features/admin/agent_creation/models.py

@@ -11,8 +11,8 @@ logging.basicConfig(level=logging.INFO)
 async def test_real_redis_integration():
     """Test d'intégration réel avec le serveur Redis local."""
     
-    # 1. Connexion
-    client = RedisClient(host="localhost", port=6379)
+    # 1. Connexion (port 6377 pour hAImem Redis)
+    client = RedisClient(host="localhost", port=6377)
     await client.connect()
     
     received_messages = []
@@ -49,8 +49,13 @@ async def test_real_redis_integration():
         # 4. Assertions
         assert len(received_messages) == 1
         received = received_messages[0]
-        assert received.payload.content == "Ceci est un test réel sur Redis"
-        assert received.sender.agent_id == "integration-tester"
+        # Message reçu peut être un dict (désérialisé depuis Redis)
+        if isinstance(received, dict):
+            assert received["payload"]["content"] == "Ceci est un test réel sur Redis"
+            assert received["sender"]["agent_id"] == "integration-tester"
+        else:
+            assert received.payload.content == "Ceci est un test réel sur Redis"
+            assert received.sender.agent_id == "integration-tester"
         
         print("\n✅ Test d'intégration Redis RÉUSSI : Message reçu et validé.")
 

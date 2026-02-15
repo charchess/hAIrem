@@ -34,11 +34,15 @@ async def test_per_agent_llm_config_loading(tmp_path):
     mock_llm = MagicMock()
     mock_llm.cache = None
     mock_surreal = MagicMock()
+    mock_visual = MagicMock()
+    mock_token = MagicMock()
     
-    loader = PluginLoader(str(agents_dir), registry, mock_redis, mock_llm, mock_surreal)
+    loader = PluginLoader(str(agents_dir), registry, mock_redis, mock_llm, mock_surreal, mock_visual, mock_token)
     
-    # Test
-    await loader._initial_scan()
+    # Mock the start method to avoid async issues
+    with patch('src.domain.agent.BaseAgent.start', new_callable=AsyncMock):
+        # Test
+        await loader._initial_scan()
     
     # Assert
     assert "Lisa" in registry.agents
@@ -70,11 +74,17 @@ async def test_agent_config_no_override(tmp_path):
     # Mock global LLM with a specific model
     mock_llm = MagicMock()
     mock_llm.model = "global-default-model"
+    mock_llm.cache = None
+    mock_surreal = MagicMock()
+    mock_visual = MagicMock()
+    mock_token = MagicMock()
     
-    loader = PluginLoader(str(agents_dir), registry, mock_redis, mock_llm)
+    loader = PluginLoader(str(agents_dir), registry, mock_redis, mock_llm, mock_surreal, mock_visual, mock_token)
     
-    # Test
-    await loader._initial_scan()
+    # Mock the start method to avoid async issues
+    with patch('src.domain.agent.BaseAgent.start', new_callable=AsyncMock):
+        # Test
+        await loader._initial_scan()
     
     # Assert
     assert "StandardAgent" in registry.agents

@@ -30,6 +30,14 @@ from src.features.home.spatial.rooms import RoomService
 from src.features.home.spatial.location import LocationService
 from src.features.home.spatial.mobile import MobileLocationService
 from src.features.home.spatial.exterior import ExteriorService
+
+# Configure base logging FIRST
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+)
+logger = logging.getLogger("H-CORE")
+
 try:
     from electra.drivers.ha_client import HaClient
 except ImportError:
@@ -37,13 +45,6 @@ except ImportError:
     class HaClient:
         async def get_state(self, *args, **kwargs): return "off"
         async def toggle(self, *args, **kwargs): pass
-
-# Configure base logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(name)s - %(message)s'
-)
-logger = logging.getLogger("H-CORE")
 
 class RedisLogHandler(logging.Handler):
     """Broadcasts logs to Redis for UI visibility, with loop protection."""

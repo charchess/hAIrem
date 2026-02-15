@@ -1,6 +1,6 @@
 # Story 7.2: Enable/Disable Agents
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -36,9 +36,29 @@ so that I can control which agents are active.
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+opencode/big-pickle
 
-### File List
+### Implementation Plan
+
+Story 7.2 implementation includes:
+- **AgentManagementService** with enable_agent(), disable_agent(), list_agents()
+- **is_active** field in agent schema (models/agent.py, social_arbiter/models.py)
+- **Arbiter updated** to skip disabled agents (arbiter.py:104)
+- Message handling for disabled agent interactions
+
+### Completion Notes
+
+✅ Story implementation verified complete
+- All 9 agent management tests pass
+- AC1: Status toggle saves and updates agent (enable/disable endpoints)
+- AC2: Disabled agent returns unavailable message
+- AC3: Re-enable restores full functionality
+
+## Change Log
+
+- 2026-02-14: Implementation verified complete
+
+## File List
 - apps/h-core/src/features/admin/agent_management/__init__.py (new)
 - apps/h-core/src/features/admin/agent_management/service.py (new)
 - apps/h-core/src/main.py (modified - added agent management service initialization and message handling)

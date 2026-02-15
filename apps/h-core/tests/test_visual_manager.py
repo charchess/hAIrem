@@ -17,6 +17,7 @@ def temp_storage():
 def mock_db():
     db = MagicMock()
     db._call = AsyncMock()
+    db.save_asset_record = AsyncMock(return_value="asset-123")
     return db
 
 
@@ -36,7 +37,7 @@ async def test_save_asset(temp_storage, mock_db):
         "tags": ["nature", "sunset"],
     }
 
-    asset_url = await manager.save_asset(source_path, metadata)
+    asset_url, asset_id = await manager.save_asset(source_path, metadata)
 
     assert asset_url.startswith("file://")
     saved_path = asset_url.replace("file://", "")
@@ -44,13 +45,12 @@ async def test_save_asset(temp_storage, mock_db):
     assert not os.path.exists(source_path)  # Should have been moved
 
     # Verify DB call
-    mock_db._call.assert_called()
-    # Find the call to 'create' 'visual_asset'
-    create_call = next(c for c in mock_db._call.mock_calls if c.args[0] == "create" and c.args[1] == "visual_asset")
-    data = create_call.args[2]
-    assert data["prompt"] == "a beautiful sunset"
-    assert data["agent_id"] == "electra"
-    assert data["embedding"] == [0.1] * 768
+    mock_db.save_asset_record.assert_called_once()
+    # Check the data passed to save_asset_record
+    call_args = mock_db.save_asset_record.call_args[0][0]
+    assert call_args["prompt"] == "a beautiful sunset"
+    assert call_args["agent_id"] == "electra"
+    assert call_args["embedding"] == [0.1] * 768
 
 
 @pytest.mark.asyncio

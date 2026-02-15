@@ -1,6 +1,9 @@
 import logging
 from datetime import datetime
 
+# Define logger FIRST
+logger = logging.getLogger(__name__)
+
 try:
     from electra.drivers.ha_client import HaClient
 except ImportError:
@@ -12,8 +15,6 @@ except ImportError:
         class HaClient:
             async def get_state(self, *args, **kwargs): return {}
 from src.services.visual.service import VisualImaginationService
-
-logger = logging.getLogger(__name__)
 
 
 class Dreamer:

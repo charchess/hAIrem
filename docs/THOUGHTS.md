@@ -18,10 +18,8 @@ elements importants, usecases...
 
 ## idées en vrac
 
-### ui / dashboard / config 
-
-mettre des onglets log, system, llm(global), et un par agent
-
+* decay non lineaire dependant de l'interet et de la force de l'emotion lié
+  au souvenir ?
 
 
 

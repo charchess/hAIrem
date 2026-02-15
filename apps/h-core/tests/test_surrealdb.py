@@ -23,7 +23,10 @@ async def test_surreal_connect(mock_surreal):
     # Signin tries multiple formats, verify at least one was called with correct data
     mock_instance.signin.assert_called()
     
-    mock_instance.use.assert_called_with(namespace="hairem", database="core")
+    # Accepte les arguments positionnels ou nommés
+    mock_instance.use.assert_called_once()
+    call_args = mock_instance.use.call_args
+    assert call_args[0] == ('hairem', 'core') or call_args[1] == {'namespace': 'hairem', 'database': 'core'}
 
 @pytest.mark.asyncio
 async def test_surreal_persist_message(mock_surreal):

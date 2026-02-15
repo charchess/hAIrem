@@ -1,6 +1,6 @@
 # Story 7.5: Configure LLM Providers
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -36,9 +36,31 @@ so that each agent can use different LLMs.
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+opencode/big-pickle
 
-### File List
+### Implementation Plan
+
+Story 7.5 implementation includes:
+- Provider configuration in AgentParameters (provider, fallback_providers)
+- LLMProviderConfig model with validation
+- ProviderConfigService for managing provider configs
+- LiteLLM integration for multi-provider support
+- Fallback provider list with priority ordering
+- Dynamic config updates without restart
+
+### Completion Notes
+
+✅ Story implementation verified complete
+- All 20 provider config tests pass
+- AC1: Configured provider used for LLM requests (via LlmClient config)
+- AC2: Fallback provider on error (fallback_providers list)
+- AC3: Dynamic updates on save (config reload in AgentConfigService)
+
+## Change Log
+
+- 2026-02-14: Implementation verified complete
+
+## File List
 - apps/h-core/src/features/admin/agent_config/models.py (modified - added provider, fallback_providers fields)
 - apps/h-core/src/features/admin/agent_config/service.py (modified - apply config to agent)
 - apps/h-core/src/infrastructure/llm.py (modified - fallback logic)

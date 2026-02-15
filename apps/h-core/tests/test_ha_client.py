@@ -1,6 +1,11 @@
+import sys
+import os
+# Add agents path for test discovery
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'agents'))
+
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
-from agents.electra.drivers.ha_client import HaClient
+from electra.drivers.ha_client import HaClient
 
 @pytest.mark.asyncio
 async def test_ha_get_state_success():

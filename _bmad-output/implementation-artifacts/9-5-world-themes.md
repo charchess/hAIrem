@@ -1,6 +1,6 @@
 # Story 9.5: World Themes
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -36,7 +36,7 @@ so that agents can respond to seasonal/contextual changes.
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+opencode/big-pickle
 
 ### File List
 

@@ -89,6 +89,8 @@ class BaseAgent:
         """Register tools available to all agents."""
         if self.surreal:
             self.tool("Recall relevant past interactions or facts using a semantic query")(self.recall_memory)
+        if self.visual_service:
+            self.tool("Generate an image based on a description")(self.generate_image)
         self.tool("Send a private internal note to another agent.")(self.send_internal_note)
 
     async def recall_memory(self, query: str) -> str:
@@ -131,10 +133,28 @@ class BaseAgent:
         await self.redis.publish(channel, note_msg)
         return f"Note successfully sent to {target_agent}."
 
+    async def generate_image(self, prompt: str, style: str = "cinematic") -> str:
+        """Generate an image using the visual service."""
+        if not self.visual_service:
+            return "Visual service is not available."
+        try:
+            asset_uri, _ = await self.visual_service.generate_and_index(
+                agent_id=self.config.name,
+                prompt=prompt,
+                style_preset=style
+            )
+            return f"Image successfully generated: {asset_uri}"
+        except Exception as e:
+            return f"Failed to generate image: {e}"
+
     def tool(self, description: str):
         """Decorator to register a method as an LLM-accessible tool."""
         def decorator(func):
-            # (Simplification for restoration - the full tool decorator logic goes here)
+            tool_name = func.__name__
+            self.tools[tool_name] = {
+                "description": description,
+                "function": func
+            }
             return func
         return decorator
 

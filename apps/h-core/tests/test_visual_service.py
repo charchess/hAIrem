@@ -75,13 +75,10 @@ def test_get_agent_reference_image_exists(visual_service):
 
 @pytest.mark.asyncio
 async def test_generate_for_agent_with_reference(visual_service, mock_provider):
-    with patch("src.services.visual.service.bible") as mock_bible:
-        mock_bible.get_reference_images.return_value = ["tests/mock_agents/lisa/media/character_sheet_neutral.png"]
-        
-        # Mock open to avoid actual file read
-        with patch("builtins.open", MagicMock()):
-            with patch("base64.b64encode", return_value=b"fakebase64"):
-                await visual_service.generate_for_agent("lisa", "A portrait of Lisa")
+    """Test that generate_for_agent passes reference_image to provider when available."""
+    # Mock get_agent_reference_image to return a reference
+    with patch.object(visual_service, 'get_agent_reference_image', return_value="data:image/png;base64,fakebase64"):
+        await visual_service.generate_for_agent("lisa", "A portrait of Lisa")
 
     # Check if provider was called with reference_image
     mock_provider.generate.assert_called_once()

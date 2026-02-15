@@ -18,7 +18,7 @@ def mock_redis():
 @pytest.fixture
 def mock_visual():
     visual = MagicMock()
-    visual.generate_and_index = AsyncMock(return_value="file:///media/generated/test.png")
+    visual.generate_and_index = AsyncMock(return_value=("file:///media/generated/test.png", "asset-123"))
     return visual
 
 
