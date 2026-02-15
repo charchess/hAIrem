@@ -1,6 +1,6 @@
 import logging
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 from src.features.home.spatial.location.models import AgentLocation, LocationConfidence
 from src.features.home.spatial.location.repository import LocationRepository
@@ -36,7 +36,7 @@ class LocationService:
             location = AgentLocation(
                 agent_id=agent_id,
                 room_id=room_id,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 confidence=confidence
             )
             saved = await self.repository.save_location(location)
@@ -89,7 +89,7 @@ class LocationService:
         ]
 
     async def get_recent_locations(self, agent_id: str, minutes: int = 60) -> List[dict]:
-        since = datetime.utcnow() - timedelta(minutes=minutes)
+        since = datetime.now(UTC) - timedelta(minutes=minutes)
         locations = await self.repository.get_recent_locations(agent_id, since)
         return [
             {

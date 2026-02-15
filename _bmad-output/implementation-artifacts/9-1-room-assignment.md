@@ -1,6 +1,6 @@
 # Story 9.1: Room Assignment
 
-Status: done
+Status: completed
 
 ## Story
 

@@ -1,6 +1,6 @@
 # Story 9.4: Exterior Space
 
-Status: done
+Status: completed
 
 ## Story
 

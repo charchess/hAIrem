@@ -31,6 +31,7 @@ RUN pip install --no-cache-dir \
     numpy \
     torch \
     torchaudio \
+    PyJWT \
     --extra-index-url https://download.pytorch.org/whl/cpu
 
 # Copy the application and shared infrastructure

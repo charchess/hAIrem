@@ -86,14 +86,14 @@ class AgentConfigRepository:
         return []
 
     async def get_or_default(self, agent_id: str) -> AgentParameters:
-        """Get config or return empty parameters (not DEFAULT_PARAMETERS with values).
+        """Get config or return default parameters.
         
         Priority order:
         1. DB config (explicit override via UI)
-        2. Will be filled by LlmClient from env/manifest
+        2. DEFAULT_PARAMETERS with sensible defaults
         """
         config = await self.get(agent_id)
         if config:
             return config.parameters
-        # Return empty parameters - LlmClient will use env vars as fallback
-        return AgentParameters()
+        # Return default parameters - LlmClient will use these as fallback
+        return DEFAULT_PARAMETERS

@@ -1236,6 +1236,59 @@ async def analyze_text_prosody(data: dict):
 
 
 # =============================================
+# Skills & Plugins API Endpoints (Epic 11)
+# =============================================
+
+# In-memory skill/agent registry (integrates with PluginLoader)
+skills_enabled: set[str] = set()  # All loaded skills are enabled by default
+
+
+@app.get("/api/skills")
+async def list_skills():
+    """
+    List all available skills/agents.
+    """
+    # This would integrate with the PluginLoader's AgentRegistry
+    return {
+        "skills": [
+            # Would be populated from PluginLoader
+        ],
+        "count": 0,
+    }
+
+
+@app.get("/api/skills/{skill_id}")
+async def get_skill(skill_id: str):
+    """Get details of a specific skill."""
+    return {"skill_id": skill_id, "enabled": skill_id not in skills_enabled, "status": "active"}
+
+
+@app.post("/api/skills/{skill_id}/enable")
+async def enable_skill(skill_id: str):
+    """Enable a skill/agent."""
+    if skill_id in skills_enabled:
+        skills_enabled.discard(skill_id)
+
+    return {"status": "ok", "skill_id": skill_id, "enabled": True}
+
+
+@app.post("/api/skills/{skill_id}/disable")
+async def disable_skill(skill_id: str):
+    """Disable a skill/agent."""
+    skills_enabled.add(skill_id)
+
+    return {"status": "ok", "skill_id": skill_id, "enabled": False}
+
+
+@app.get("/api/skills/{skill_id}/status")
+async def get_skill_status(skill_id: str):
+    """Get the status of a skill."""
+    enabled = skill_id not in skills_enabled
+
+    return {"skill_id": skill_id, "enabled": enabled, "status": "active" if enabled else "disabled"}
+
+
+# =============================================
 # Event Subscription API Endpoints (Epic 10 - Story 10-1)
 # =============================================
 

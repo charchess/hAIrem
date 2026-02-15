@@ -1,6 +1,6 @@
 # Story 9.2: Location Tracking
 
-Status: done
+Status: completed
 
 ## Story
 

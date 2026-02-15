@@ -21,6 +21,11 @@ elements importants, usecases...
 * decay non lineaire dependant de l'interet et de la force de l'emotion lié
   au souvenir ?
 
-
+* etudier les differentes approches pour sub a un capteur (exemple home
+  assistant : presence)
+  - chaque persona prends la skill et sub aux capteurs qu'elle souhaite
+  - un persona se sub aux capteurs et fait passer l'info 
+  - le persona dieu sub aux capteurs et informe les filles
+  - autre ?
 
 

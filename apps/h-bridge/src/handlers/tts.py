@@ -2,6 +2,7 @@
 Text-to-Speech Service for hAIrem
 Implements local Neural TTS (MeloTTS) with fallback to standard TTS
 Supports streaming audio generation
+Epic 5: Voice Capabilities - Dedicated Base Voice, Voice Modulation, Prosody
 """
 
 import asyncio
@@ -14,14 +15,12 @@ import threading
 import queue
 from typing import Dict, Any, Optional, Generator
 
-# Try importing MeloTTS
 try:
     from melo.api import TTS as MeloTTS
     MELO_AVAILABLE = True
 except ImportError:
     MELO_AVAILABLE = False
 
-# Try importing pyttsx3 as fallback
 try:
     import pyttsx3
     PYTTSX3_AVAILABLE = True
@@ -30,6 +29,10 @@ except ImportError:
 
 from models.hlink import HLinkMessage, MessageType, Payload, Sender, Recipient
 from infrastructure.redis import RedisClient
+
+from services.voice import voice_profile_service, VoiceProfile
+from services.voice_modulation import voice_modulation_service, EMOTION_CONFIGS
+from services.prosody import prosody_service, IntonationType
 
 logger = logging.getLogger(__name__)
 
@@ -46,24 +49,25 @@ class TTSService:
         self.processing_thread = None
         self.loop = None
         
-        # Audio generation settings
-        self.sample_rate = 24000  # Standard for MeloTTS
+        self.sample_rate = 24000
         self.speaker_id = 0
         self.speed = 1.0
         
+        self.voice_profile_service = voice_profile_service
+        self.voice_modulation_service = voice_modulation_service
+        self.prosody_service = prosody_service
+        
     async def initialize(self, engine="auto", device="auto"):
-        """Initialize TTS engine."""
+        """Initialize TTS engine and voice services."""
         try:
             if self.is_initialized:
                 return True
             
-            # Capture event loop
             try:
                 self.loop = asyncio.get_running_loop()
             except RuntimeError:
                 logger.warning("No running event loop found during TTS initialization")
             
-            # Select engine
             if engine == "auto":
                 if MELO_AVAILABLE:
                     self.engine_type = "melo"
@@ -78,17 +82,17 @@ class TTSService:
             logger.info(f"Initializing TTS with engine={self.engine_type}")
             
             if self.engine_type == "melo":
-                # Initialize MeloTTS
-                # self.model = MeloTTS(language='FR', device=device)
                 pass
                 
             elif self.engine_type == "pyttsx3":
-                # Initialize pyttsx3 in the processing thread as it's not thread-safe
                 pass
+            
+            await self.voice_profile_service.initialize()
+            await self.voice_modulation_service.initialize()
+            await self.prosody_service.initialize()
             
             self.is_initialized = True
             
-            # Start processing thread
             self.is_processing = True
             self.processing_thread = threading.Thread(
                 target=self._processing_loop,
@@ -143,23 +147,42 @@ class TTSService:
         try:
             logger.info(f"Generating audio for request {request_id}: {text[:30]}...")
             
-            # Notify start
-            self._send_event(MessageType.TTS_START, request_id, {"text": text})
+            pitch = params.get("pitch", 1.0)
+            rate = params.get("rate", 1.0)
+            volume = params.get("volume", 1.0)
+            emotion = params.get("emotion", "neutral")
+            
+            self._send_event(MessageType.TTS_START, request_id, {
+                "text": text,
+                "voice_params": {"pitch": pitch, "rate": rate, "volume": volume, "emotion": emotion}
+            })
             
             if self.engine_type == "pyttsx3" and local_engine:
-                # pyttsx3 doesn't support streaming easily, so we generate to file then read
+                try:
+                    base_rate = 150
+                    local_engine.setProperty('rate', int(base_rate * rate))
+                    local_engine.setProperty('volume', min(1.0, volume))
+                    
+                    voices = local_engine.getProperty('voices')
+                    if voices:
+                        voice_id = params.get("voice_id")
+                        if voice_id:
+                            for voice in voices:
+                                if voice.id == voice_id or voice_id.lower() in voice.name.lower():
+                                    local_engine.setProperty('voice', voice.id)
+                                    break
+                except Exception as e:
+                    logger.warning(f"Could not set voice properties: {e}")
+                
                 with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tf:
                     temp_filename = tf.name
                 
                 local_engine.save_to_file(text, temp_filename)
                 local_engine.runAndWait()
                 
-                # Read and send audio
                 with open(temp_filename, 'rb') as f:
                     audio_data = f.read()
                 
-                # Send single chunk (simulated streaming)
-                # Encode to base64 for transport
                 b64_audio = base64.b64encode(audio_data).decode('utf-8')
                 
                 self._send_event(MessageType.TTS_AUDIO_CHUNK, request_id, {
@@ -169,18 +192,14 @@ class TTSService:
                     "format": "wav"
                 })
                 
-                # Cleanup
                 try:
                     os.remove(temp_filename)
                 except:
                     pass
                     
             elif self.engine_type == "melo":
-                # MeloTTS implementation (placeholder for now)
-                # In real impl, we would use self.model.tts_to_file but optimized for memory
                 pass
             
-            # Notify end
             self._send_event(MessageType.TTS_END, request_id, {"status": "completed"})
             
         except Exception as e:
@@ -214,11 +233,29 @@ class TTSService:
             logger.error(f"Failed to dispatch TTS event: {e}")
     
     async def speak(self, text: str, request_id: str = None, params: Dict = None):
-        """Queue a text to be spoken."""
+        """Queue a text to be spoken with voice modulation and prosody."""
         if not request_id:
             request_id = f"tts_{int(time.time()*1000)}"
         
-        self.request_queue.put((request_id, text, params or {}))
+        params = params or {}
+        agent_id = params.get("agent_id", "default")
+        
+        base_params = self.voice_profile_service.apply_to_tts_params(agent_id, {
+            "pitch": 1.0,
+            "rate": 1.0,
+            "volume": 1.0
+        })
+        
+        emotion = params.get("emotion")
+        if emotion:
+            base_params = self.voice_modulation_service.modulate_voice(base_params, emotion)
+        
+        style = params.get("prosody_style", "default")
+        base_params = self.prosody_service.apply_prosody(base_params, text, style=style)
+        
+        final_params = {**params, **base_params}
+        
+        self.request_queue.put((request_id, text, final_params))
         return request_id
     
     async def cleanup(self):

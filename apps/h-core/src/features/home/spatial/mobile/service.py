@@ -1,7 +1,7 @@
 import logging
 import asyncio
 from typing import Optional, Dict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 from src.features.home.spatial.mobile.models import MobileLocationUpdate, MobileClientInfo, LocationThrottleConfig
 from src.features.home.spatial.location.service import LocationService
@@ -19,7 +19,7 @@ class ThrottleTracker:
 
     async def is_allowed(self, client_id: str) -> bool:
         async with self._lock:
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
             
             if client_id not in self._update_count:
                 self._update_count[client_id] = []
@@ -59,7 +59,7 @@ class MobileLocationService:
             client_info = MobileClientInfo(
                 client_id=client_id,
                 agent_id=agent_id,
-                last_seen=datetime.utcnow(),
+                last_seen=datetime.now(UTC),
                 is_connected=True
             )
             self._mobile_clients[client_id] = client_info
@@ -80,7 +80,7 @@ class MobileLocationService:
             if not client_info:
                 return {"success": False, "error": "client_not_registered", "message": "Client not registered"}
 
-            client_info.last_seen = datetime.utcnow()
+            client_info.last_seen = datetime.now(UTC)
             client_info.is_connected = True
 
             if location.latitude is not None:
@@ -126,7 +126,7 @@ class MobileLocationService:
                     "latitude": location.latitude,
                     "longitude": location.longitude,
                     "room_id": location.room_id,
-                    "timestamp": location.timestamp.isoformat() if location.timestamp else datetime.utcnow().isoformat()
+                    "timestamp": location.timestamp.isoformat() if location.timestamp else datetime.now(UTC).isoformat()
                 }
             }
 
@@ -138,7 +138,7 @@ class MobileLocationService:
                 "longitude": location.longitude,
                 "accuracy": location.accuracy,
                 "source": location.source,
-                "timestamp": location.timestamp.isoformat() if location.timestamp else datetime.utcnow().isoformat()
+                "timestamp": location.timestamp.isoformat() if location.timestamp else datetime.now(UTC).isoformat()
             }
         }
 

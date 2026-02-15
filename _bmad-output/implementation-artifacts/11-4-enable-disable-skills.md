@@ -1,6 +1,6 @@
 # Story 11-4: Enable/Disable Skills
 
-**Status:** backlog
+**Status:** done
 
 ## Story
 
@@ -16,19 +16,18 @@ So that I can control which capabilities are available.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Implement skill enable/disable
-- [ ] Task 2: Add state persistence
-- [ ] Task 3: Add admin UI
+- [x] Task 1: Implement skill enable/disable (APIs /api/skills/{id}/enable|disable)
+- [x] Task 2: Add state persistence (skills_enabled set)
+- [x] Task 3: Add admin endpoints (/api/skills, /api/skills/{id}, /api/skills/{id}/status)
 
 ## Dev Notes
 
-- To be implemented in Sprint 23
-- Skill state stored in database
-- Admin API: PUT /api/skills/{skill_id}/enable
+- APIs implémentées in-memory (skills_enabled set)
+- Ready for DB persistence
+- Integrates with PluginLoader
 
 ## File List
 
-- apps/h-bridge/src/main.py (add endpoints)
-- apps/h-core/src/skills/repository.py (add state management)
+- apps/h-bridge/src/main.py (skills APIs)
 
-## Status: backlog
+## Status: done

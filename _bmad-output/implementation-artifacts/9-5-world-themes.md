@@ -1,6 +1,6 @@
 # Story 9.5: World Themes
 
-Status: done
+Status: completed
 
 ## Story
 

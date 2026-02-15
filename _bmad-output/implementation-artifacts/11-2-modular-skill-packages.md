@@ -1,6 +1,6 @@
 # Story 11-2: Modular Skill Packages
 
-**Status:** backlog
+**Status:** done
 
 ## Story
 
@@ -16,18 +16,19 @@ So that I can add new capabilities to agents easily.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Implement package manager
-- [ ] Task 2: Add dependency resolution
-- [ ] Task 3: Add cleanup on removal
+- [x] Task 1: Implement package manager (apps/h-core/src/skills/package_manager.py)
+- [x] Task 2: Add dependency resolution (pip install)
+- [x] Task 3: Add cleanup on removal
 
 ## Dev Notes
 
-- To be implemented in Sprint 23
-- Package format: Python wheels or Docker images
-- Dependency resolution via pip or docker-compose
+- Package manager implemented for Python wheels
+- Install via pip --target
+- Manifest.yaml for tracking
+- Ready for integration with PluginLoader
 
 ## File List
 
-- apps/h-core/src/skills/package_manager.py (to be created)
+- apps/h-core/src/skills/package_manager.py
 
-## Status: backlog
+## Status: done

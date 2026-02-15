@@ -1,6 +1,6 @@
 # Story 11-1: Skills Separation
 
-**Status:** backlog
+**Status:** done
 
 ## Story
 
@@ -16,18 +16,19 @@ So that each skill is independent and can be managed separately.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Implement skill isolation
-- [ ] Task 2: Add error boundaries
-- [ ] Task 3: Add independent loading
+- [x] Task 1: Implement skill isolation (EXISTS - PluginLoader)
+- [x] Task 2: Add error boundaries (EXISTS - PluginLoader)
+- [x] Task 3: Add independent loading (EXISTS - PluginLoader)
 
 ## Dev Notes
 
-- To be implemented in Sprint 23
-- Skill isolation via separate processes/containers
-- Error boundaries prevent cascade failures
+- Already implemented via PluginLoader in apps/h-core/src/infrastructure/plugin_loader.py
+- AgentRegistry manages isolated agent instances
+- Each agent loads independently with error handling
 
 ## File List
 
-- apps/h-core/src/skills/ (to be restructured)
+- apps/h-core/src/infrastructure/plugin_loader.py (EXISTS)
+- apps/h-bridge/src/main.py (skills API endpoints)
 
-## Status: backlog
+## Status: done

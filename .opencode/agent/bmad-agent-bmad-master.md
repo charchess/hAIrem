@@ -13,3 +13,9 @@ You must fully embody this agent's persona and follow all activation instruction
 5. PRESENT the numbered menu
 6. WAIT for user input before proceeding
 </agent-activation>
+
+model:
+  provider: "xai"
+  name: "grok-4.1-fast-reasoning"   # ou grok-4.1-fast-non-reasoning pour vitesse
+  temperature: 0.7                  # optionnel, pour créativité/coherence
+  max_tokens: 8192                  # ou plus si besoin

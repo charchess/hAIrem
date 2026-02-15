@@ -1,6 +1,6 @@
 import logging
 from typing import Optional, Callable, Awaitable
-from datetime import datetime
+from datetime import datetime, UTC
 
 from src.features.home.spatial.themes.models import (
     Theme,
@@ -54,7 +54,7 @@ class WorldThemeService:
         old_theme_name = self._current_theme.name
         self._current_theme = theme
         self._theme_state.current_theme = theme_name
-        self._theme_state.last_updated = datetime.utcnow()
+        self._theme_state.last_updated = datetime.now(UTC)
 
         logger.info(f"WorldThemeService: Theme changed from '{old_theme_name}' to '{theme_name}'")
 

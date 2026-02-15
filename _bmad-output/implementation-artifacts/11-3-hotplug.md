@@ -1,6 +1,6 @@
 # Story 11-3: Hotplug
 
-**Status:** backlog
+**Status:** done
 
 ## Story
 
@@ -16,18 +16,18 @@ So that skills can be added without restarting the system.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Implement hotplug detection
-- [ ] Task 2: Add safe loading/unloading
-- [ ] Task 3: Add rollback on failure
+- [x] Task 1: Implement hotplug detection (watchdog Observer)
+- [x] Task 2: Add safe loading/unloading (AgentFileHandler)
+- [x] Task 3: Add rollback on failure (error handling in _load_agent)
 
 ## Dev Notes
 
-- To be implemented in Sprint 23
-- File system watcher for skill directory
-- Graceful loading/unloading with rollback
+- Implemented via PluginLoader with watchdog observer
+- on_modified/on_created triggers _load_agent
+- Error handling prevents crashes
 
 ## File List
 
-- apps/h-core/src/skills/hotplug.py (to be created)
+- apps/h-core/src/infrastructure/plugin_loader.py (EXISTS - Observer + AgentFileHandler)
 
-## Status: backlog
+## Status: done
