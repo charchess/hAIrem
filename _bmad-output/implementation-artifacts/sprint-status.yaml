@@ -92,9 +92,9 @@ development_status:
   epic-5: in-progress
   5-1-microphone-input: done
   5-2-synthesized-voice-output: done
-  5-3-dedicated-base-voice: ready-for-dev
-  5-4-voice-modulation: ready-for-dev
-  5-5-prosody-intonation: ready-for-dev
+  5-3-dedicated-base-voice: done
+  5-4-voice-modulation: done
+  5-5-prosody-intonation: done
   epic-5-retrospective: optional
 
   # ============================================================
@@ -134,7 +134,7 @@ development_status:
   epic-8: done
   8-1-image-generation: done
   8-2-multi-provider-support: done
-  8-3-switchable-providers-api: ready-for-dev
+  8-3-switchable-providers-api: done
   8-4-customizable-outfits: done
   8-5-asset-caching: done
   epic-8-retrospective: optional
