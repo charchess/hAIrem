@@ -142,32 +142,8 @@ epic-10: done
 10-5-night-mode: done
 epic-10_retrospective: optional
 
-# ============================================================
-# EPIC 11: Skills & Hotplug (Vision) - Backlog
-# ============================================================
-epic-11: backlog
-11-1-skills-separation: backlog
-11-2-modular-skill-packages: backlog
-11-3-hotplug: backlog
-11-4-enable-disable-skills: backlog
-epic-11_retrospective: optional
-
-# ============================================================
-# EPIC 13: Deep Cognitive Memory - Sprint 13
-# ============================================================
-epic-13: done
-13-1-graphe-subjectif: done
-13-2-l-algorithme-d-oubli-semantic-decay: done
-13-3-subjective-retrieval: done
-13-4-conflict-synthesis: done
-13-5-restore-sleep-orchestration: done
-13-6-transient-state-management: done
-epic-13_retrospective: done
-
-# ============================================================
-# EPIC 14: Sensory Layer - Sprint 14
-# ============================================================
-epic-14: done
+# Sprint 22
+sprint-22_retrospective: done
 epic-14_retrospective: done
 
 # ============================================================
