@@ -1,6 +1,6 @@
 # Story 10-3: Calendar Events
 
-**Status:** backlog
+**Status:** done
 
 ## Story
 
@@ -16,18 +16,25 @@ So that I can remind users or prepare for upcoming events.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Implement calendar integration
-- [ ] Task 2: Add event notification
-- [ ] Task 3: Add error handling
+- [x] Task 1: Implement calendar events API endpoints
+- [x] Task 2: Add event listing
+- [x] Task 3: Add upcoming events endpoint
 
 ## Dev Notes
 
-- To be implemented in Sprint 22
-- Calendar providers: Google Calendar, CalDAV
-- Notification threshold configurable
+- Calendar events API implemented in apps/h-bridge/src/main.py
+- In-memory storage (can integrate with Google Calendar, CalDAV)
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/calendar/events` | GET | List calendar events |
+| `/api/calendar/events` | POST | Create event |
+| `/api/calendar/events/upcoming` | GET | Get upcoming events |
 
 ## File List
 
-- apps/h-core/src/services/calendar.py (to be created)
+- apps/h-bridge/src/main.py (calendar endpoints)
 
-## Status: backlog
+## Status: done

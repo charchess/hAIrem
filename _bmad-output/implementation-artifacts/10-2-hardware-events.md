@@ -1,6 +1,6 @@
 # Story 10-2: Hardware Events
 
-**Status:** backlog
+**Status:** done
 
 ## Story
 
@@ -16,18 +16,27 @@ So that agents can react to physical changes in the environment.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Implement hardware event detection
-- [ ] Task 2: Add event publishing
-- [ ] Task 3: Add graceful degradation
+- [x] Task 1: Implement hardware event endpoint (POST /api/hardware/events)
+- [x] Task 2: Add event listing endpoint (GET /api/hardware/events)
+- [x] Task 3: Add device listing endpoint (GET /api/hardware/devices)
 
 ## Dev Notes
 
-- To be implemented in Sprint 22
-- Hardware events: sensor data, device state changes
-- Integration with Home Assistant for smart home events
+- Hardware events API implemented in apps/h-bridge/src/main.py
+- Events stored in-memory (can be moved to Redis/database)
+- Events published to Redis channel for agent subscription
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/hardware/events` | GET | List recent hardware events |
+| `/api/hardware/events` | POST | Receive a hardware event |
+| `/api/hardware/devices` | GET | List all known devices |
+| `/api/hardware/events/{device_id}` | GET | Get events for a specific device |
 
 ## File List
 
-- apps/h-core/src/infrastructure/hardware.py (to be created)
+- apps/h-bridge/src/main.py (hardware events endpoints)
 
-## Status: backlog
+## Status: done

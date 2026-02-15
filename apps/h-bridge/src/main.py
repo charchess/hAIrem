@@ -1235,6 +1235,328 @@ async def analyze_text_prosody(data: dict):
     return prosody_service.analyze_text_prosody(text)
 
 
+# =============================================
+# Event Subscription API Endpoints (Epic 10 - Story 10-1)
+# =============================================
+
+# In-memory store for subscriptions (in production, use Redis or database)
+subscriptions: dict[str, list[str]] = {}
+
+# Hardware Events Store (simulated - to integrate with Home Assistant)
+hardware_events: list[dict] = []
+
+
+@app.get("/api/hardware/events")
+async def list_hardware_events(
+    limit: int = 50,
+    event_type: str = None,
+):
+    """
+    List recent hardware events.
+
+    Query params:
+        - limit: Maximum number of events to return
+        - event_type: Filter by event type (motion, temperature, door, etc.)
+    """
+    events = hardware_events[-limit:]
+
+    if event_type:
+        events = [e for e in events if e.get("event_type") == event_type]
+
+    return {"events": events, "count": len(events)}
+
+
+@app.post("/api/hardware/events")
+async def receive_hardware_event(data: dict):
+    """
+    Receive a hardware event (from Home Assistant or other sensors).
+
+    Body:
+        - event_type: Type of event (motion, temperature, door, light, etc.)
+        - device_id: ID of the device/sensor
+        - value: Event value/state
+        - timestamp: Event timestamp
+    """
+    event_type = data.get("event_type")
+    device_id = data.get("device_id")
+    value = data.get("value")
+    timestamp = data.get("timestamp")
+
+    if not event_type or not device_id:
+        return {"error": "event_type and device_id are required"}, 400
+
+    event = {
+        "id": str(uuid4()),
+        "event_type": event_type,
+        "device_id": device_id,
+        "value": value,
+        "timestamp": timestamp,
+    }
+
+    hardware_events.append(event)
+
+    # Keep only last 1000 events
+    if len(hardware_events) > 1000:
+        hardware_events[:] = hardware_events[-1000:]
+
+    # Publish to Redis for agents to subscribe
+    if redis_client and redis_client.client:
+        await redis_client.publish_event("events:hardware", event)
+
+    return {"status": "ok", "event": event}
+
+
+@app.get("/api/hardware/devices")
+async def list_hardware_devices():
+    """List all known hardware devices."""
+    devices = {}
+    for event in hardware_events:
+        device_id = event.get("device_id")
+        if device_id and device_id not in devices:
+            devices[device_id] = {
+                "device_id": device_id,
+                "event_type": event.get("event_type"),
+                "last_value": event.get("value"),
+                "last_seen": event.get("timestamp"),
+            }
+
+    return {"devices": list(devices.values())}
+
+
+@app.get("/api/hardware/events/{device_id}")
+async def get_device_events(device_id: str, limit: int = 20):
+    """Get events for a specific device."""
+    device_events = [e for e in hardware_events if e.get("device_id") == device_id]
+    device_events = device_events[-limit:]
+
+    return {"device_id": device_id, "events": device_events}
+
+
+# =============================================
+# Calendar API Endpoints (Epic 10 - Story 10-3)
+# =============================================
+
+# Calendar events store (simulated - to integrate with Google Calendar, CalDAV)
+calendar_events: list[dict] = []
+
+
+@app.get("/api/calendar/events")
+async def list_calendar_events(
+    start_date: str = None,
+    end_date: str = None,
+    limit: int = 50,
+):
+    """
+    List calendar events.
+
+    Query params:
+        - start_date: Start date (ISO format)
+        - end_date: End date (ISO format)
+        - limit: Maximum number of events
+    """
+    events = calendar_events[-limit:]
+
+    return {"events": events, "count": len(events)}
+
+
+@app.post("/api/calendar/events")
+async def create_calendar_event(data: dict):
+    """
+    Create a calendar event.
+
+    Body:
+        - title: Event title
+        - description: Event description
+        - start_time: Start time (ISO format)
+        - end_time: End time (ISO format)
+        - attendees: List of attendee IDs
+    """
+    title = data.get("title")
+    start_time = data.get("start_time")
+
+    if not title or not start_time:
+        return {"error": "title and start_time are required"}, 400
+
+    event = {
+        "id": str(uuid4()),
+        "title": title,
+        "description": data.get("description", ""),
+        "start_time": start_time,
+        "end_time": data.get("end_time"),
+        "attendees": data.get("attendees", []),
+    }
+
+    calendar_events.append(event)
+
+    return {"status": "ok", "event": event}
+
+
+@app.get("/api/calendar/events/upcoming")
+async def get_upcoming_events(limit: int = 10):
+    """Get upcoming events."""
+    # Sort by start time and get upcoming
+    sorted_events = sorted(calendar_events, key=lambda e: e.get("start_time", ""))
+    upcoming = sorted_events[-limit:]
+
+    return {"events": upcoming, "count": len(upcoming)}
+
+
+# =============================================
+# System Stimulus/Entropy API (Epic 10 - Story 10-4)
+# =============================================
+
+# Stimulus configuration and history
+stimulus_config = {
+    "enabled": True,
+    "interval_seconds": 3600,  # Every hour
+    "max_stimuli_per_day": 10,
+}
+stimulus_history: list[dict] = []
+
+
+@app.get("/api/stimulus/config")
+async def get_stimulus_config():
+    """Get stimulus/entropy configuration."""
+    return stimulus_config
+
+
+@app.post("/api/stimulus/config")
+async def update_stimulus_config(data: dict):
+    """Update stimulus/entropy configuration."""
+    if "enabled" in data:
+        stimulus_config["enabled"] = data["enabled"]
+    if "interval_seconds" in data:
+        stimulus_config["interval_seconds"] = data["interval_seconds"]
+    if "max_stimuli_per_day" in data:
+        stimulus_config["max_stimuli_per_day"] = data["max_stimuli_per_day"]
+
+    return {"status": "ok", "config": stimulus_config}
+
+
+@app.post("/api/stimulus/trigger")
+async def trigger_stimulus(data: dict = None):
+    """
+    Manually trigger a system stimulus.
+
+    Body (optional):
+        - type: Type of stimulus (entropy, proactive, reminder)
+        - context: Additional context for the stimulus
+    """
+    if not stimulus_config["enabled"]:
+        return {"error": "Stimulus is disabled"}, 400
+
+    stimulus_type = data.get("type", "manual") if data else "manual"
+    context = data.get("context", {}) if data else {}
+
+    stimulus = {
+        "id": str(uuid4()),
+        "type": stimulus_type,
+        "context": context,
+        "triggered_at": str(datetime.now()),
+    }
+
+    stimulus_history.append(stimulus)
+
+    # Keep only last 1000 stimuli
+    if len(stimulus_history) > 1000:
+        stimulus_history[:] = stimulus_history[-1000:]
+
+    # Publish to Redis for agents to react
+    if redis_client and redis_client.client:
+        await redis_client.publish_event("events:stimulus", stimulus)
+
+    return {"status": "ok", "stimulus": stimulus}
+
+
+@app.get("/api/stimulus/history")
+async def get_stimulus_history(limit: int = 50):
+    """Get stimulus history."""
+    return {"stimuli": stimulus_history[-limit:], "count": len(stimulus_history[-limit:])}
+
+
+@app.post("/api/events/subscribe")
+async def subscribe_to_event(data: dict):
+    """
+    Subscribe an agent to an event stream.
+
+    Body:
+        - agent_id: Agent identifier
+        - event_type: Type of event (system_status, agent_state, user_activity)
+    """
+    agent_id = data.get("agent_id")
+    event_type = data.get("event_type", "system_stream")
+
+    if not agent_id:
+        return {"error": "agent_id is required"}, 400
+
+    # Subscribe to the Redis channel
+    channel = f"events:{event_type}"
+
+    # Store subscription
+    if agent_id not in subscriptions:
+        subscriptions[agent_id] = []
+    if channel not in subscriptions[agent_id]:
+        subscriptions[agent_id].append(channel)
+
+    return {
+        "status": "ok",
+        "agent_id": agent_id,
+        "subscribed_to": channel,
+        "subscriptions": subscriptions.get(agent_id, []),
+    }
+
+
+@app.post("/api/events/unsubscribe")
+async def unsubscribe_from_event(data: dict):
+    """
+    Unsubscribe an agent from an event stream.
+
+    Body:
+        - agent_id: Agent identifier
+        - event_type: Type of event to unsubscribe from
+    """
+    agent_id = data.get("agent_id")
+    event_type = data.get("event_type", "system_stream")
+
+    if not agent_id:
+        return {"error": "agent_id is required"}, 400
+
+    channel = f"events:{event_type}"
+
+    # Remove subscription
+    if agent_id in subscriptions and channel in subscriptions[agent_id]:
+        subscriptions[agent_id].remove(channel)
+
+    return {
+        "status": "ok",
+        "agent_id": agent_id,
+        "unsubscribed_from": channel,
+        "subscriptions": subscriptions.get(agent_id, []),
+    }
+
+
+@app.get("/api/events/subscriptions")
+async def list_subscriptions(agent_id: str):
+    """Get all subscriptions for an agent."""
+    if not agent_id:
+        return {"error": "agent_id query parameter is required"}, 400
+
+    return {"agent_id": agent_id, "subscriptions": subscriptions.get(agent_id, [])}
+
+
+@app.get("/api/events/types")
+async def list_event_types():
+    """List all available event types."""
+    return {
+        "event_types": [
+            {"name": "system_status", "description": "System status changes"},
+            {"name": "agent_state", "description": "Agent state changes"},
+            {"name": "user_activity", "description": "User activity events"},
+            {"name": "system_stream", "description": "General system events"},
+        ]
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
 

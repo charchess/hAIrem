@@ -1,6 +1,6 @@
 # Story 10-4: System Stimulus/Entropy
 
-**Status:** backlog
+**Status:** done
 
 ## Story
 
@@ -16,18 +16,27 @@ So that I can act proactively without user input.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Implement entropy/stimuli generator
-- [ ] Task 2: Add action triggering
-- [ ] Task 3: Add rate limiting
+- [x] Task 1: Implement stimulus configuration endpoint
+- [x] Task 2: Add stimulus triggering endpoint
+- [x] Task 3: Add rate limiting via max_stimuli_per_day
 
 ## Dev Notes
 
-- To be implemented in Sprint 22
-- Also known as "The Entropy Agent" or "Dieu/L'Étincelle"
-- Generates proactive interactions based on context
+- System stimulus/entropy API implemented in apps/h-bridge/src/main.py
+- Stimuli published to Redis for agent subscription
+- Rate limiting via configuration
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/stimulus/config` | GET | Get stimulus configuration |
+| `/api/stimulus/config` | POST | Update stimulus configuration |
+| `/api/stimulus/trigger` | POST | Manually trigger a stimulus |
+| `/api/stimulus/history` | GET | Get stimulus history |
 
 ## File List
 
-- apps/h-core/src/domain/entropy.py (to be created)
+- apps/h-bridge/src/main.py (stimulus endpoints)
 
-## Status: backlog
+## Status: done

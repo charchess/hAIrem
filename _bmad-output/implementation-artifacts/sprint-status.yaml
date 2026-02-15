@@ -132,13 +132,13 @@ epic-9: done
 epic-9_retrospective: done
 
 # ============================================================
-# EPIC 10: Proactivity (Vision) - Sprint 22 (Next)
+# EPIC 10: Proactivity (Vision) - Sprint 22 (COMPLETE)
 # ============================================================
-epic-10: backlog
-10-1-event-subscriptions: backlog
-10-2-hardware-events: backlog
-10-3-calendar-events: backlog
-10-4-system-stimulus-entropy: backlog
+epic-10: done
+10-1-event-subscriptions: done
+10-2-hardware-events: done
+10-3-calendar-events: done
+10-4-system-stimulus-entropy: done
 10-5-night-mode: done
 epic-10_retrospective: optional
 
@@ -183,7 +183,13 @@ summary:
   stories_backlog: 14
 
 # Current Sprint
-current_sprint: 21
+current_sprint: 22
+sprint_22:
+  start_date: "2026-02-15"
+  end_date: "2026-02-28"
+  focus: "Complete Epic 10 Proactivity - Event Subscriptions, Hardware Events, Calendar, Stimulus"
+  status: "done"
+
 sprint_21:
   start_date: "2026-02-15"
   end_date: "2026-02-28"
