@@ -14,6 +14,7 @@ SURREAL_AVAILABLE = Surreal is not None
 
 logger = logging.getLogger(__name__)
 
+
 class SurrealDbClient:
     def __init__(self, url: str, user: str, password: str, ns: str = "hairem", db: str = "core"):
         self.url = url
@@ -28,14 +29,15 @@ class SurrealDbClient:
         """Robust wrapper for SurrealDB client calls with auto-reconnect."""
         if not self.client:
             await self.connect()
-            if not self.client: return None
-        
+            if not self.client:
+                return None
+
         try:
             method = getattr(self.client, method_name)
             res = method(*args, **kwargs)
             if inspect.isawaitable(res):
                 res = await res
-            
+
             # Detect session loss in result string
             if isinstance(res, str) and any(x in res.lower() for x in ["namespace", "database", "permissions", "iam"]):
                 logger.warning(f"SURREAL_SESSION_LOSS detected. Re-connecting...")
@@ -53,39 +55,46 @@ class SurrealDbClient:
                 except Exception as retry_e:
                     logger.error(f"SURREAL_RETRY_FAILED: {retry_e}")
                     return None
-            
+
             logger.error(f"SURREAL_ERROR: {method_name} failed: {e}")
             return None
 
     async def connect(self):
         """Connect to SurrealDB."""
-        if not SURREAL_AVAILABLE: return
+        if not SURREAL_AVAILABLE:
+            return
 
         if self.client:
-            try: await self.client.close()
-            except: pass
-            
+            try:
+                await self.client.close()
+            except:
+                pass
+
         # We keep the constructor call simple for mock compatibility in tests
         self.client = Surreal(self.url)
-        
+
         try:
             # Need to call connect() explicitly in newer versions of the library
             if hasattr(self.client, "connect"):
                 res = self.client.connect()
-                if inspect.isawaitable(res): await res
+                if inspect.isawaitable(res):
+                    await res
 
             # Multi-format authentication
             creds = {"user": self.user or "root", "pass": self.password or "root"}
             try:
                 res = self.client.signin(creds)
-                if inspect.isawaitable(res): await res
+                if inspect.isawaitable(res):
+                    await res
             except:
                 res = self.client.signin({"username": creds["user"], "password": creds["pass"]})
-                if inspect.isawaitable(res): await res
+                if inspect.isawaitable(res):
+                    await res
 
             res = self.client.use(self.ns, self.db)
-            if inspect.isawaitable(res): await res
-            
+            if inspect.isawaitable(res):
+                await res
+
             logger.info(f"Connected to SurrealDB: {self.ns}:{self.db}")
         except Exception as e:
             logger.error(f"SurrealDB connection failed: {e}")
@@ -93,10 +102,11 @@ class SurrealDbClient:
 
     async def setup_schema(self):
         """Initialize SCHEMAFULL tables and indices safely."""
-        if not self.client: return
+        if not self.client:
+            return
         try:
             logger.info("SYSTEM: Configuring SurrealDB Schema (SCHEMAFULL)...")
-            
+
             setup_queries = f"""
             DEFINE NAMESPACE IF NOT EXISTS {self.ns};
             USE NAMESPACE {self.ns};
@@ -134,6 +144,8 @@ class SurrealDbClient:
             DEFINE FIELD IF NOT EXISTS confidence ON TABLE BELIEVES TYPE float DEFAULT 1.0;
             DEFINE FIELD IF NOT EXISTS strength ON TABLE BELIEVES TYPE float DEFAULT 1.0;
             DEFINE FIELD IF NOT EXISTS last_accessed ON TABLE BELIEVES TYPE datetime DEFAULT time::now();
+            DEFINE FIELD IF NOT EXISTS permanent ON TABLE BELIEVES TYPE bool DEFAULT false;
+            DEFINE FIELD IF NOT EXISTS last_reinforced ON TABLE BELIEVES TYPE datetime DEFAULT time::now();
 
             DEFINE TABLE IF NOT EXISTS ABOUT SCHEMAFULL;
             
@@ -144,9 +156,9 @@ class SurrealDbClient:
             DEFINE FIELD IF NOT EXISTS version ON TABLE agent_config TYPE string DEFAULT '1.0.0';
             DEFINE INDEX IF NOT EXISTS agent_config_id ON TABLE agent_config FIELDS agent_id UNIQUE;
             """
-            
+
             await self._call("query", setup_queries)
-            
+
             # Load external schema file
             schema_path = os.path.join(os.path.dirname(__file__), "graph_schema.surql")
             if os.path.exists(schema_path):
@@ -158,7 +170,18 @@ class SurrealDbClient:
             logger.error(f"Failed to setup SurrealDB schema: {e}")
 
     async def insert_graph_memory(self, fact_data: Dict[str, Any]):
-        """Stores an atomic fact using the graph model."""
+        """Stores an atomic fact using the graph model.
+
+        Args:
+            fact_data: Dictionary containing:
+                - fact: The fact content
+                - subject: The subject (e.g., "user", "Lisa")
+                - agent: The agent believing the fact (e.g., "system", "Renarde")
+                - confidence: Confidence score (0.0-1.0)
+                - user_id: Optional user ID
+                - user_name: Optional user name
+                - permanent: If True, fact will not decay (for identity facts)
+        """
         subject_name = fact_data.get("subject", "user")
         agent_name = fact_data.get("agent", "system")
         fact_content = fact_data.get("fact", "")
@@ -166,26 +189,41 @@ class SurrealDbClient:
         confidence = fact_data.get("confidence", 1.0)
         user_id = fact_data.get("user_id")
         user_name = fact_data.get("user_name")
+        permanent = fact_data.get("permanent", False)
 
         sid = f"subject:`{subject_name.lower().replace(' ', '_')}`"
         aid = f"subject:`{agent_name.lower().replace(' ', '_')}`"
 
         try:
-            await self._call('query', f"INSERT INTO subject (id, name) VALUES ({sid}, $name) ON DUPLICATE KEY UPDATE name = $name;", {"name": subject_name})
-            await self._call('query', f"INSERT INTO subject (id, name) VALUES ({aid}, $name) ON DUPLICATE KEY UPDATE name = $name;", {"name": agent_name})
-            
+            await self._call(
+                "query",
+                f"INSERT INTO subject (id, name) VALUES ({sid}, $name) ON DUPLICATE KEY UPDATE name = $name;",
+                {"name": subject_name},
+            )
+            await self._call(
+                "query",
+                f"INSERT INTO subject (id, name) VALUES ({aid}, $name) ON DUPLICATE KEY UPDATE name = $name;",
+                {"name": agent_name},
+            )
+
             fact_data_db = {"content": fact_content, "embedding": embedding}
             if user_id:
                 fact_data_db["user_id"] = user_id
             if user_name:
                 fact_data_db["user_name"] = user_name
-                
-            fact_res = await self._call('create', "fact", fact_data_db)
-            if not fact_res: return
+
+            fact_res = await self._call("create", "fact", fact_data_db)
+            if not fact_res:
+                return
             fid = fact_res[0].get("id") if isinstance(fact_res, list) else fact_res.get("id")
-            
-            await self._call('query', f"RELATE {aid}->BELIEVES->{fid} SET confidence = $conf, strength = 1.0, last_accessed = time::now();", {"conf": confidence})
-            await self._call('query', f"RELATE {fid}->ABOUT->{sid};")
+
+            # Include permanent flag in the BELIEVES edge
+            await self._call(
+                "query",
+                f"RELATE {aid}->BELIEVES->{fid} SET confidence = $conf, strength = 1.0, last_accessed = time::now(), permanent = $permanent, last_reinforced = time::now();",
+                {"conf": confidence, "permanent": permanent},
+            )
+            await self._call("query", f"RELATE {fid}->ABOUT->{sid};")
         except Exception as e:
             logger.error(f"Failed to insert graph memory: {e}")
 
@@ -196,20 +234,22 @@ class SurrealDbClient:
             "type": message.get("type", "unknown"),
             "payload": message.get("payload", {}),
             "timestamp": message.get("timestamp") or datetime.utcnow().isoformat(),
-            "processed": False
+            "processed": False,
         }
-        await self._call('create', "messages", data)
+        await self._call("create", "messages", data)
 
     async def get_messages(self, limit: int = 50) -> List[Dict[str, Any]]:
         """Retrieve recent messages."""
-        res = await self._call('query', f"SELECT * FROM messages ORDER BY timestamp DESC LIMIT {limit};")
+        res = await self._call("query", f"SELECT * FROM messages ORDER BY timestamp DESC LIMIT {limit};")
         if res and isinstance(res, list) and len(res) > 0:
             return res[0].get("result", []) if isinstance(res[0], dict) else res
         return []
 
     async def get_unprocessed_messages(self, limit: int = 50) -> List[Dict[str, Any]]:
         """Retrieve messages that haven't been processed for cognitive consolidation."""
-        res = await self._call('query', f"SELECT * FROM messages WHERE processed = false ORDER BY timestamp ASC LIMIT {limit};")
+        res = await self._call(
+            "query", f"SELECT * FROM messages WHERE processed = false ORDER BY timestamp ASC LIMIT {limit};"
+        )
         if res and isinstance(res, list) and len(res) > 0:
             return res[0].get("result", []) if isinstance(res[0], dict) else res
         return []
@@ -218,33 +258,52 @@ class SurrealDbClient:
         """Mark a batch of messages as processed."""
         for mid in msg_ids:
             # msg_ids are expected to be the UUID part
-            await self._call('query', f"UPDATE messages SET processed = true WHERE id = messages:`{mid}`;")
+            await self._call("query", f"UPDATE messages SET processed = true WHERE id = messages:`{mid}`;")
 
     async def merge_or_override_fact(self, old_fact_id: str, new_fact_data: Dict[str, Any], resolution: Dict[str, Any]):
         """Handles memory conflict resolution by merging or overriding existing facts."""
         action = resolution.get("action", "OVERRIDE")
         new_content = resolution.get("resolution", new_fact_data["fact"]).replace("'", "\\'")
-        
+
         if action == "OVERRIDE":
             # 1. Update the fact node content and embedding
-            await self._call('query', f"UPDATE {old_fact_id} SET content = '{new_content}', embedding = $emb;", {"emb": new_fact_data['embedding']})
+            await self._call(
+                "query",
+                f"UPDATE {old_fact_id} SET content = '{new_content}', embedding = $emb;",
+                {"emb": new_fact_data["embedding"]},
+            )
             logger.info(f"CONFLICT_RESOLVED: Overrode {old_fact_id} with new synthesis.")
         else:
             # MERGE: Just update content but keep historical links
-            await self._call('query', f"UPDATE {old_fact_id} SET content = '{new_content}';")
+            await self._call("query", f"UPDATE {old_fact_id} SET content = '{new_content}';")
             logger.info(f"CONFLICT_RESOLVED: Merged facts into {old_fact_id}.")
 
     async def apply_decay_to_all_memories(self, decay_rate: float = 0.05, threshold: float = 0.1) -> int:
-        """Apply decay to all memory strengths and remove faded memories."""
+        """Apply decay to all memory strengths and remove faded memories.
+
+        Args:
+            decay_rate: The base decay rate (e.g., 0.05 for 5% decay)
+            threshold: Memories with strength below this are deleted
+
+        Returns:
+            Number of memories removed
+        """
         try:
-            # Update beliefs with decay formula - single line format for test compatibility
-            update_query = f"UPDATE BELIEVES SET strength = strength * math::pow({decay_rate}, time::now() - last_accessed), last_accessed = time::now()"
-            await self._call('query', update_query)
-            
+            # Update beliefs with decay formula - skip permanent facts
+            # Use last_reinforced field for time-based decay
+            update_query = f"""
+                UPDATE BELIEVES 
+                SET 
+                    strength = strength * math::pow({decay_rate}, time::now() - last_reinforced),
+                    last_reinforced = time::now()
+                WHERE permanent != true
+            """
+            await self._call("query", update_query)
+
             # Delete beliefs below threshold - include threshold directly in query for test compatibility
             delete_query = f"DELETE BELIEVES WHERE strength < {threshold}"
-            result = await self._call('query', delete_query)
-            
+            result = await self._call("query", delete_query)
+
             # Return count of deleted records if available
             if result and isinstance(result, list) and len(result) > 0:
                 deleted = result[0].get("result", []) if isinstance(result[0], dict) else result
@@ -256,16 +315,41 @@ class SurrealDbClient:
             logger.error(f"Failed to apply decay: {e}")
             return 0
 
+    async def cleanup_orphaned_facts(self) -> int:
+        """Remove fact nodes that are no longer referenced by any BELIEVES edges.
+
+        Returns:
+            Number of orphaned facts removed
+        """
+        try:
+            # Find facts that have no incoming BELIEVES edges
+            cleanup_query = """
+                DELETE fact WHERE id NOT IN (
+                    SELECT out FROM BELIEVES
+                )
+            """
+            result = await self._call("query", cleanup_query)
+
+            if result and isinstance(result, list) and len(result) > 0:
+                deleted = result[0].get("result", []) if isinstance(result[0], dict) else result
+                count = len(deleted) if isinstance(deleted, list) else 0
+                logger.info(f"CLEANUP: {count} orphaned facts removed")
+                return count
+            return 0
+        except Exception as e:
+            logger.error(f"Failed to cleanup orphaned facts: {e}")
+            return 0
+
     async def update_memory_strength(self, agent_name: str, fact_id: str, boost: bool = True) -> bool:
         """Update the strength of a specific memory belief."""
         try:
-            agent_key = agent_name.lower().replace(' ', '_')
+            agent_key = agent_name.lower().replace(" ", "_")
             delta = 0.1 if boost else -0.1
-            
+
             # Format query with literal delta value for test compatibility
             query = f"UPDATE BELIEVES SET strength = math::min(1.0, strength + {delta}) WHERE in = subject:`{agent_key}` AND out = {fact_id}"
-            
-            result = await self._call('query', query)
+
+            result = await self._call("query", query)
             success = bool(result) and isinstance(result, list) and len(result) > 0
             if success:
                 logger.debug(f"MEMORY_STRENGTH_UPDATED: {agent_name} - {fact_id} ({'+' if boost else '-'}{delta})")
@@ -278,22 +362,24 @@ class SurrealDbClient:
 
         self._stop_event.set()
         if self.client:
-            await self._call('close')
+            await self._call("close")
 
-    async def semantic_search(self, embedding: List[float], agent_id: Optional[str] = None, limit: int = 3) -> List[Dict[str, Any]]:
+    async def semantic_search(
+        self, embedding: List[float], agent_id: Optional[str] = None, limit: int = 3
+    ) -> List[Dict[str, Any]]:
         """Subjective semantic search that retrieves facts based on agent's beliefs.
-        
+
         Queries from:
         - Agent's subjective beliefs: agent:{agent_id}->BELIEVES->fact
         - Universal facts: agent:system->BELIEVES->fact
-        
+
         Filters out faded memories (strength < 0.3).
         """
         if not agent_id:
             agent_id = "system"
-        
+
         agent_name = agent_id.lower().replace(" ", "_")
-        
+
         query = f"""
         SELECT * FROM (
             SELECT 
@@ -321,9 +407,9 @@ class SurrealDbClient:
         ORDER BY confidence DESC
         LIMIT {limit}
         """
-        
+
         try:
-            result = await self._call('query', query, {"embedding": embedding})
+            result = await self._call("query", query, {"embedding": embedding})
             if result and isinstance(result, list) and len(result) > 0:
                 return result[0].get("result", [])
             return []
@@ -333,15 +419,15 @@ class SurrealDbClient:
 
     async def semantic_search_user(self, embedding: List[float], user_id: str, limit: int = 3) -> List[Dict[str, Any]]:
         """Subjective semantic search that retrieves facts specific to a user.
-        
+
         Queries from:
         - User-specific facts: fact WHERE user_id = $user_id
         - Universal facts: fact WHERE user_id = null (system-wide knowledge)
-        
+
         Filters out faded memories (strength < 0.3).
         """
         user_id_lower = user_id.lower().replace(" ", "_")
-        
+
         query = f"""
         SELECT * FROM (
             SELECT 
@@ -373,9 +459,9 @@ class SurrealDbClient:
         ORDER BY confidence DESC
         LIMIT {limit}
         """
-        
+
         try:
-            result = await self._call('query', query, {"embedding": embedding})
+            result = await self._call("query", query, {"embedding": embedding})
             if result and isinstance(result, list) and len(result) > 0:
                 return result[0].get("result", [])
             return []
@@ -385,7 +471,7 @@ class SurrealDbClient:
 
     async def semantic_search_universal(self, embedding: List[float], limit: int = 3) -> List[Dict[str, Any]]:
         """Semantic search for universal memories (not tied to any user).
-        
+
         Retrieves system-wide knowledge that applies to all users.
         """
         query = f"""
@@ -404,9 +490,9 @@ class SurrealDbClient:
         ORDER BY confidence DESC
         LIMIT {limit}
         """
-        
+
         try:
-            result = await self._call('query', query, {"embedding": embedding})
+            result = await self._call("query", query, {"embedding": embedding})
             if result and isinstance(result, list) and len(result) > 0:
                 return result[0].get("result", [])
             return []

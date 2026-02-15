@@ -9,9 +9,10 @@ from src.models.hlink import HLinkMessage, MessageType, Payload, Recipient, Send
 
 logger = logging.getLogger(__name__)
 
+
 class ConflictResolver:
     """Handles resolution of contradictory facts using LLM synthesis."""
-    
+
     RESOLUTION_PROMPT = """
     You are the Memory Conflict Resolver for hAIrem.
     You have two facts that might be contradictory.
@@ -37,15 +38,16 @@ class ConflictResolver:
     async def resolve(self, old_fact: str, new_fact: str) -> dict[str, Any]:
         prompt = self.RESOLUTION_PROMPT.format(old_fact=old_fact, new_fact=new_fact)
         response = await self.llm.get_completion([{"role": "system", "content": prompt}], stream=False)
-        
+
         # Clean response
-        clean_json = response.strip() # type: ignore
+        clean_json = response.strip()  # type: ignore
         if clean_json.startswith("```json"):
             clean_json = clean_json.split("```json")[1].split("```")[0].strip()
         elif clean_json.startswith("```"):
             clean_json = clean_json.split("```")[1].split("```")[0].strip()
-            
+
         return json.loads(clean_json)
+
 
 class MemoryConsolidator:
     """Service to periodically consolidate conversation history into atomic facts."""
@@ -81,7 +83,7 @@ class MemoryConsolidator:
     async def consolidate(self, limit: int = 20) -> int:
         """Run a consolidation cycle."""
         logger.info("Starting Cognitive Consolidation cycle...")
-        
+
         # 1. Fetch unprocessed messages
         messages = await self.surreal.get_unprocessed_messages(limit=limit)
         if not messages:
@@ -92,22 +94,22 @@ class MemoryConsolidator:
         convo_lines = []
         msg_ids = []
         user_ids_in_batch = []  # Use list to preserve order
-        seen_user_ids = set()   # Track seen to avoid duplicates
+        seen_user_ids = set()  # Track seen to avoid duplicates
         for m in messages:
-            sender = m.get('sender', {}).get('agent_id', 'unknown')
-            content = m.get('payload', {}).get('content', '')
+            sender = m.get("sender", {}).get("agent_id", "unknown")
+            content = m.get("payload", {}).get("content", "")
             if isinstance(content, dict):
-                content = content.get('content') or json.dumps(content)
+                content = content.get("content") or json.dumps(content)
             convo_lines.append(f"{sender}: {content}")
-            msg_ids.append(m.get('id').split(':')[-1].strip('`'))
-            
-            payload = m.get('payload', {})
+            msg_ids.append(m.get("id").split(":")[-1].strip("`"))
+
+            payload = m.get("payload", {})
             if isinstance(payload, dict):
-                msg_user_id = payload.get('user_id') or payload.get('session_user_id')
+                msg_user_id = payload.get("user_id") or payload.get("session_user_id")
                 if msg_user_id and msg_user_id not in seen_user_ids:
                     user_ids_in_batch.append(msg_user_id)
                     seen_user_ids.add(msg_user_id)
-        
+
         primary_user_id = user_ids_in_batch[0] if user_ids_in_batch else None
 
         conversation_text = "\n".join(convo_lines)
@@ -116,43 +118,45 @@ class MemoryConsolidator:
         prompt = self.CONSOLIDATION_PROMPT.format(conversation=conversation_text)
         try:
             response = await self.llm.get_completion([{"role": "system", "content": prompt}], stream=False)
-            
+
             # Clean response if it contains markdown code blocks
-            clean_json = response.strip() # type: ignore
+            clean_json = response.strip()  # type: ignore
             if clean_json.startswith("```json"):
                 clean_json = clean_json.split("```json")[1].split("```")[0].strip()
             elif clean_json.startswith("```"):
                 clean_json = clean_json.split("```")[1].split("```")[0].strip()
-            
+
             facts = json.loads(clean_json)
             logger.info(f"Extracted {len(facts)} facts from {len(messages)} messages.")
 
             # 4. Store facts and mark messages as processed
             for fact_data in facts:
                 # Add source metadata
-                fact_data['source_ids'] = msg_ids
+                fact_data["source_ids"] = msg_ids
                 # If subject is user, default belief to 'system' (Universal)
-                if fact_data.get('subject') == 'user' and not fact_data.get('agent'):
-                    fact_data['agent'] = 'system'
-                
+                if fact_data.get("subject") == "user" and not fact_data.get("agent"):
+                    fact_data["agent"] = "system"
+
                 # STORY 6.2: Associate user_id with the fact
                 if primary_user_id:
-                    fact_data['user_id'] = primary_user_id
-                
+                    fact_data["user_id"] = primary_user_id
+
                 # Generate embedding for the fact
-                embedding = await self.llm.get_embedding(fact_data['fact'])
-                fact_data['embedding'] = embedding
-                
+                embedding = await self.llm.get_embedding(fact_data["fact"])
+                fact_data["embedding"] = embedding
+
                 # STORY 13.4: Conflict Check
                 conflicts = await self.surreal.semantic_search(embedding, limit=1)
-                if conflicts and conflicts[0].get('score', 0) > 0.85:
+                if conflicts and conflicts[0].get("score", 0) > 0.85:
                     old_fact = conflicts[0]
-                    resolution = await self.resolver.resolve(old_fact['content'], fact_data['fact'])
-                    if resolution.get('is_conflict'):
-                        logger.info(f"CONFLICT detected: {old_fact['content']} vs {fact_data['fact']}. Action: {resolution['action']}")
-                        await self.surreal.merge_or_override_fact(old_fact['id'], fact_data, resolution)
-                        continue # Fact handled by resolver
-                
+                    resolution = await self.resolver.resolve(old_fact["content"], fact_data["fact"])
+                    if resolution.get("is_conflict"):
+                        logger.info(
+                            f"CONFLICT detected: {old_fact['content']} vs {fact_data['fact']}. Action: {resolution['action']}"
+                        )
+                        await self.surreal.merge_or_override_fact(old_fact["id"], fact_data, resolution)
+                        continue  # Fact handled by resolver
+
                 await self.surreal.insert_graph_memory(fact_data)
 
             # Mark all messages in this batch as processed
@@ -161,7 +165,7 @@ class MemoryConsolidator:
             # 5. Notify system
             summary = f"Sleep Cycle complete: {len(facts)} new facts learned from {len(messages)} messages."
             await self._broadcast_log(summary)
-            
+
             return len(facts)
 
         except Exception as e:
@@ -174,20 +178,28 @@ class MemoryConsolidator:
         if decay_rate is None:
             # Default to 0.9 reduction (10% decay) if not in environment
             import os
+
             decay_rate = float(os.getenv("DECAY_RATE", "0.9"))
-        
+
         logger.info(f"Applying memory decay (rate={decay_rate}, threshold={threshold})...")
         removed_count = await self.surreal.apply_decay_to_all_memories(decay_rate, threshold)
-        await self._broadcast_log(f"Memory decay applied (rate={decay_rate}). {removed_count} memories faded.")
+
+        # Also clean up orphaned fact nodes
+        orphaned_count = await self.surreal.cleanup_orphaned_facts()
+
+        await self._broadcast_log(
+            f"Memory decay applied (rate={decay_rate}). {removed_count} memories faded, {orphaned_count} orphaned facts cleaned."
+        )
 
     async def _broadcast_log(self, content: str, level: str = "info"):
         """Utility to send a system log message."""
         import os
+
         log_level = os.getenv("LOG_LEVEL", "INFO").upper()
         level_map = {"DEBUG": 10, "INFO": 20, "WARNING": 30, "ERROR": 40, "CRITICAL": 50}
         current_level = level_map.get(level.upper(), 20)
         min_level = level_map.get(log_level, 20)
-        
+
         if current_level < min_level:
             return
 
@@ -195,6 +207,6 @@ class MemoryConsolidator:
             type=MessageType.SYSTEM_LOG,
             sender=Sender(agent_id="system", role="orchestrator"),
             recipient=Recipient(target="broadcast"),
-            payload=Payload(content=f"[{level.upper()}] {content}")
+            payload=Payload(content=f"[{level.upper()}] {content}"),
         )
         await self.redis.publish("broadcast", msg)
