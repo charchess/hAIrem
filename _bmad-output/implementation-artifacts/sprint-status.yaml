@@ -178,11 +178,13 @@ development_status:
   # ============================================================
   # EPICS COMPLETED (from previous sprints)
   # ============================================================
-  epic-13: in-progress
+  epic-13: done
   13-1-graphe-subjectif: done
   13-2-l-algorithme-d-oubli-semantic-decay: done
   13-3-subjective-retrieval: ready-for-dev
-  epic-13-retrospective: optional
+  13-4-conflict-synthesis: done
+  13-5-restore-sleep-orchestration: done
+  13-6-transient-state-management: done
   epic-13-retrospective: done
 
   epic-14: done
@@ -214,12 +216,12 @@ sprint_20:
 # Summary
 summary:
   total_epics: 11
-  completed_epics: 6
-  in_progress_epics: 5
+  completed_epics: 7
+  in_progress_epics: 1
   backlog_epics: 2
   total_stories: 59
-  stories_completed: 24
-  stories_in_progress: 25
+  stories_completed: 27
+  stories_in_progress: 1
   stories_backlog: 10
 
 # Next Steps (recommended priority)
