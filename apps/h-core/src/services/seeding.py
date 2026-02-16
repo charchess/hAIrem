@@ -5,6 +5,7 @@ from src.infrastructure.redis import RedisClient
 
 logger = logging.getLogger(__name__)
 
+
 class SeedingService:
     def __init__(self, surreal: SurrealDbClient, redis: RedisClient):
         self.surreal = surreal
@@ -20,28 +21,56 @@ class SeedingService:
         }
         """
         logger.info("SEEDING: Starting graph injection...")
-        
+
         # 1. Subjects
         for sub in data.get("subjects", []):
             name = sub.get("name")
             if name:
                 sid = f"subject:`{name.lower().replace(' ', '_')}`"
-                await self.surreal._call('query', 
-                    f"INSERT INTO subject (id, name) VALUES ({sid}, $name) ON DUPLICATE KEY UPDATE name = $name;", 
-                    {"name": name}
+                await self.surreal._call(
+                    "query",
+                    f"INSERT INTO subject (id, name) VALUES ({sid}, $name) ON DUPLICATE KEY UPDATE name = $name;",
+                    {"name": name},
                 )
 
         # 2. Facts (via our existing transactional method)
         for fact in data.get("facts", []):
             await self.surreal.insert_graph_memory(fact)
-            
+
         logger.info("SEEDING: Graph injection complete.")
+
+    async def generate_initial_relationships(self, agents: List[Dict[str, Any]]):
+        """Generate initial KNOWS and TRUSTS relationships between agents based on their bios."""
+        logger.info("SEEDING: Generating initial social relationships...")
+
+        for i, agent1 in enumerate(agents):
+            for j, agent2 in enumerate(agents):
+                if i == j:
+                    continue  # No self-relationships
+
+                # Create KNOWS relationship
+                await self.surreal._call(
+                    "query",
+                    f"RELATE subject:`{agent1['name'].lower()}`->KNOWS->subject:`{agent2['name'].lower()}` SET strength = 1.0;",
+                )
+
+                # Create TRUSTS based on some logic, e.g., if same role or something
+                trust_level = 0.5  # Default trust
+                if agent1.get("role") == agent2.get("role"):
+                    trust_level = 0.8  # Higher trust for same role
+
+                await self.surreal._call(
+                    "query",
+                    f"RELATE subject:`{agent1['name'].lower()}`->TRUSTS->subject:`{agent2['name'].lower()}` SET level = {trust_level};",
+                )
+
+        logger.info("SEEDING: Initial relationships generated.")
 
     async def reset_streams(self, streams: List[str]):
         """Deletes specified Redis streams."""
         if not self.redis.client:
             await self.redis.connect()
-            
+
         for s in streams:
             logger.info(f"SEEDING: Resetting stream {s}")
             await self.redis.client.delete(s)

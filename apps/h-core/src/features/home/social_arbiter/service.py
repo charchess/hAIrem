@@ -59,38 +59,53 @@ class ArbiterService:
         message_content: str,
         sender_id: str,
         metadata: dict[str, Any] | None = None,
-    ) -> AgentProfile | None:
+    ) -> list[AgentProfile] | None:
         emotional_context = metadata.get("emotional_context") if metadata else None
         mentioned = metadata.get("mentioned_agents", []) if metadata else []
-        
-        responder = self.arbiter.determine_responder(
+
+        responders = self.arbiter.determine_responder(
             message_content=message_content,
             emotional_context=emotional_context,
             mentioned_agents=mentioned,
         )
-        
-        if responder:
-            logger.info(f"Arbiter selected {responder.agent_id} to respond")
+
+        if responders:
+            agent_ids = [r.agent_id for r in responders]
+            logger.info(f"Arbiter selected {agent_ids} to respond")
             detected_emotion = self.arbiter.detect_emotions(message_content)
             if self.redis:
                 await self.redis.publish_event(
                     "arbiter.decision",
                     {
-                        "selected_agent": responder.agent_id,
+                        "selected_agents": agent_ids,
                         "message_content": message_content,
                         "sender_id": sender_id,
                         "detected_emotion": detected_emotion.primary_emotion,
                         "emotional_intensity": detected_emotion.overall_intensity,
-                    }
+                    },
                 )
-        
-        return responder
+
+        return responders
+
+    async def select_agent(
+        self,
+        message: str,
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        responders = await self.on_message_received(message, "user", context)
+        if responders:
+            return {
+                "success": True,
+                "agents": [{"id": r.agent_id, "name": r.name, "score": 1.0} for r in responders],  # Simplified
+            }
+        return {"success": False, "error": "No agent selected"}
 
     def get_rankings(self, message_content: str) -> list[tuple[AgentProfile, float]]:
         return self.arbiter.rank_agents(message_content)
 
     def extract_topics(self, message_content: str) -> dict[str, list[str]]:
         from .topic_extraction import TopicExtractor
+
         extractor = TopicExtractor()
         return {
             "keywords": extractor.extract_keywords(message_content),

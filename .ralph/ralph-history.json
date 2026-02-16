@@ -2,43 +2,23 @@
   "iterations": [
     {
       "iteration": 1,
-      "startedAt": "2026-02-16T00:04:27.887Z",
-      "endedAt": "2026-02-16T00:06:14.416Z",
-      "durationMs": 101322,
+      "startedAt": "2026-02-16T01:03:22.160Z",
+      "endedAt": "2026-02-16T01:04:11.009Z",
+      "durationMs": 43045,
       "agent": "opencode",
       "model": "",
       "toolsUsed": {},
       "filesModified": [
-        "apps/h-bridge/src/handlers/tts.py",
-        "apps/h-bridge/src/services/voice.py",
-        "apps/h-core/pyproject.toml",
-        ".ralph/",
-        "apps/h-bridge/src/services/neural_voice_assignment.py",
-        "test-results/",
-        "tests/test_14_5_neural_voice_assignment.py"
+        "apps/h-core/src/features/home/wakeword/"
       ],
       "exitCode": 0,
       "completionDetected": false,
-      "errors": [
-        "[ ] Add any missing UI elements or fix existing ones based on test failures",
-        "except ImportError:",
-        "except RuntimeError:",
-        "logger.error(f\"TTS initialization failed: {e}\")",
-        "logger.error(f\"TTS generation failed: {e}\")",
-        "\u001b[91m\u001b[1mError: \u001b[0m\"reasoning part reasoning-e304a041-a92f-7296-f899-00ad1da80659 not found\""
-      ]
+      "errors": []
     }
   ],
-  "totalDurationMs": 101322,
+  "totalDurationMs": 43045,
   "struggleIndicators": {
-    "repeatedErrors": {
-      "[ ] Add any missing UI elements or fix existing ones based on test failures": 1,
-      "except ImportError:": 1,
-      "except RuntimeError:": 1,
-      "logger.error(f\"TTS initialization failed: {e}\")": 1,
-      "logger.error(f\"TTS generation failed: {e}\")": 1,
-      "\u001b[91m\u001b[1mError: \u001b[0m\"reasoning part reasoning-e304a041-a92f-7296-f899-00ad1da80659 not found\"": 1
-    },
+    "repeatedErrors": {},
     "noProgressIterations": 0,
     "shortIterations": 0
   }

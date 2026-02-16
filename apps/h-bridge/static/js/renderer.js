@@ -238,16 +238,17 @@ class Renderer {
             const deactivatable = agent.deactivatable !== false;
             
             if (!this.agents[agent.id]) {
-                this.agents[agent.id] = { 
-                    id: agent.id, 
-                    status: 'idle', 
-                    mood: 'neutral', 
+                this.agents[agent.id] = {
+                    id: agent.id,
+                    status: 'idle',
+                    mood: 'neutral',
                     personified: personified,
                     deactivatable: deactivatable,
                     commands: agent.commands || [],
                     prompt_tokens: agent.prompt_tokens || 0,
                     completion_tokens: agent.completion_tokens || 0,
-                    total_tokens: agent.total_tokens || 0
+                    total_tokens: agent.total_tokens || 0,
+                    cost: agent.cost || 0
                 };
             } else {
                 this.agents[agent.id].commands = agent.commands || this.agents[agent.id].commands;
@@ -256,6 +257,7 @@ class Renderer {
                 if (agent.prompt_tokens !== undefined) this.agents[agent.id].prompt_tokens = agent.prompt_tokens;
                 if (agent.completion_tokens !== undefined) this.agents[agent.id].completion_tokens = agent.completion_tokens;
                 if (agent.total_tokens !== undefined) this.agents[agent.id].total_tokens = agent.total_tokens;
+                if (agent.cost !== undefined) this.agents[agent.id].cost = agent.cost;
             }
         });
         this.renderAgentGrid();
@@ -376,19 +378,20 @@ class Renderer {
             const isActive = this.activeSpeakerId && (agent.id === this.activeSpeakerId);
             const isFresh = agent.lastUpdate && (Date.now() - agent.lastUpdate < 500);
             const card = document.createElement('div');
-            card.className = `agent-card ${isActive ? 'active-speaker' : ''}`;
+            card.className = `agent-card ${isActive ? 'active-speaker' : (this.activeSpeakerId ? 'other-speaker' : '')}`;
             const moodMap = { 'happy': '😊', 'pensive': '🤔', 'neutral': '😐', 'angry': '😠', 'surprised': '😲', 'technical': '⚙️' };
             const moodIcon = moodMap[agent.mood] || '😐';
             const badgeClass = `agent-status-badge status-${agent.status} ${isFresh ? 'flash-update' : ''}`;
             const isEnabled = agent.active !== false;
             const isDeactivatable = agent.deactivatable !== false;
+            const roleText = personified ? "Agent Active" : "Processus de fond";
             card.innerHTML = `
                 <div class="agent-card-header">
                     <div class="agent-info">
                         <span class="agent-card-name">${agent.id}</span>
-                        <span class="agent-card-role">Agent Active</span>
+                        <span class="agent-card-role">${roleText}</span>
                     </div>
-                    <span class="agent-mood" title="Current mood: ${agent.mood}">${moodIcon}</span>
+                    ${personified ? `<span class="agent-mood" title="Current mood: ${agent.mood}">${moodIcon}</span>` : ''}
                 </div>
                 <div class="agent-controls">
                     <span class="${badgeClass}">${agent.status}</span>
@@ -401,12 +404,29 @@ class Renderer {
                     <div class="stat-tag" title="Tokens IN (Prompt)">IN: ${agent.prompt_tokens || 0}</div>
                     <div class="stat-tag" title="Tokens OUT (Completion)">OUT: ${agent.completion_tokens || 0}</div>
                     <div class="stat-tag" title="Total Tokens">TOT: ${agent.total_tokens || 0}</div>
+                    <div class="stat-tag" title="Cost in $">COST: $${(agent.cost || 0).toFixed(4)}</div>
                 </div>
                 <div class="agent-capabilities">${agent.commands.map(cmd => `<span class="capability-tag">${cmd}</span>`).join('')}</div>
             `;
             if (!isEnabled) card.classList.add('disabled');
             grid.appendChild(card);
         });
+
+        // Add total cost summary
+        const totalCost = Object.values(this.agents).reduce((sum, agent) => sum + (agent.cost || 0), 0);
+        const totalCard = document.createElement('div');
+        totalCard.className = 'agent-card total-summary';
+        totalCard.innerHTML = `
+            <div class="agent-card-header">
+                <div class="agent-info">
+                    <span class="agent-card-name">Total Session</span>
+                </div>
+            </div>
+            <div class="agent-stats">
+                <div class="stat-tag" title="Total Cost">COST: $${totalCost.toFixed(4)}</div>
+            </div>
+        `;
+        grid.appendChild(totalCard);
     }
 
     addLog(text) {
@@ -646,7 +666,11 @@ class Renderer {
     }
 
     render(agentName, text, assets = {}, skipTypewriter = false) {
-        if (agentName) this.layers.name.textContent = agentName;
+        if (agentName) {
+            this.layers.name.textContent = agentName;
+            this.updateSpatialBadge(agentName);
+            this.setActiveSpeaker(agentName);
+        }
         const { cleanedText, pose } = this.extractPose(text);
         const agentData = this.agents[agentName];
         
@@ -680,6 +704,43 @@ class Renderer {
         else if (!this.layers.bg.style.backgroundImage) {
             this.updateLayer(this.layers.bg, "/static/assets/backgrounds/background.png");
         }
+    }
+
+    updateSpatialBadge(agentName) {
+        const badge = document.getElementById('spatial-badge');
+        if (!badge) return;
+
+        // Simple mapping for demo - in real implementation, get from agent metadata or spatial API
+        const roomMap = {
+            'Renarde': 'Salon',
+            'Lisa': 'Cuisine',
+            'Electra': 'Chambre',
+            'Diva': 'Salle de bain',
+            'system': null,
+            'user': null
+        };
+
+        const room = roomMap[agentName];
+        if (room) {
+            badge.textContent = `📍 ${room}`;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    }
+
+    setActiveSpeaker(agentName) {
+        const avatar = document.getElementById('avatar');
+        if (!avatar) return;
+
+        // Remove previous active classes
+        avatar.classList.remove('active-speaker');
+        avatar.classList.remove('other-speaker');
+
+        // Add active speaker class
+        avatar.classList.add('active-speaker');
+
+        // For other speakers, could add logic here, but for now, just active
     }
 }
 

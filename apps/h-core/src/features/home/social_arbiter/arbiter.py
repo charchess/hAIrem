@@ -37,7 +37,7 @@ class SocialArbiter:
             minimum_threshold=minimum_threshold,
             default_agent_id=default_agent_id,
         )
-        
+
         supp_config = suppression_config or {}
         self.suppressor = ResponseSuppressor(
             SuppressionConfig(
@@ -48,7 +48,7 @@ class SocialArbiter:
                 max_reevaluation_attempts=supp_config.get("max_reevaluation_attempts", 3),
             )
         )
-        
+
         self._agents: dict[str, AgentProfile] = {}
         self.emotion_detector = EmotionDetector()
         self.emotion_state_manager = EmotionalStateManager()
@@ -72,9 +72,9 @@ class SocialArbiter:
         emotional_context: dict[str, Any] | None = None,
         mentioned_agents: list[str] | None = None,
         allow_suppression: bool = True,
-    ) -> AgentProfile | None:
+    ) -> list[AgentProfile] | None:
         mentioned_agents = mentioned_agents or []
-        
+
         detected_emotion = None
         if not emotional_context or not emotional_context.get("detected_emotions"):
             detected = self.emotion_detector.detect_emotions(message_content)
@@ -87,27 +87,25 @@ class SocialArbiter:
                 }
         else:
             detected_emotion = emotional_context
-        
+
         if mentioned_agents:
             mentioned = [a for a in self._agents.values() if a.agent_id in mentioned_agents]
             if mentioned:
-                scores = [(a, 1.0) for a in mentioned]
-                scored_agents = self.tiebreaker.apply(scores)
-                selected = scored_agents[0][0]
                 if detected_emotion:
-                    self.emotion_state_manager.update_emotional_state(
-                        selected.agent_id,
-                        detected_emotion.get("primary_emotion"),
-                    )
-                return selected
-        
+                    for agent in mentioned:
+                        self.emotion_state_manager.update_emotional_state(
+                            agent.agent_id,
+                            detected_emotion.get("primary_emotion"),
+                        )
+                return mentioned
+
         active_agents = [a for a in self._agents.values() if a.is_active]
         if not active_agents:
             logger.warning("Social Arbiter: No active agents available")
             return None
-        
+
         named_agent_id = self._detect_named_agent(message_content, active_agents)
-        
+
         if named_agent_id:
             named_agent = self._agents.get(named_agent_id)
             if named_agent:
@@ -117,50 +115,69 @@ class SocialArbiter:
                         named_agent.agent_id,
                         detected_emotion.get("primary_emotion"),
                     )
-                return named_agent
-        
+                return [named_agent]
+
         scored_agents = []
         for agent in active_agents:
             score = self.scoring_engine.score_agent(agent, message_content, detected_emotion)
             scored_agents.append((agent, score))
-        
+
         scored_agents.sort(key=lambda x: -x[1])
-        
-        if len(scored_agents) > 1:
-            top_score = scored_agents[0][1]
-            second_score = scored_agents[1][1]
-            if self.scoring_engine.are_scores_tied(top_score, second_score):
-                scored_agents = self.tiebreaker.apply(scored_agents)
-        
-        selected = self.fallback.select_agent(scored_agents, active_agents)
-        
-        if selected and allow_suppression:
-            if self.suppressor.should_suppress(selected.agent_id, scored_agents[0][1]):
-                self.suppressor.suppress_response(
-                    agent_id=selected.agent_id,
-                    message_content=message_content,
-                    score=scored_agents[0][1],
-                    reason=SuppressionReason.BELOW_THRESHOLD,
-                    metadata={
-                        "context": {
-                            "emotional_context": detected_emotion,
-                            "mentioned_agents": mentioned_agents,
-                        }
-                    },
+
+        # Check for cascade: agents with score > 0.75
+        cascade_agents = [agent for agent, score in scored_agents if score > 0.75]
+        if cascade_agents:
+            selected_list = cascade_agents
+            logger.info(f"Social Arbiter: Cascade activation for {len(selected_list)} agents with score > 0.75")
+        else:
+            # No cascade, use tiebreaker if needed
+            if len(scored_agents) > 1:
+                top_score = scored_agents[0][1]
+                second_score = scored_agents[1][1]
+                if self.scoring_engine.are_scores_tied(top_score, second_score):
+                    scored_agents = self.tiebreaker.apply(scored_agents)
+
+            selected = self.fallback.select_agent(scored_agents, active_agents)
+            selected_list = [selected] if selected else []
+
+        # Filter suppressed agents
+        if allow_suppression:
+            filtered_list = []
+            for agent in selected_list:
+                agent_score = next(score for a, score in scored_agents if a == agent)
+                if not self.suppressor.should_suppress(agent.agent_id, agent_score):
+                    filtered_list.append(agent)
+                else:
+                    self.suppressor.suppress_response(
+                        agent_id=agent.agent_id,
+                        message_content=message_content,
+                        score=agent_score,
+                        reason=SuppressionReason.BELOW_THRESHOLD,
+                        metadata={
+                            "context": {
+                                "emotional_context": detected_emotion,
+                                "mentioned_agents": mentioned_agents,
+                            }
+                        },
+                    )
+                    logger.info(
+                        f"Social Arbiter: Response suppressed for agent {agent.agent_id} "
+                        f"(score: {agent_score:.3f} < threshold: {self.suppressor.config.minimum_threshold})"
+                    )
+            selected_list = filtered_list
+
+        if not selected_list:
+            return None
+
+        # Update emotional state for selected agents
+        if detected_emotion:
+            for agent in selected_list:
+                self.emotion_state_manager.update_emotional_state(
+                    agent.agent_id,
+                    detected_emotion.get("primary_emotion"),
                 )
-                logger.info(
-                    f"Social Arbiter: Response suppressed for agent {selected.agent_id} "
-                    f"(score: {scored_agents[0][1]:.3f} < threshold: {self.suppressor.config.minimum_threshold})"
-                )
-                return None
-        
-        if selected and detected_emotion:
-            self.emotion_state_manager.update_emotional_state(
-                selected.agent_id,
-                detected_emotion.get("primary_emotion"),
-            )
-        
-        return selected
+
+        return selected_list
 
     def _detect_named_agent(
         self,
@@ -168,19 +185,19 @@ class SocialArbiter:
         active_agents: list[AgentProfile],
     ) -> str | None:
         extracted_name = self.name_extractor.extract_name_from_message(message_content)
-        
+
         if not extracted_name:
             return None
-        
+
         agents_dict = {a.agent_id: a for a in active_agents}
         agent_id, is_exact_match = self.name_extractor.find_agent_by_name(
             extracted_name,
             agents_dict,
         )
-        
+
         if agent_id:
             return agent_id
-        
+
         logger.warning(f"Social Arbiter: Named agent '{extracted_name}' not found in system")
         return None
 
@@ -201,16 +218,16 @@ class SocialArbiter:
                 }
         else:
             detected_emotion = emotional_context
-        
+
         active_agents = [a for a in self._agents.values() if a.is_active]
-        
+
         scored_agents = []
         for agent in active_agents:
             score = self.scoring_engine.score_agent(agent, message_content, detected_emotion)
             scored_agents.append((agent, score))
-        
+
         scored_agents.sort(key=lambda x: -x[1])
-        
+
         return scored_agents
 
     def detect_emotions(self, message_content: str) -> EmotionalContext:
@@ -247,14 +264,12 @@ class SocialArbiter:
         current_context = current_context or {}
         pending = self.suppressor.get_pending_reevaluations()
         reevaluated = []
-        
+
         for suppressed in pending:
-            context_change_score = self.suppressor.check_context_change(
-                suppressed, current_context
-            )
-            
+            context_change_score = self.suppressor.check_context_change(suppressed, current_context)
+
             new_score = suppressed.score + context_change_score
-            
+
             if new_score >= self.suppressor.config.minimum_threshold:
                 agent = self._agents.get(suppressed.agent_id)
                 if agent:
@@ -264,7 +279,7 @@ class SocialArbiter:
                         f"context change: {context_change_score:.3f})"
                     )
                     reevaluated.append(suppressed)
-        
+
         return reevaluated
 
     def get_pending_reevaluation_count(self) -> int:

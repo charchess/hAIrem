@@ -123,6 +123,33 @@ body {
     align-items: center;
 }
 
+.spatial-badge {
+    background: var(--panel-bg);
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.9rem;
+    margin-right: 10px;
+    transition: all 0.2s;
+}
+
+.spatial-badge.hidden {
+    display: none;
+}
+
+.active-speaker {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+    transition: all 0.3s ease;
+}
+
+.other-speaker {
+    filter: grayscale(20%);
+    opacity: 0.8;
+    transition: all 0.3s ease;
+}
+
     .nav-btn.active, .nav-btn:hover {
     background: var(--accent-color);
     color: #000;
@@ -1087,6 +1114,11 @@ body {
     0% { box-shadow: 0 0 5px rgba(0, 255, 204, 0.4); }
     50% { box-shadow: 0 0 15px rgba(0, 255, 204, 0.7); }
     100% { box-shadow: 0 0 5px rgba(0, 255, 204, 0.4); }
+}
+
+.agent-card.total-summary {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(0, 255, 204, 0.1));
+    border: 1px solid rgba(0, 255, 204, 0.3);
 }
 
 .agent-card.disabled {
