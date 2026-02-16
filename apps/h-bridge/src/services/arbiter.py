@@ -83,23 +83,23 @@ class SimpleArbiter:
             "interest_weight": 0.3,
             "emotional_weight": 0.2,
         }
-        
+
     def register_agent(self, manifest: dict) -> None:
         self._agents[manifest["id"]] = manifest
         logger.info(f"Arbiter: Registered agent {manifest['id']}")
-        
+
     def get_registered_agents(self) -> list[dict]:
         return list(self._agents.values())
-    
+
     def _extract_keywords(self, text: str) -> list[str]:
         text = text.lower()
-        keywords = re.findall(r'\b\w+\b', text)
+        keywords = re.findall(r"\b\w+\b", text)
         return list(set(keywords))
-    
+
     def _calculate_interest_score(self, agent: dict, message: str) -> float:
         keywords = self._extract_keywords(message)
         score = 0.0
-        
+
         for keyword in keywords:
             for interest in agent.get("interests", []):
                 if keyword in interest.lower() or interest.lower() in keyword:
@@ -110,12 +110,12 @@ class SimpleArbiter:
             for expertise in agent.get("expertise", []):
                 if keyword in expertise.lower() or expertise.lower() in keyword:
                     score += 0.25
-        
+
         return min(score / max(len(keywords), 1), 1.0)
-    
+
     def _detect_emotions(self, text: str) -> dict:
         text_lower = text.lower()
-        
+
         emotion_keywords = {
             "happy": ["happy", "great", "wonderful", "excited", "love", "good", "amazing", "awesome", "joy"],
             "sad": ["sad", "unhappy", "depressed", "down", "unfortunate", "sorry", "miss", "lonely"],
@@ -123,108 +123,112 @@ class SimpleArbiter:
             "worried": ["worried", "anxious", "nervous", "concerned", "scared", "afraid", "fear"],
             "excited": ["excited", "thrilled", "eager", "can't wait", "looking forward"],
         }
-        
+
         detected = []
         for emotion, keywords in emotion_keywords.items():
             for keyword in keywords:
                 if keyword in text_lower:
                     detected.append(emotion)
                     break
-        
+
         intensity = min(len(detected) / 3, 1.0)
-        
+
         return {
             "primary_emotion": detected[0] if detected else "neutral",
             "detected_emotions": detected,
             "overall_intensity": intensity,
-            "sentiment_polarity": "positive" if any(e in ["happy", "excited"] for e in detected) else "negative" if any(e in ["sad", "angry", "worried"] for e in detected) else "neutral",
+            "sentiment_polarity": "positive"
+            if any(e in ["happy", "excited"] for e in detected)
+            else "negative"
+            if any(e in ["sad", "angry", "worried"] for e in detected)
+            else "neutral",
         }
-    
+
     def _calculate_emotional_score(self, agent: dict, emotions: dict) -> float:
         primary_emotion = emotions.get("primary_emotion", "neutral")
         intensity = emotions.get("overall_intensity", 0.0)
-        
+
         if primary_emotion == "neutral":
             return 0.5
-        
+
         agent_emotions = agent.get("supported_emotions", [])
         if primary_emotion in agent_emotions:
             return 0.5 + (intensity * 0.5)
-        
+
         return 0.1 * intensity
-    
+
     def _detect_named_agent(self, message: str) -> str | None:
         message_lower = message.lower()
-        
+
         for agent_id, agent in self._agents.items():
             name = agent.get("name", "").lower()
             if name in message_lower:
                 return agent_id
-            
+
             for interest in agent.get("interests", []):
                 if interest.lower() in message_lower and len(interest) > 4:
                     return None
-        
+
         return None
-    
+
     def _score_agent(self, agent: dict, message: str) -> float:
         interest_score = self._calculate_interest_score(agent, message)
         emotions = self._detect_emotions(message)
         emotional_score = self._calculate_emotional_score(agent, emotions)
-        
+
         relevance_score = interest_score
-        
+
         final_score = (
-            relevance_score * self.scoring_config["relevance_weight"] +
-            interest_score * self.scoring_config["interest_weight"] +
-            emotional_score * self.scoring_config["emotional_weight"]
+            relevance_score * self.scoring_config["relevance_weight"]
+            + interest_score * self.scoring_config["interest_weight"]
+            + emotional_score * self.scoring_config["emotional_weight"]
         ) * agent.get("priority_weight", 1.0)
-        
+
         return min(final_score, 1.0)
-    
+
     def select_agent(self, message: str, context: dict | None = None) -> dict | None:
         context = context or {}
         mentioned_agents = context.get("mentioned_agents", [])
-        
+
         if mentioned_agents:
             for agent_id in mentioned_agents:
                 if agent_id in self._agents and self._agents[agent_id].get("is_active", True):
                     return {"agent_id": agent_id, **self._agents[agent_id]}
-        
+
         named_agent = self._detect_named_agent(message)
         if named_agent and self._agents.get(named_agent, {}).get("is_active", True):
             return {"agent_id": named_agent, **self._agents[named_agent]}
-        
+
         active_agents = [a for a in self._agents.values() if a.get("is_active", True)]
-        
+
         if not active_agents:
             return None
-        
+
         scored = []
         for agent in active_agents:
             score = self._score_agent(agent, message)
             scored.append((agent, score))
-        
+
         scored.sort(key=lambda x: -x[1])
-        
+
         if scored and scored[0][1] >= self.minimum_threshold:
             result = {"agent_id": scored[0][0]["id"], **scored[0][0]}
             result["score"] = scored[0][1]
             return result
-        
+
         return None
-    
+
     def score_agents(self, message: str, agent_ids: list[str] | None = None) -> list[tuple[dict, float]]:
         if agent_ids:
             agents = [self._agents[a] for a in agent_ids if a in self._agents]
         else:
             agents = [a for a in self._agents.values() if a.get("is_active", True)]
-        
+
         scored = []
         for agent in agents:
             score = self._score_agent(agent, message)
             scored.append((agent, score))
-        
+
         scored.sort(key=lambda x: -x[1])
         return scored
 
@@ -239,10 +243,10 @@ class ArbiterAPIService:
     async def initialize(self) -> None:
         if self._initialized:
             return
-        
+
         for manifest in DEFAULT_AGENTS:
             self._arbiter.register_agent(manifest)
-        
+
         self._initialized = True
         logger.info("ArbiterAPIService: Initialized with default agents")
 
@@ -253,9 +257,9 @@ class ArbiterAPIService:
     ) -> dict[str, Any]:
         if not self._initialized:
             await self.initialize()
-        
+
         result = self._arbiter.select_agent(message, context)
-        
+
         if result:
             return {
                 "selected": True,
@@ -280,21 +284,23 @@ class ArbiterAPIService:
     ) -> dict[str, Any]:
         if not self._initialized:
             await self.initialize()
-        
+
         scored = self._arbiter.score_agents(message, agents)
-        
+
         scored_agents = []
         for agent, score in scored:
-            scored_agents.append({
-                "agent_id": agent.get("id"),
-                "name": agent.get("name"),
-                "role": agent.get("role"),
-                "score": round(score, 4),
-                "interests": agent.get("interests", []),
-                "domains": agent.get("domains", []),
-                "expertise": agent.get("expertise", []),
-            })
-        
+            scored_agents.append(
+                {
+                    "agent_id": agent.get("id"),
+                    "name": agent.get("name"),
+                    "role": agent.get("role"),
+                    "score": round(score, 4),
+                    "interests": agent.get("interests", []),
+                    "domains": agent.get("domains", []),
+                    "expertise": agent.get("expertise", []),
+                }
+            )
+
         return {
             "message": message,
             "scores": scored_agents,
@@ -307,9 +313,9 @@ class ArbiterAPIService:
                 "initialized": False,
                 "message": "Service not yet initialized",
             }
-        
+
         registered_agents = self._arbiter.get_registered_agents()
-        
+
         return {
             "initialized": True,
             "minimum_threshold": self._arbiter.minimum_threshold,
@@ -333,7 +339,7 @@ class ArbiterAPIService:
     def get_topics(self, message: str) -> dict[str, Any]:
         if not self._initialized:
             return {"error": "Service not initialized"}
-        
+
         keywords = self._arbiter._extract_keywords(message)
         return {
             "keywords": keywords,
@@ -344,13 +350,13 @@ class ArbiterAPIService:
     def get_emotions(self, message: str) -> dict[str, Any]:
         if not self._initialized:
             return {"error": "Service not initialized"}
-        
+
         return self._arbiter._detect_emotions(message)
 
     def get_suppression_stats(self) -> dict[str, Any]:
         if not self._initialized:
             return {"error": "Service not initialized"}
-        
+
         return {
             "suppressed_count": 0,
             "queue_size": 0,
@@ -359,15 +365,41 @@ class ArbiterAPIService:
     async def add_agent_from_manifest(self, manifest: dict[str, Any]) -> dict[str, Any]:
         if not self._initialized:
             await self.initialize()
-        
+
         agent_id = manifest.get("id")
         if not agent_id:
             return {"success": False, "error": "id is required"}
-        
+
         self._arbiter.register_agent(manifest)
-        
+
         return {
             "success": True,
             "agent_id": agent_id,
             "message": f"Agent {manifest.get('name', agent_id)} registered successfully",
+        }
+
+    async def debug_scoring(self, message: str, context: dict = {}) -> dict:
+        """
+        Debug endpoint - returns scores for all agents without selection.
+        """
+        if not self._initialized:
+            await self.initialize()
+
+        scores = []
+        agents = self._arbiter.score_agents(message, None)
+        for agent, score in agents:
+            scores.append(
+                {
+                    "agent_id": agent.get("id"),
+                    "name": agent.get("name"),
+                    "score": round(score, 4),
+                    "interests": agent.get("interests", []),
+                    "domains": agent.get("domains", []),
+                }
+            )
+
+        return {
+            "message": message,
+            "scores": scores,
+            "count": len(scores),
         }

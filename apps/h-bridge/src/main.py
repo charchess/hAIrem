@@ -8,6 +8,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPExcept
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.websockets import WebSocketState
 
 from infrastructure.redis import RedisClient
 from infrastructure.surrealdb import SurrealDbClient
@@ -167,6 +168,12 @@ async def get_history():
         return {"messages": [], "status": "error"}
 
 
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "service": "h-bridge"}
+
+
 @app.get("/api/debug/error")
 async def trigger_debug_error():
     """Simulates a critical system error for UI testing."""
@@ -209,6 +216,9 @@ async def websocket_endpoint(websocket: WebSocket):
 
         async def handler(data: dict):
             try:
+                if websocket.client_state != WebSocketState.CONNECTED:
+                    return
+
                 # STORY 14.1 FIX: Absolute mapping for UI compatibility
                 msg_type = data.get("type")
 
@@ -877,6 +887,13 @@ async def detect_emotions(message: str):
 async def get_suppression_stats():
     """Get suppression statistics."""
     return arbiter_service.get_suppression_stats()
+
+
+@app.get("/api/arbiter/debug")
+async def debug_arbiter_scoring(message: str):
+    """Debug endpoint - returns scores for all agents."""
+    result = await arbiter_service.debug_scoring(message)
+    return result
 
 
 @app.post("/api/arbiter/agents")

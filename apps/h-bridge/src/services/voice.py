@@ -29,7 +29,7 @@ class VoiceProfile:
             "language": self.language,
             "gender": self.gender,
             "quality": self.quality,
-            "custom_params": self.custom_params
+            "custom_params": self.custom_params,
         }
 
     @classmethod
@@ -44,7 +44,7 @@ class VoiceProfile:
             language=data.get("language", "fr-FR"),
             gender=data.get("gender", "neutral"),
             quality=data.get("quality", "high"),
-            custom_params=data.get("custom_params", {})
+            custom_params=data.get("custom_params", {}),
         )
 
 
@@ -58,7 +58,7 @@ DEFAULT_VOICES = {
         volume=1.0,
         language="fr-FR",
         gender="female",
-        quality="high"
+        quality="high",
     ),
     "marcus": VoiceProfile(
         agent_id="marcus",
@@ -69,7 +69,7 @@ DEFAULT_VOICES = {
         volume=1.0,
         language="fr-FR",
         gender="male",
-        quality="high"
+        quality="high",
     ),
     "elena": VoiceProfile(
         agent_id="elena",
@@ -80,7 +80,7 @@ DEFAULT_VOICES = {
         volume=0.95,
         language="fr-FR",
         gender="female",
-        quality="high"
+        quality="high",
     ),
     "default": VoiceProfile(
         agent_id="default",
@@ -91,8 +91,8 @@ DEFAULT_VOICES = {
         volume=1.0,
         language="fr-FR",
         gender="neutral",
-        quality="high"
-    )
+        quality="high",
+    ),
 }
 
 
@@ -119,6 +119,7 @@ class VoiceProfileService:
                     data = await self.redis_client.client.get(key)
                     if data:
                         import json
+
                         profile_data = json.loads(data)
                         self._profiles[agent_id] = VoiceProfile.from_dict(profile_data)
         except Exception as e:
@@ -128,13 +129,43 @@ class VoiceProfileService:
         if self.redis_client and self.redis_client.client:
             try:
                 import json
+
                 key = f"voice:profile:{profile.agent_id}"
                 await self.redis_client.client.set(key, json.dumps(profile.to_dict()))
             except Exception as e:
                 logger.warning(f"Could not save voice profile: {e}")
 
-    def get_profile(self, agent_id: str) -> VoiceProfile:
-        return self._profiles.get(agent_id, self._profiles.get("default"))
+    async def get_profile(self, agent_id: str) -> VoiceProfile:
+        if agent_id in self._profiles:
+            return self._profiles[agent_id]
+
+        # Try to get neural assignment
+        try:
+            from services.neural_voice_assignment import neural_voice_assignment_service
+
+            neural_voice = await neural_voice_assignment_service.assign_voice_to_agent(agent_id)
+            if neural_voice:
+                # Create a profile from neural characteristics
+                profile = VoiceProfile(
+                    agent_id=agent_id,
+                    name=f"Neural-{agent_id}",
+                    voice_id=f"neural-{neural_voice.gender}",
+                    pitch=neural_voice.pitch,
+                    rate=neural_voice.rate,
+                    volume=neural_voice.volume,
+                    language="fr-FR",
+                    gender=neural_voice.gender,
+                    quality="neural",
+                    custom_params={"neural_assigned": True, "personality_traits": neural_voice.personality_traits},
+                )
+                self._profiles[agent_id] = profile
+                await self._save_profile_to_storage(profile)
+                return profile
+        except Exception as e:
+            logger.warning(f"Failed to get neural voice assignment for {agent_id}: {e}")
+
+        # Fallback to default
+        return self._profiles.get("default")
 
     async def set_profile(self, agent_id: str, profile: VoiceProfile) -> VoiceProfile:
         profile.agent_id = agent_id
@@ -155,8 +186,8 @@ class VoiceProfileService:
     def get_all_agent_ids(self) -> list:
         return [aid for aid in self._profiles.keys() if aid != "default"]
 
-    def apply_to_tts_params(self, agent_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        profile = self.get_profile(agent_id)
+    async def apply_to_tts_params(self, agent_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        profile = await self.get_profile(agent_id)
         result = params.copy()
         result["pitch"] = profile.pitch
         result["rate"] = profile.rate

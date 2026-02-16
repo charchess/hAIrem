@@ -1,0 +1,13 @@
+{
+  "active": true,
+  "iteration": 1,
+  "minIterations": 1,
+  "maxIterations": 10,
+  "completionPromise": "COMPLETE",
+  "tasksMode": false,
+  "taskPromise": "READY_FOR_NEXT_TASK",
+  "prompt": "identifie les taches a realiser pour avoir la version complete du projet, sans raccourci. Une fois ces taches identifier, commence par la premiere et implemente la. A chaque fin de cycle, tu devras relancer les tests de validation et de non regression",
+  "startedAt": "2026-02-16T00:04:22.275Z",
+  "model": "",
+  "agent": "opencode"
+}
