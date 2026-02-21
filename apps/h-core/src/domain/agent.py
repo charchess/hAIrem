@@ -408,6 +408,11 @@ class BaseAgent:
         if message.type in [MessageType.USER_MESSAGE, MessageType.NARRATIVE_TEXT]:
             # Extract user context from payload if available
             payload = message.payload if hasattr(message, "payload") else {}
+            content = payload.content if hasattr(payload, "content") else str(payload)
+
+            # Story 18.4: Safety check to avoid error loops
+            if "Erreur de communication" in str(content):
+                return
             if isinstance(payload, dict):
                 new_user_id = payload.get("user_id") or payload.get("session_user_id")
                 new_user_name = payload.get("user_name") or payload.get("session_user_name")
@@ -506,8 +511,17 @@ class BaseAgent:
         return messages
 
     async def generate_response(self, trigger_message: HLinkMessage):
-        """Generates a response using the LLM."""
         logger.info(f"AGENT {self.config.name}: Generating response...")
+
+        speaking_signal = {
+            "type": MessageType.AGENT_SPEAKING,
+            "sender": {"agent_id": self.config.name, "role": self.config.role},
+            "payload": {"content": {"speaking": True}},
+        }
+        try:
+            await self.redis.publish_event("system_stream", speaking_signal)
+        except Exception:
+            pass
 
         try:
             messages = await self._assemble_payload(trigger_message)
