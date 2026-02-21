@@ -34,7 +34,11 @@ class RedisLogHandler(logging.Handler):
                 "sender": {"agent_id": "core", "role": "system"},
                 "payload": {"content": msg_str},
             }
-            asyncio.create_task(self.redis.publish_event("system_stream", data))
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self.redis.publish_event("system_stream", data))
+            except RuntimeError:
+                pass
         except Exception:
             pass
         finally:
@@ -242,11 +246,34 @@ class HaremOrchestrator:
             target = msg.recipient.target
             content = str(msg.payload.content)
 
-            if target == "user":
-                # logger.error(f"👤 UI MESSAGE: Ignoring agent response to user")
-                return
-
             logger.error(f"🎯 TARGET: {target} | CONTENT: {content[:50]}")
+
+            # Inter-Agent Discussion Logic (Epic 18)
+            if msg.sender.role != "user" and self.discussion_budget > 0:
+                # SKIP if it's an error message to avoid infinite loops
+                if "Erreur de communication" in content or "litellm.RateLimitError" in content:
+                    return
+
+                self.discussion_budget -= 1
+                # Increase threshold over turns to naturally end the conversation
+                # turn 5: 0.75, turn 4: 0.80, turn 3: 0.85, turn 2: 0.90, turn 1: 0.95
+                dynamic_threshold = 0.75 + (5 - self.discussion_budget) * 0.05
+
+                responders = await self.social_arbiter.determine_responder_async(
+                    content, min_threshold_override=dynamic_threshold
+                )
+                if responders:
+                    for p in responders:
+                        # Don't let agent talk to themselves
+                        if p.agent_id != msg.sender.agent_id:
+                            logger.error(f"📢 INTER-AGENT: {msg.sender.agent_id} -> {p.agent_id}")
+                            # Add a larger delay to avoid rate limits
+                            await asyncio.sleep(5)
+                            await self.redis.publish(f"agent:{p.agent_id}", msg)
+
+            if target == "user":
+                # Message is already sent to UI via system_stream by the agent itself
+                return
 
             if target == "broadcast" or target == "all":
                 logger.error("👥 Calling SocialArbiter...")
@@ -259,14 +286,6 @@ class HaremOrchestrator:
             elif target in self.agent_registry.agents:
                 logger.error(f"📢 Direct PUBLISHING to agent:{target}")
                 await self.redis.publish(f"agent:{target}", msg)
-
-            if msg.sender.role != "user" and self.discussion_budget > 0:
-                self.discussion_budget -= 1
-                responders = await self.social_arbiter.determine_responder_async(content)
-                if responders:
-                    for p in responders:
-                        if p.agent_id != msg.sender.agent_id:
-                            await self.redis.publish(f"agent:{p.agent_id}", msg)
         except Exception as e:
             logger.error(f"🔥 ROUTER ERROR: {e}")
 
@@ -362,6 +381,7 @@ class HaremOrchestrator:
                     role=agent.config.role,
                     domains=agent.config.capabilities,
                     is_active=agent.is_active,
+                    personified=agent.personified,
                 )
                 self.social_arbiter.register_agent(p)
                 # Pass social arbiter to agent for stats tracking
