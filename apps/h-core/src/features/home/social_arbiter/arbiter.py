@@ -140,7 +140,19 @@ class SocialArbiter:
                 return [named_agent]
 
         # 4. LLM-Based Scoring (Priority 4)
-        llm_scores = await self.scoring_engine.calculate_relevance_llm(message_content, active_agents)
+        # Pass emotional context to LLM
+        detected_emotion = None
+        if not emotional_context or not emotional_context.get("detected_emotions"):
+            detected = self.emotion_detector.detect_emotions(message_content)
+            if detected.primary_emotion:
+                detected_emotion = {
+                    "primary_emotion": detected.primary_emotion,
+                    "overall_intensity": detected.overall_intensity,
+                }
+        else:
+            detected_emotion = emotional_context
+
+        llm_scores = await self.scoring_engine.calculate_relevance_llm(message_content, active_agents, detected_emotion)
 
         scored_agents = []
         for agent in active_agents:
@@ -152,10 +164,13 @@ class SocialArbiter:
 
         scored_agents.sort(key=lambda x: -x[1])
 
-        # Cascade mode (> 0.75)
+        # Cascade mode (> 0.75) - Story 18.2
         winners = [agent for agent, score in scored_agents if score > 0.75]
         if not winners and scored_agents:
-            winners = [scored_agents[0][0]]
+            # Fallback to the single best if none are above cascade threshold
+            # but only if it's not totally irrelevant (< 0.2)
+            if scored_agents[0][1] > self.suppressor.config.minimum_threshold:
+                winners = [scored_agents[0][0]]
 
         # Filter suppressed agents (ADR-10)
         if allow_suppression:
@@ -170,9 +185,17 @@ class SocialArbiter:
                         agent_id=agent.agent_id,
                         message_content=message_content,
                         score=score,
-                        reason=SuppressionReason.BELOW_THRESHOLD,
+                        reason=SuppressionReason.LOW_RELEVANCE_SCORE,
                     )
             winners = filtered_list
+
+        # Update emotional state for selected agents
+        if winners and detected_emotion:
+            for agent in winners:
+                self.emotion_state_manager.update_emotional_state(
+                    agent.agent_id,
+                    detected_emotion.get("primary_emotion"),
+                )
 
         return winners if winners else None
 

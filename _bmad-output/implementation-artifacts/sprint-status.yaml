@@ -147,6 +147,15 @@ sprint-22_retrospective: done
 epic-14_retrospective: done
 
 # ============================================================
+# EPIC 18: Social Dynamics (Vision V4) - Sprint 26
+# ============================================================
+epic-18: in-progress
+18-1-relationship-initialization: done
+18-2-social-arbiter-uts: done
+18-3-polyphony-visual-focus: backlog
+18-4-inter-agent-discussion: backlog
+
+# ============================================================
 # Summary
 summary:
   total_epics: 11

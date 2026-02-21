@@ -1,0 +1,13 @@
+<testsuites id="" name="" tests="1" failures="0" skipped="0" errors="0" time="12.921509">
+<testsuite name="e2e/conversation-flow.spec.ts" timestamp="2026-02-21T22:53:25.411Z" hostname="chromium" tests="1" failures="0" skipped="0" time="9.103" errors="0">
+<testcase name="Conversation Flow Scenarios › conversation: agent should respond to &quot;bonjour les filles&quot;" classname="e2e/conversation-flow.spec.ts" time="9.103">
+<system-out>
+<![CDATA[Initial text: Initialisation du système hAIrem...
+Thinking state detected
+Agent response: Bonjour ! 🌸  
+Ah, un nouveau 
+]]>
+</system-out>
+</testcase>
+</testsuite>
+</testsuites>

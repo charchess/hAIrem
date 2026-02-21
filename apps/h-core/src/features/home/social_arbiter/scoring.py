@@ -1,6 +1,7 @@
 import math
 import logging
 import re
+import json
 from typing import List, Any, Optional
 from .models import AgentProfile
 from .topic_extraction import TopicExtractor, InterestScorer
@@ -34,40 +35,59 @@ class ScoringEngine:
         self.interest_scorer = InterestScorer()
         self.emotion_detector = EmotionDetector()
 
-    async def calculate_relevance_llm(self, text: str, agent_profiles: List[Any]) -> dict[str, float]:
+    async def calculate_relevance_llm(
+        self, text: str, agent_profiles: List[Any], emotional_context: dict[str, Any] | None = None
+    ) -> dict[str, float]:
         """
         FR18: LLM-based interest evaluation (ADR-10).
-        Uses a micro-LLM call to evaluate interest for all agents at once.
+        Uses a micro-LLM call to evaluate 'Urge to Speak' (UTS) for all agents.
         """
         if not self.llm:
             return {p.agent_id: self.calculate_relevance(text, p.domains, p.role) for p in agent_profiles}
 
+        emotion_str = emotional_context.get("primary_emotion", "neutral") if emotional_context else "neutral"
+
         prompt = f"""
-        Evaluate the interest/relevance of each AI agent for the following user message.
+        Evaluate the 'Urge to Speak' (UTS) for each AI agent based on the user message.
         User message: "{text}"
+        Detected Emotion: {emotion_str}
         
         Agents:
         """
         for p in agent_profiles:
-            prompt += f"- {p.name} (Role: {p.role}, Domains: {', '.join(p.domains)})\n"
+            desc = getattr(p, "description", "") or ""
+            prompt += (
+                f"- {p.agent_id} ({p.name}): Role={p.role}, Expertise={', '.join(p.domains)}, Desc='{desc[:100]}...'\n"
+            )
 
         prompt += """
-        Output a JSON object mapping agent_id to a score between 0.0 and 1.0.
-        Example: {"agent1": 0.9, "agent2": 0.1}
+        For each agent, provide a UTS score between 0.0 and 1.0.
+        Criteria:
+        - 1.0: Agent is explicitly named or is the absolute best expert.
+        - 0.8-0.9: High relevance, fits the agent's core mission or current emotion.
+        - 0.5-0.7: Moderate relevance, could contribute but not essential.
+        - < 0.5: Low relevance or out of character.
+
+        Output ONLY a JSON object mapping agent_id to score.
+        Example: {"lisa": 0.9, "renarde": 0.4}
         """
 
         try:
             response = await self.llm.get_completion([{"role": "system", "content": prompt}], stream=False)
-            # Basic cleaning
             clean_json = response.strip()
             if "```json" in clean_json:
                 clean_json = clean_json.split("```json")[1].split("```")[0].strip()
             elif "```" in clean_json:
                 clean_json = clean_json.split("```")[1].split("```")[0].strip()
 
-            return json.loads(clean_json)
+            # Remove any trailing commas or noise if LLM hallucinated
+            clean_json = re.sub(r",\s*}", "}", clean_json)
+
+            scores = json.loads(clean_json)
+            # Ensure all requested agents have a score
+            return {p.agent_id: float(scores.get(p.agent_id, 0.1)) for p in agent_profiles}
         except Exception as e:
-            logger.error(f"LLM Arbiter scoring failed: {e}")
+            logger.error(f"LLM Arbiter scoring failed: {e}. Falling back to rule-based.")
             return {p.agent_id: self.calculate_relevance(text, p.domains, p.role) for p in agent_profiles}
 
     # --- NEW TDD METHODS (tests/unit/test_social_scoring_logic.py) ---

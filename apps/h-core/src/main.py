@@ -230,6 +230,9 @@ class HaremOrchestrator:
                     if agent:
                         if is_active is not None:
                             agent.is_active = is_active
+                            # Update Social Arbiter too!
+                            if hasattr(self, "social_arbiter"):
+                                self.social_arbiter.set_agent_active(agent_id, is_active)
                             logger.error(f"⚙️ CORE: Agent {agent_id} set to active={is_active}")
 
                         # Always refresh to apply potential LLM changes
