@@ -55,6 +55,11 @@ class SocialArbiter:
         self.emotion_detector = EmotionDetector()
         self.emotion_state_manager = EmotionalStateManager()
         self.name_extractor = NameExtractor()
+        self.discussion_turn: int = 0
+        self.max_discussion_turns: int = 20
+
+    def should_stop_discussion(self) -> bool:
+        return self.discussion_turn >= self.max_discussion_turns
 
     def register_agent(self, agent: AgentProfile) -> None:
         self._agents[agent.agent_id] = agent
@@ -105,9 +110,11 @@ class SocialArbiter:
         emotional_context: dict[str, Any] | None = None,
         mentioned_agents: list[str] | None = None,
         allow_suppression: bool = True,
+        min_threshold_override: float | None = None,
     ) -> list[AgentProfile] | None:
         """Determines which agents should respond using LLM scoring (ADR-10)."""
         mentioned_agents = mentioned_agents or []
+        threshold = min_threshold_override or 0.75  # Default activation threshold
 
         # 1. Detect mentions (Priority 1)
         if mentioned_agents:
@@ -133,11 +140,12 @@ class SocialArbiter:
             return [random.choice(active_agents)]
 
         # 3. Named agent check (Priority 3)
-        named_agent_id = self._detect_named_agent(message_content, active_agents)
-        if named_agent_id:
-            named_agent = self._agents.get(named_agent_id)
-            if named_agent:
-                return [named_agent]
+        named_agent_ids = self._detect_named_agents(message_content, active_agents)
+        if named_agent_ids:
+            named_agents = [self._agents.get(aid) for aid in named_agent_ids if self._agents.get(aid)]
+            if named_agents:
+                logger.info(f"Social Arbiter: Named agents detected: {[a.name for a in named_agents]}")
+                return named_agents
 
         # 4. LLM-Based Scoring (Priority 4)
         # Pass emotional context to LLM
@@ -164,12 +172,12 @@ class SocialArbiter:
 
         scored_agents.sort(key=lambda x: -x[1])
 
-        # Cascade mode (> 0.75) - Story 18.2
-        winners = [agent for agent, score in scored_agents if score > 0.75]
+        # Cascade mode (threshold) - Story 18.2
+        winners = [agent for agent, score in scored_agents if score > threshold]
         if not winners and scored_agents:
             # Fallback to the single best if none are above cascade threshold
-            # but only if it's not totally irrelevant (< 0.2)
-            if scored_agents[0][1] > self.suppressor.config.minimum_threshold:
+            # but only if it's not totally irrelevant
+            if scored_agents[0][1] > max(threshold - 0.2, self.suppressor.config.minimum_threshold):
                 winners = [scored_agents[0][0]]
 
         # Filter suppressed agents (ADR-10)
@@ -238,18 +246,19 @@ class SocialArbiter:
             logger.warning("Social Arbiter: No active agents available")
             return None
 
-        named_agent_id = self._detect_named_agent(message_content, active_agents)
+        named_agent_ids = self._detect_named_agents(message_content, active_agents)
 
-        if named_agent_id:
-            named_agent = self._agents.get(named_agent_id)
-            if named_agent:
-                logger.info(f"Social Arbiter: Named agent detected: {named_agent.name}")
+        if named_agent_ids:
+            named_agents = [self._agents.get(aid) for aid in named_agent_ids if self._agents.get(aid)]
+            if named_agents:
+                logger.info(f"Social Arbiter: Named agents detected: {[a.name for a in named_agents]}")
                 if detected_emotion:
-                    self.emotion_state_manager.update_emotional_state(
-                        named_agent.agent_id,
-                        detected_emotion.get("primary_emotion"),
-                    )
-                return [named_agent]
+                    for a in named_agents:
+                        self.emotion_state_manager.update_emotional_state(
+                            a.agent_id,
+                            detected_emotion.get("primary_emotion"),
+                        )
+                return named_agents
 
         scored_agents = []
         for agent in active_agents:
@@ -313,27 +322,41 @@ class SocialArbiter:
 
         return selected_list
 
-    def _detect_named_agent(
+    def _detect_named_agents(
         self,
         message_content: str,
         active_agents: list[AgentProfile],
-    ) -> str | None:
-        extracted_name = self.name_extractor.extract_name_from_message(message_content)
+    ) -> list[str]:
+        # Support multiple names (Story 18.2)
+        extracted_names = []
 
-        if not extracted_name:
-            return None
+        # Split message into chunks or just use regex to find all matches
+        # For now, we reuse the extractor on the whole message
+        name = self.name_extractor.extract_name_from_message(message_content)
+        if name:
+            extracted_names.append(name)
 
+        # Try to find other names in the content
+        content_lower = message_content.lower()
+        for agent in active_agents:
+            if agent.name.lower() in content_lower and agent.name.lower() not in [n.lower() for n in extracted_names]:
+                extracted_names.append(agent.name)
+
+        if not extracted_names:
+            return []
+
+        found_ids = []
         agents_dict = {a.agent_id: a for a in active_agents}
-        agent_id, is_exact_match = self.name_extractor.find_agent_by_name(
-            extracted_name,
-            agents_dict,
-        )
 
-        if agent_id:
-            return agent_id
+        for name in extracted_names:
+            agent_id, is_exact_match = self.name_extractor.find_agent_by_name(
+                name,
+                agents_dict,
+            )
+            if agent_id and agent_id not in found_ids:
+                found_ids.append(agent_id)
 
-        logger.warning(f"Social Arbiter: Named agent '{extracted_name}' not found in system")
-        return None
+        return found_ids
 
     def rank_agents(
         self,
@@ -374,6 +397,7 @@ class SocialArbiter:
         return self.emotion_state_manager.get_history(agent_id, limit)
 
     def update_agent_stats(self, agent_id: str, response_time: float) -> None:
+        self.discussion_turn += 1
         if agent_id in self._agents:
             agent = self._agents[agent_id]
             agent.response_count += 1
