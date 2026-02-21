@@ -24,8 +24,11 @@
   - [19. Multi-User & Social Grid](./20-multi-user-social-grid.md)
   - [20. Admin UI & Dashboard](./21-admin-ui-dashboard.md)
   - [21. Skills & Persona Dissociation](./22-skills-persona-dissociation.md)
-    
-    ## ADR (Architecture Decision Records)
+  - [22. Pipeline Audio Complet (La Voix)](./23-audio-pipeline.md)
+  - [23. Gestion de l'État du Monde (World State)](./24-world-state-management.md)
+  - [24. Observabilité & Monitoring (L'Observatoire)](./25-observability.md)
+
+## ADR (Architecture Decision Records)
     
   Toutes les décisions structurantes sont consignées dans le dossier [decisions/](./decisions/).
   
