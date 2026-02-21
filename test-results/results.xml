@@ -1,11 +1,11 @@
-<testsuites id="" name="" tests="1" failures="0" skipped="0" errors="0" time="12.921509">
-<testsuite name="e2e/conversation-flow.spec.ts" timestamp="2026-02-21T22:53:25.411Z" hostname="chromium" tests="1" failures="0" skipped="0" time="9.103" errors="0">
-<testcase name="Conversation Flow Scenarios › conversation: agent should respond to &quot;bonjour les filles&quot;" classname="e2e/conversation-flow.spec.ts" time="9.103">
+<testsuites id="" name="" tests="1" failures="0" skipped="0" errors="0" time="2.9026440000000004">
+<testsuite name="e2e/visual-glitch.spec.ts" timestamp="2026-02-21T22:56:25.168Z" hostname="chromium" tests="1" failures="0" skipped="0" time="1.773" errors="0">
+<testcase name="Visual Glitch Detection › No layout shift when agent speaks" classname="e2e/visual-glitch.spec.ts" time="1.773">
 <system-out>
-<![CDATA[Initial text: Initialisation du système hAIrem...
-Thinking state detected
-Agent response: Bonjour ! 🌸  
-Ah, un nouveau 
+<![CDATA[Initial BG: { x: [33m0[39m, y: [33m0[39m, width: [33m1280[39m, height: [33m720[39m }
+Initial Input: { x: [33m358[39m, y: [33m659[39m, width: [33m517.75[39m, height: [33m37[39m }
+Speaking BG: { x: [33m0[39m, y: [33m0[39m, width: [33m1280[39m, height: [33m720[39m }
+Speaking Input: { x: [33m358[39m, y: [33m659[39m, width: [33m517.75[39m, height: [33m37[39m }
 ]]>
 </system-out>
 </testcase>
