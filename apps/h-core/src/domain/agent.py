@@ -100,7 +100,9 @@ class BaseAgent:
 
     def setup(self):
         """Hook for subclasses to register tools and handlers."""
-        self._setup_default_tools()
+        # Story 15.1: Dynamic Skill Mapping
+        # We no longer call _setup_default_tools() here.
+        # All tools must be explicitly listed in persona.yaml:skills[]
         self._load_dynamic_skills()
 
     async def refresh_config(self):
@@ -149,44 +151,62 @@ class BaseAgent:
         # Re-initialize LLM Client
         from src.infrastructure.llm import LlmClient
 
+        # Story 7.5: Secure Vault integration
+        # Resolve API Key from vault if possible
+        provider = final_config.get("provider") or os.getenv("OPENROUTER_API_KEY") and "openrouter" or "openai"
+        if self.surreal:
+            from src.services.vault.credentials import CredentialVaultService
+
+            vault = CredentialVaultService(self.surreal)
+
+            # 1. Try agent-specific provider key
+            vault_key = await vault.get_llm_key(f"{self.config.name}_{provider}")
+            # 2. Try global provider key
+            if not vault_key:
+                vault_key = await vault.get_llm_key(provider)
+
+            if vault_key:
+                final_config["api_key"] = vault_key
+                logger.info(f"AGENT {self.config.name}: API Key resolved from vault.")
+
         self.llm = LlmClient(cache=self.llm.cache, config_override=final_config)
         logger.info(f"AGENT {self.config.name}: Config refreshed. Active model: {self.llm.model}")
 
     def _load_dynamic_skills(self):
-        """Loads skills defined in the configuration (persona.yaml)."""
+        """
+        EPIC 15: Dynamic Skill Mapping.
+        Loads skills defined in the configuration (persona.yaml).
+        Authority: Only skills listed in persona.yaml:skills[] are enabled.
+        """
         if not hasattr(self.config, "skills") or not self.config.skills:
+            logger.warning(f"AGENT {self.config.name}: No skills defined in persona.yaml.")
             return
 
         for skill in self.config.skills:
             name = skill.get("name")
             description = skill.get("description")
 
-            # If the skill maps to a method on this class (e.g. specialized subclass)
+            if not name or not description:
+                continue
+
+            # Case 1: The skill maps to an existing method (Native or Plugin logic.py)
             if hasattr(self, name):
                 method = getattr(self, name)
-                self.tools[name] = {"description": description, "function": method}
-                logger.info(f"AGENT {self.config.name}: Loaded native skill '{name}'")
-            else:
-                # If it's a generic skill not implemented in code, we register a placeholder
-                # This allows the LLM to 'think' it has the skill, and we can handle it via a generic command handler later
-                # OR we could load python scripts dynamically here (Advanced)
+                # Ensure it's callable
+                if callable(method):
+                    self.tools[name] = {"description": description, "function": method}
+                    logger.info(f"AGENT {self.config.name}: Registered skill '{name}' (Method found)")
+                    continue
 
-                # For now, we create a generic handler that logs the call
-                async def generic_handler(**kwargs):
-                    logger.info(f"AGENT {self.config.name}: Executing generic skill '{name}' with args {kwargs}")
-                    return f"Executed {name} successfully."
+            # Case 2: Placeholder / Future External Plugins
+            # We register it so the LLM knows about it, but log it as placeholder
+            async def placeholder_handler(**kwargs):
+                logger.warning(f"AGENT {self.config.name}: Called unimplemented skill '{name}' with {kwargs}")
+                return f"Skill '{name}' is not fully implemented in this agent's logic."
 
-                generic_handler.__name__ = name
-                self.tools[name] = {"description": description, "function": generic_handler}
-                logger.info(f"AGENT {self.config.name}: Loaded generic skill '{name}'")
-
-    def _setup_default_tools(self):
-        """Register tools available to all agents."""
-        if self.surreal:
-            self.tool("Recall relevant past interactions or facts using a semantic query")(self.recall_memory)
-        if self.visual_service:
-            self.tool("Generate an image based on a description")(self.generate_image)
-        self.tool("Send a private internal note to another agent.")(self.send_internal_note)
+            placeholder_handler.__name__ = name
+            self.tools[name] = {"description": description, "function": placeholder_handler}
+            logger.info(f"AGENT {self.config.name}: Registered skill '{name}' (Placeholder)")
 
     async def recall_memory(self, query: str) -> str:
         """Semantic search tool."""
@@ -376,6 +396,12 @@ class BaseAgent:
             payload = message.payload.content
             if isinstance(payload, dict) and payload.get("event") == "world_theme_change":
                 await self.handle_theme_change(payload.get("theme"))
+            return
+
+        if message.type == MessageType.WORLD_THEME_CHANGED:
+            new_theme = message.payload.content.get("theme")
+            if new_theme:
+                await self.handle_theme_change(new_theme)
             return
 
         # Narrative or Direct User message

@@ -31,10 +31,18 @@ mypy apps/h-core/src --ignore-missing-imports
 echo "Checking H-Bridge..."
 mypy apps/h-bridge/src --ignore-missing-imports
 
-# 4. Unit & Integration Tests (Pytest)
-echo -e "\n${GREEN}🧪 Phase 4: Unit & Integration Tests (Pytest)${NC}"
-export PYTHONPATH=$PYTHONPATH:$(pwd)/apps/h-core:$(pwd)/apps/h-bridge
-pytest apps/h-core/tests/
+# 4. Unit Tests (Pytest — fast, no real services required)
+echo -e "\n${GREEN}🧪 Phase 4a: Unit Tests (Pytest)${NC}"
+export PYTHONPATH=$PYTHONPATH:$(pwd)/apps/h-core:$(pwd)/apps/h-core/src:$(pwd)/apps/h-bridge
+cd apps/h-core && python3 -m pytest tests/ -m "not integration" -q --tb=short && cd ../..
+
+# 4b. Integration Tests (require Redis + SurrealDB)
+echo -e "\n${GREEN}🧪 Phase 4b: Integration Tests (Pytest — requires services)${NC}"
+if redis-cli ping > /dev/null 2>&1; then
+    cd apps/h-core && python3 -m pytest tests/ -m "integration" -q --tb=short && cd ../..
+else
+    echo -e "${RED}⚠️ Skipping integration tests: Redis not available.${NC}"
+fi
 
 # 5. Master Regression (E2E)
 echo -e "\n${GREEN}🏆 Phase 5: Master Regression (E2E)${NC}"

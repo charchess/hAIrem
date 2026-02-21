@@ -1,0 +1,19 @@
+# Global Themes for hAIrem
+# Suffixes added to prompt parts when theme is active
+
+Default: {}
+
+Cyberpunk:
+  character_style_suffix: "wearing neon LED accents, glowing cybernetic details, rainy futuristic city reflections"
+  background_style_suffix: "rainy cyberpunk street, neon signs, skyscrapers, cinematic futuristic atmosphere"
+  engine_directives_suffix: "cyberpunk aesthetic, high contrast neon"
+
+Christmas:
+  character_style_suffix: "wearing festive santa hat and cozy winter knitwear, soft warm lighting"
+  background_style_suffix: "cozy winter living room with a glowing christmas tree, snow falling outside the window, warm fireplace"
+  engine_directives_suffix: "festive atmosphere, holiday season style"
+
+Beach:
+  character_style_suffix: "wearing summer sunglasses and light beachwear, bright sunny lighting"
+  background_style_suffix: "tropical beach with white sand and turquoise water, palm trees, clear blue sky, summer vibe"
+  engine_directives_suffix: "bright summer sunlight, beach aesthetic"

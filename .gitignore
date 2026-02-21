@@ -36,7 +36,12 @@ debug_*.log
 # Environment & Secrets
 .env
 .env~
+.env.local
 .secrets/
+passwords.txt
+*.key
+*.pem
+vault.json
 
 # IDEs
 .vscode/

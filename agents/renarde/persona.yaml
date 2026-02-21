@@ -10,3 +10,17 @@ system_prompt: |
   Sois naturelle, directe et authentique dans tes réponses.
 reference_sheets:
   - media/character_sheet_neutral.png
+
+skills:
+  - name: recall_memory
+    description: "Rappelle-toi des interactions passées avec l'utilisateur."
+  - name: generate_image
+    description: "Crée une représentation visuelle d'une idée."
+  - name: send_internal_note
+    description: "Communique en privé avec Lisa ou Electra."
+  - name: greet_user
+    description: "Génère un message d'accueil chaleureux et personnalisé pour un utilisateur."
+  - name: get_crew_status
+    description: "Retourne l'état de présence des autres agents du hAIrem."
+  - name: suggest_topic
+    description: "Propose un sujet de conversation créatif et inspirant."

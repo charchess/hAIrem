@@ -1,0 +1,24 @@
+# Proactivity Triggers Mapping
+# Maps Home Assistant or System events to specific Agent reactions
+
+triggers:
+  - event_name: "state_changed"
+    entity_id: "binary_sensor.front_door"
+    new_state: "on"
+    target_agent: "Lisa"
+    context: "Someone just opened the front door. Greet them warmly."
+
+  - event_name: "state_changed"
+    entity_id: "light.living_room"
+    new_state: "off"
+    target_agent: "Renarde"
+    context: "The lights in the living room were turned off. Maybe it's time for a movie or sleep?"
+
+  - event_name: "system_wakeup"
+    target_agent: "Electra"
+    context: "Good morning Electra. Time to check the house status."
+
+stimuli:
+  - name: "morning_routine"
+    agents: ["Lisa", "Renarde"]
+    context: "It is 8:00 AM. Start the day."

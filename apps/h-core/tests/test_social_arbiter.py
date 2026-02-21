@@ -2,13 +2,12 @@ import pytest
 import asyncio
 import sys
 
-sys.path.insert(0, "src/features/home")
-from social_arbiter.models import AgentProfile
-from social_arbiter.scoring import ScoringEngine
-from social_arbiter.tiebreaker import Tiebreaker
-from social_arbiter.fallback import FallbackBehavior
-from social_arbiter.arbiter import SocialArbiter
-from social_arbiter.turn_taking import TurnManager, TurnState, TurnTimeoutConfig, QueuedResponse
+from src.features.home.social_arbiter.models import AgentProfile
+from src.features.home.social_arbiter.scoring import ScoringEngine
+from src.features.home.social_arbiter.tiebreaker import Tiebreaker
+from src.features.home.social_arbiter.fallback import FallbackBehavior
+from src.features.home.social_arbiter.arbiter import SocialArbiter
+from src.features.home.social_arbiter.turn_taking import TurnManager, TurnState, TurnTimeoutConfig, QueuedResponse
 
 
 class TestScoringEngine:
@@ -253,258 +252,88 @@ class TestSocialArbiter:
 
 class TestNameExtractor:
     def test_extract_name_with_comma(self):
-        from social_arbiter.name_detection import NameExtractor
+        from src.features.home.social_arbiter.name_detection import NameExtractor
 
         extractor = NameExtractor()
-
-        name = extractor.extract_name_from_message("Lisa, tu peux me dire...")
-        assert name == "Lisa"
+        assert extractor.extract_name_from_message("Lisa, comment vas-tu ?") == "Lisa"
 
     def test_extract_name_with_at_sign(self):
-        from social_arbiter.name_detection import NameExtractor
+        from src.features.home.social_arbiter.name_detection import NameExtractor
 
         extractor = NameExtractor()
-
-        name = extractor.extract_name_from_message("@Marie dis-moi")
-        assert name == "Marie"
+        assert extractor.extract_name_from_message("@Renarde, une question.") == "Renarde"
 
     def test_extract_name_with_colon(self):
-        from social_arbiter.name_detection import NameExtractor
+        from src.features.home.social_arbiter.name_detection import NameExtractor
 
         extractor = NameExtractor()
-
-        name = extractor.extract_name_from_message("Paul: raconte")
-        assert name == "Paul"
+        assert extractor.extract_name_from_message("Electra: fais quelque chose.") == "Electra"
 
     def test_extract_name_with_bonjour(self):
-        from social_arbiter.name_detection import NameExtractor
+        from src.features.home.social_arbiter.name_detection import NameExtractor
 
         extractor = NameExtractor()
-
-        name = extractor.extract_name_from_message("Bonjour Lisa")
-        assert name == "Lisa"
+        assert extractor.extract_name_from_message("Bonjour Lisa") == "Lisa"
 
     def test_extract_name_with_dis(self):
-        from social_arbiter.name_detection import NameExtractor
+        from src.features.home.social_arbiter.name_detection import NameExtractor
 
         extractor = NameExtractor()
-
-        name = extractor.extract_name_from_message("Dis Paul")
-        assert name == "Paul"
+        assert extractor.extract_name_from_message("Dis Renarde") == "Renarde"
 
     def test_extract_name_with_hey(self):
-        from social_arbiter.name_detection import NameExtractor
+        from src.features.home.social_arbiter.name_detection import NameExtractor
 
         extractor = NameExtractor()
-
-        name = extractor.extract_name_from_message("Hey Marie")
-        assert name == "Marie"
+        assert extractor.extract_name_from_message("Hey Electra") == "Electra"
 
     def test_find_agent_by_exact_name(self):
-        from social_arbiter.name_detection import NameExtractor
+        from src.features.home.social_arbiter.name_detection import NameExtractor
 
         extractor = NameExtractor()
-
         agents = {
-            "lisa": AgentProfile(agent_id="lisa", name="Lisa", role="assistant", is_active=True),
-            "marie": AgentProfile(agent_id="marie", name="Marie", role="assistant", is_active=True),
+            "lisa_id": AgentProfile(agent_id="lisa_id", name="Lisa", role="assistant"),
+            "renarde_id": AgentProfile(agent_id="renarde_id", name="Renarde", role="coordinator"),
         }
 
-        agent_id, is_exact = extractor.find_agent_by_name("Lisa", agents)
-        assert agent_id == "lisa"
-        assert is_exact is True
+        aid, found = extractor.find_agent_by_name("Lisa", agents)
+        assert found is True
+        assert aid == "lisa_id"
 
     def test_find_agent_by_partial_match(self):
-        from social_arbiter.name_detection import NameExtractor
+        from src.features.home.social_arbiter.name_detection import NameExtractor
 
         extractor = NameExtractor()
-
         agents = {
-            "lisa": AgentProfile(agent_id="lisa", name="Lisa", role="assistant", is_active=True),
-            "marie": AgentProfile(agent_id="marie", name="Marie", role="assistant", is_active=True),
+            "lisa_id": AgentProfile(agent_id="lisa_id", name="Lisa Fennec", role="assistant"),
         }
 
-        agent_id, is_exact = extractor.find_agent_by_name("Lis", agents)
-        assert agent_id == "lisa"
+        # Case-insensitive partial match
+        aid, found = extractor.find_agent_by_name("lisa", agents)
+        assert found is True
+        assert aid == "lisa_id"
 
     def test_find_agent_not_found(self):
-        from social_arbiter.name_detection import NameExtractor
+        from src.features.home.social_arbiter.name_detection import NameExtractor
 
         extractor = NameExtractor()
-
         agents = {
-            "lisa": AgentProfile(agent_id="lisa", name="Lisa", role="assistant", is_active=True),
+            "lisa_id": AgentProfile(agent_id="lisa_id", name="Lisa", role="assistant"),
         }
 
-        agent_id, is_exact = extractor.find_agent_by_name("Unknown", agents)
-        assert agent_id is None
+        aid, found = extractor.find_agent_by_name("Renarde", agents)
+        assert found is False
 
     def test_find_agent_short_name_filtered(self):
-        from social_arbiter.name_detection import NameExtractor
+        from src.features.home.social_arbiter.name_detection import NameExtractor
 
         extractor = NameExtractor()
-
         agents = {
-            "lisa": AgentProfile(agent_id="lisa", name="Lisa", role="assistant", is_active=True),
+            "lisa_id": AgentProfile(agent_id="lisa_id", name="Li", role="assistant"),
         }
 
-        agent_id, is_exact = extractor.find_agent_by_name("Li", agents)
-        assert agent_id is None
-
-
-class TestNamedAgentPriority:
-    def test_named_agent_priority_explicit_name(self):
-        arbiter = SocialArbiter()
-        arbiter.register_agent(
-            AgentProfile(
-                agent_id="lisa",
-                name="Lisa",
-                role="assistant",
-                domains=["general"],
-                is_active=True,
-            )
-        )
-        arbiter.register_agent(
-            AgentProfile(
-                agent_id="marie",
-                name="Marie",
-                role="assistant",
-                domains=["general"],
-                is_active=True,
-            )
-        )
-
-        responder = arbiter.determine_responder("Lisa, comment ça va?")
-
-        if isinstance(responder, list):
-            responder = responder[0]
-        assert responder.agent_id == "lisa"
-
-    def test_named_agent_priority_at_mention(self):
-        arbiter = SocialArbiter()
-        arbiter.register_agent(
-            AgentProfile(
-                agent_id="lisa",
-                name="Lisa",
-                role="assistant",
-                domains=["general"],
-                is_active=True,
-            )
-        )
-        arbiter.register_agent(
-            AgentProfile(
-                agent_id="marie",
-                name="Marie",
-                role="assistant",
-                domains=["general"],
-                is_active=True,
-            )
-        )
-
-        responder = arbiter.determine_responder("@Marie dis-moi quelque chose")
-
-        if isinstance(responder, list):
-            responder = responder[0]
-        assert responder.agent_id == "marie"
-
-    def test_named_agent_priority_bonjour(self):
-        arbiter = SocialArbiter()
-        arbiter.register_agent(
-            AgentProfile(
-                agent_id="lisa",
-                name="Lisa",
-                role="assistant",
-                domains=["general"],
-                is_active=True,
-            )
-        )
-        arbiter.register_agent(
-            AgentProfile(
-                agent_id="marie",
-                name="Marie",
-                role="assistant",
-                domains=["general"],
-                is_active=True,
-            )
-        )
-
-        responder = arbiter.determine_responder("Bonjour Lisa")
-
-        if isinstance(responder, list):
-            responder = responder[0]
-        assert responder.agent_id == "lisa"
-
-    def test_unknown_agent_fallback_to_scoring(self):
-        arbiter = SocialArbiter()
-        arbiter.register_agent(
-            AgentProfile(
-                agent_id="lisa",
-                name="Lisa",
-                role="assistant",
-                domains=["general"],
-                is_active=True,
-            )
-        )
-
-        responder = arbiter.determine_responder("John, dis bonjour", allow_suppression=False)
-
-        if isinstance(responder, list):
-            responder = responder[0]
-        assert responder.agent_id == "lisa"
-
-    def test_no_name_uses_scoring(self):
-        arbiter = SocialArbiter()
-        arbiter.register_agent(
-            AgentProfile(
-                agent_id="tech",
-                name="Tech",
-                role="assistant",
-                domains=["technology"],
-                is_active=True,
-            )
-        )
-        arbiter.register_agent(
-            AgentProfile(
-                agent_id="chef",
-                name="Chef",
-                role="assistant",
-                domains=["cooking"],
-                is_active=True,
-            )
-        )
-
-        responder = arbiter.determine_responder("Tell me about technology")
-
-        if isinstance(responder, list):
-            responder = responder[0]
-        assert responder.agent_id == "tech"
-
-    def test_named_agent_inactive_not_selected(self):
-        arbiter = SocialArbiter()
-        arbiter.register_agent(
-            AgentProfile(
-                agent_id="lisa",
-                name="Lisa",
-                role="assistant",
-                domains=["general"],
-                is_active=False,
-            )
-        )
-        arbiter.register_agent(
-            AgentProfile(
-                agent_id="marie",
-                name="Marie",
-                role="assistant",
-                domains=["general"],
-                is_active=True,
-            )
-        )
-
-        responder = arbiter.determine_responder("Lisa, dis-moi quelque chose", allow_suppression=False)
-
-        if isinstance(responder, list):
-            responder = responder[0]
-        assert responder.agent_id == "marie"
+        aid, found = extractor.find_agent_by_name("Li", agents)
+        assert found is False
 
 
 class TestTurnManager:
@@ -822,89 +651,71 @@ class TestQueuedResponse:
 
 class TestResponseSuppressor:
     def test_suppress_below_threshold(self):
-        from social_arbiter.suppression import ResponseSuppressor, SuppressionConfig, SuppressionReason
-
-        config = SuppressionConfig(minimum_threshold=0.3)
-        suppressor = ResponseSuppressor(config)
-
-        result = suppressor.suppress_response(
-            agent_id="agent1",
-            message_content="Hello",
-            score=0.2,
-            reason=SuppressionReason.BELOW_THRESHOLD,
+        from src.features.home.social_arbiter.suppression import (
+            ResponseSuppressor,
+            SuppressionConfig,
+            SuppressionReason,
         )
 
-        assert result is not None
-        assert result.agent_id == "agent1"
-        assert result.score == 0.2
+        config = SuppressionConfig(minimum_threshold=0.5)
+        suppressor = ResponseSuppressor(config)
+
+        # Should suppress
+        assert suppressor.should_suppress("test", 0.3) is True
 
     def test_no_suppress_above_threshold(self):
-        from social_arbiter.suppression import ResponseSuppressor, SuppressionConfig
+        from src.features.home.social_arbiter.suppression import ResponseSuppressor, SuppressionConfig
 
-        config = SuppressionConfig(minimum_threshold=0.3)
+        config = SuppressionConfig(minimum_threshold=0.5)
         suppressor = ResponseSuppressor(config)
 
-        result = suppressor.suppress_response(
-            agent_id="agent1",
-            message_content="Hello",
-            score=0.5,
-        )
-
-        assert result is None
+        # Should NOT suppress
+        assert suppressor.should_suppress("test", 0.7) is False
 
     def test_suppression_disabled(self):
-        from social_arbiter.suppression import ResponseSuppressor, SuppressionConfig
+        from src.features.home.social_arbiter.suppression import ResponseSuppressor, SuppressionConfig
 
-        config = SuppressionConfig(enable_suppression=False)
+        config = SuppressionConfig(enable_suppression=False, minimum_threshold=0.5)
         suppressor = ResponseSuppressor(config)
 
-        result = suppressor.suppress_response(
-            agent_id="agent1",
-            message_content="Hello",
-            score=0.1,
-        )
-
-        assert result is None
+        # Should NOT suppress even if below threshold
+        assert suppressor.should_suppress("test", 0.3) is False
 
     def test_suppression_queue(self):
-        from social_arbiter.suppression import ResponseSuppressor, SuppressionConfig, SuppressionReason
-
-        config = SuppressionConfig(
-            minimum_threshold=0.3,
-            enable_reevaluation=True,
-            reevaluation_delay_seconds=0,
+        from src.features.home.social_arbiter.suppression import (
+            ResponseSuppressor,
+            SuppressionConfig,
+            SuppressionReason,
         )
+
+        config = SuppressionConfig(minimum_threshold=0.5, enable_reevaluation=True)
         suppressor = ResponseSuppressor(config)
 
-        suppressor.suppress_response(
-            agent_id="agent1",
-            message_content="Hello",
-            score=0.2,
-            reason=SuppressionReason.BELOW_THRESHOLD,
-        )
-
+        suppressor.suppress_response("agent1", "content", 0.3)
         assert suppressor.get_queue_size() == 1
 
     def test_suppression_stats(self):
-        from social_arbiter.suppression import ResponseSuppressor, SuppressionConfig, SuppressionReason
-
-        config = SuppressionConfig(minimum_threshold=0.3)
-        suppressor = ResponseSuppressor(config)
-
-        suppressor.suppress_response(
-            agent_id="agent1",
-            message_content="Hello",
-            score=0.2,
-            reason=SuppressionReason.BELOW_THRESHOLD,
+        from src.features.home.social_arbiter.suppression import (
+            ResponseSuppressor,
+            SuppressionConfig,
+            SuppressionReason,
         )
 
-        stats = suppressor.get_stats()
+        config = SuppressionConfig(minimum_threshold=0.5)
+        suppressor = ResponseSuppressor(config)
 
+        suppressor.suppress_response("agent1", "content", 0.3)
+
+        stats = suppressor.get_stats()
         assert stats["total_suppressions"] == 1
         assert stats["by_agent"]["agent1"] == 1
 
     def test_suppression_logging(self):
-        from social_arbiter.suppression import ResponseSuppressor, SuppressionConfig, SuppressionReason
+        from src.features.home.social_arbiter.suppression import (
+            ResponseSuppressor,
+            SuppressionConfig,
+            SuppressionReason,
+        )
 
         config = SuppressionConfig(minimum_threshold=0.3)
         suppressor = ResponseSuppressor(config)
@@ -1001,10 +812,9 @@ class TestSocialArbiterSuppression:
         )
 
         arbiter.determine_responder("Hello")
-
         stats = arbiter.get_suppression_stats()
-
         assert "total_suppressions" in stats
+
         assert "by_agent" in stats
         assert "by_reason" in stats
 

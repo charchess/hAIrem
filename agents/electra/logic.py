@@ -11,19 +11,20 @@ from src.models.hlink import HLinkMessage, MessageType, Sender, Recipient, Paylo
 
 logger = logging.getLogger(__name__)
 
+
 class HaClient:
     def __init__(self):
         self.base_url = os.getenv("HA_URL", "https://homeassistant.truxonline.com/api")
         # Ensure we always append /api if missing from URL
         if not self.base_url.endswith("/api"):
             self.base_url = f"{self.base_url.rstrip('/')}/api"
-            
+
         self.ws_url = self.base_url.replace("http", "ws").replace("/api", "/websocket")
         self.token = os.getenv("HA_TOKEN")
-        
+
         if not self.token:
             logger.warning("ELECTRA_HA: No HA_TOKEN found in environment!")
-            
+
         self.headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
         self._client = None
 
@@ -34,7 +35,8 @@ class HaClient:
         return self._client
 
     async def close(self):
-        if self._client: await self._client.aclose()
+        if self._client:
+            await self._client.aclose()
 
     async def call_service(self, domain: str, service: str, data: dict):
         url = f"{self.base_url}/services/{domain}/{service}"
@@ -96,19 +98,19 @@ class HaClient:
 
                         # 2. Send 'auth'
                         await ws.send_json({"type": "auth", "access_token": self.token})
-                        
+
                         # 3. Check 'auth_ok'
                         msg = await ws.receive_json()
                         if msg.get("type") != "auth_ok":
                             logger.error(f"HA_WS: Auth failed: {msg}")
                             await asyncio.sleep(10)
                             continue
-                        
+
                         logger.info("HA_WS: Connected and Authenticated.")
 
                         # 4. Subscribe to state changes
                         await ws.send_json({"id": 1, "type": "subscribe_events", "event_type": "state_changed"})
-                        
+
                         # 5. Event Loop
                         async for msg in ws:
                             if msg.type == aiohttp.WSMsgType.TEXT:
@@ -119,24 +121,23 @@ class HaClient:
                                 break
             except Exception as e:
                 logger.error(f"HA_WS: Connection error: {e}. Retrying in 10s...")
-            
-            await asyncio.sleep(10) # Wait before reconnecting
+
+            await asyncio.sleep(10)  # Wait before reconnecting
+
 
 class Agent(BaseAgent):
     def setup(self):
         super().setup()
         self.ha = HaClient()
-        self.tools = {}
-        self.tool("Get state")(self.get_entity_state)
-        self.tool("Action")(self.call_ha_service)
-        self.device_inventory = {} 
+        self.device_inventory = {}
+
         logger.info("ELECTRA_LOGIC: Setup Complete.")
 
     async def async_setup(self):
         """Dynamic discovery of ALL lights from Home Assistant."""
         logger.info("ELECTRA_DISCOVERY: Scanning all devices...")
         all_states = await self.ha.fetch_all_states()
-        
+
         if all_states:
             for state in all_states:
                 eid = state.get("entity_id", "")
@@ -144,12 +145,12 @@ class Agent(BaseAgent):
                     friendly_name = state.get("attributes", {}).get("friendly_name", eid)
                     self.device_inventory[eid] = friendly_name
                     logger.info(f"ELECTRA_DISCOVERY: Loaded {eid} ('{friendly_name}')")
-        
+
         logger.info(f"ELECTRA_DISCOVERY: Found {len(self.device_inventory)} lights.")
 
     async def teardown(self):
         """Ensure HaClient is closed on teardown."""
-        if hasattr(self, 'ha'):
+        if hasattr(self, "ha"):
             await self.ha.close()
             logger.info(f"Agent {self.config.name} resources cleaned up.")
 
@@ -166,6 +167,63 @@ class Agent(BaseAgent):
             p += "\n\nATTENTION : Aucun inventaire domotique trouvé. Signale-le."
         return p
 
+    async def manage_shopping_list(self, action, item=None):
+        """
+        FR15.5: Shopping Skill.
+        Manages a virtual shopping list with price optimization logic.
+        """
+        # Story 15.5: Scraper Placeholder
+        if action == "add":
+            # Simulate price search
+            price = 10.5  # Mocked price from "scraper"
+            logger.info(f"SHOPPING: Added {item} at best price found: {price}€")
+            return f"Added {item} to your list. Best price found: {price}€"
+        elif action == "list":
+            return "Current shopping list: Coffee, Milk, Fennec treats."
+        return "Unknown action."
+
+    async def run_routine(self, routine_name, **kwargs):  # Added **kwargs for router compatibility
+        """
+        FR5.8: High-Level Automation Routines.
+        """
+        # Handle cases where routine_name is inside kwargs (from router)
+        name = routine_name
+        if isinstance(routine_name, dict):
+            name = routine_name.get("routine_name")
+
+        routines = {
+            "movie_mode": [
+                {"domain": "light", "service": "turn_off", "entity_id": "light.living_room"},
+                {"domain": "media_player", "service": "media_play", "entity_id": "media_player.tv"},
+            ],
+            "good_night": [
+                {"domain": "light", "service": "turn_off", "entity_id": "all"},
+                {"domain": "climate", "service": "set_temperature", "entity_id": "climate.house", "temperature": 18},
+            ],
+            "party_time": [
+                {"domain": "light", "service": "turn_on", "entity_id": "all", "rgb_color": [255, 0, 255]},
+                {
+                    "domain": "media_player",
+                    "service": "volume_set",
+                    "entity_id": "media_player.speakers",
+                    "volume_level": 0.8,
+                },
+            ],
+        }
+
+        if routine_name not in routines:
+            return f"Error: Routine '{routine_name}' not found. Available: {', '.join(routines.keys())}"
+
+        logger.info(f"ELECTRA_ROUTINE: Running {routine_name}...")
+        steps = routines[routine_name]
+        for step in steps:
+            domain = step.pop("domain")
+            service = step.pop("service")
+            entity_id = step.pop("entity_id")
+            await self.ha.call_service(domain, service, {"entity_id": entity_id, **step})
+
+        return f"Routine '{routine_name}' executed successfully."
+
     async def get_entity_state(self, eid):
         s = await self.ha.get_state(eid)
         return s.get("state") if s else "Unknown"
@@ -177,7 +235,7 @@ class Agent(BaseAgent):
         Payload attendu (PLAT) : {"entity_id": "light.xyz", "brightness": 100}
         """
         logger.info(f"ELECTRA_HA_CALL: raw_service={service}, entity_id={entity_id}, extra={kwargs}")
-        
+
         # 1. Extraction du domaine et service (ex: 'light.turn_off' -> domain='light', service='turn_off')
         domain = "light"
         final_service = service
@@ -193,7 +251,7 @@ class Agent(BaseAgent):
             for eid, name in self.device_inventory.items():
                 if target_eid.lower() in name.lower() or name.lower() in target_eid.lower():
                     matches.append(eid)
-            
+
             if len(matches) == 1:
                 target_eid = matches[0]
             elif len(matches) > 1:
@@ -203,7 +261,7 @@ class Agent(BaseAgent):
         # 3. Construction du payload FINAL (doit être plat pour HA)
         # Exemple cible : {"entity_id": "light.tradfri_bulb_3", "brightness": 255}
         payload = {"entity_id": target_eid}
-        
+
         # Gestion robuste des arguments supplémentaires
         # Grok envoie souvent 'kwargs': '{}' (string) ou 'kwargs': {} (dict)
         if "kwargs" in kwargs:
@@ -227,6 +285,6 @@ class Agent(BaseAgent):
 
         logger.info(f"ELECTRA_HA_SENDING: domain={domain}, service={final_service}, payload={payload}")
         success = await self.ha.call_service(domain, final_service, payload)
-        
+
         logger.info(f"ELECTRA_HA_RESULT: target={target_eid}, success={success}")
         return "Done" if success else "Failed to call Home Assistant (check logs for 400 error details)"

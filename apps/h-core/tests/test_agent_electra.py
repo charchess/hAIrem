@@ -10,6 +10,13 @@ def _make_agent():
         role="Experte domotique",
         system_prompt="Tu es Electra.",
         capabilities=["home_automation", "shopping"],
+        skills=[
+            {"name": "get_entity_state", "description": "desc"},
+            {"name": "call_ha_service", "description": "desc"},
+            {"name": "run_routine", "description": "desc"},
+            {"name": "manage_shopping_list", "description": "desc"},
+            {"name": "send_internal_note", "description": "desc"},
+        ],
     )
     redis = MagicMock()
     redis.publish = AsyncMock()

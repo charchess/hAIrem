@@ -1,2 +1,3 @@
-2026/02/11-23:50:47.597 198bc9 Creating DB /home/charchess/hairem/.gemini_env/google-chrome/Default/shared_proto_db since it was missing.
-2026/02/11-23:50:47.634 198bc9 Reusing MANIFEST /home/charchess/hairem/.gemini_env/google-chrome/Default/shared_proto_db/MANIFEST-000001
+2026/02/11-23:51:14.234 199362 Reusing MANIFEST /home/charchess/hairem/.gemini_env/google-chrome/Default/shared_proto_db/MANIFEST-000001
+2026/02/11-23:51:14.234 199362 Recovering log #3
+2026/02/11-23:51:14.234 199362 Reusing old log /home/charchess/hairem/.gemini_env/google-chrome/Default/shared_proto_db/000003.log 

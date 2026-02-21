@@ -190,12 +190,51 @@ Correcteur le sélecteur dans `chat-engine.spec.ts`.
 
 ---
 
-## Prochaines Questions en Suspens
+## ADR-010: LLM-Based Social Arbiter (Epic 3)
 
-1. **Vault System:** Quand implémenter le stockage sécurisé des clés API ?
-2. **Hot Reload:** Les changements de config doivent-ils nécessiter un restart ?
-3. **Multi-tenant:** Comment gérer les configs pour plusieurs utilisateurs ?
+**Date:** 2026-02-16
+**Contexte:** L'arbitrage UTS (Urge-to-Speak) basé sur des regex et des scores statiques manquait de nuance pour les discussions de groupe complexes.
+
+### Décision
+Utiliser un appel LLM "micro-inférence" (modèle rapide/léger) pour évaluer l'intérêt de chaque agent en fonction du message utilisateur. Cela permet de déléguer la compréhension sémantique à l'IA plutôt que de maintenir des dictionnaires de mots-clés.
+
+**Statut:** Implémenté ✅
 
 ---
 
-*Ce document est vivant - mettre à jour au fur et à mesure des décisions de design.*
+## ADR-011: Device-Centric Spatial Presence (Epic 19)
+
+**Date:** 2026-02-16
+**Contexte:** Dans les stories originales, la localisation était souvent vue comme une propriété fixe de l'agent. Pour un usage laptop/mobile, l'agent doit rejoindre l'utilisateur.
+
+### Décision
+1. La UI (Device) gère une `room_id` locale.
+2. Chaque message (Texte/Voix) propage cette localisation.
+3. Le Core déplace automatiquement l'agent répondant vers la pièce de l'utilisateur.
+4. Mise à jour automatique de la relation `IS_IN` dans le graphe social.
+
+**Statut:** Implémenté ✅
+
+---
+
+## ADR-012: Cognitive Backstory Generator (Epic 18)
+
+**Date:** 2026-02-16
+**Contexte:** Les agents arrivaient à T0 avec une mémoire vide, créant une impression de "coquille vide".
+
+### Décision
+Au démarrage de l'orchestrateur, si un agent n'a pas de passé, le `MemoryConsolidator` génère 5 souvenirs atomiques permanents basés sur son persona pour "ancrer" son identité dès la première interaction.
+
+**Statut:** Implémenté ✅
+
+---
+
+## ADR-013: Unified Conversation Stream (Epic 14)
+
+**Date:** 2026-02-16
+**Contexte:** Séparation technique entre les événements UI (`system_stream`) et les transcriptions vocales (`conversation_stream`).
+
+### Décision
+Le `message_router` du Core écoute désormais les deux flux pour garantir que les messages issus de la reconnaissance vocale (Whisper) sont traités avec la même priorité et la même logique d'arbitrage que les messages texte.
+
+**Statut:** Implémenté ✅

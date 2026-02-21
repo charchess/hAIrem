@@ -54,6 +54,7 @@ class HaremOrchestrator:
             from src.services.visual.provider import NanoBananaProvider
             from src.services.chat.commands import CommandHandler
             from src.domain.memory import MemoryConsolidator
+            from src.services.sleep_scheduler import SleepScheduler
             from src.services.proactivity.engine import ProactivityEngine
             from src.infrastructure.ha_client import HaClient
             from src.services.ha_event_worker import HaEventWorker
@@ -124,9 +125,12 @@ class HaremOrchestrator:
                 from src.infrastructure.llm import LITELLM_AVAILABLE
 
                 if LITELLM_AVAILABLE:
-                    # For now, if LiteLLM is loaded, we consider it "ready"
-                    # A more thorough check would involve a micro-request
                     health["llm"] = "ok"
+
+                # World State
+                current_theme = "Default"
+                if hasattr(self, "world_state"):
+                    current_theme = self.world_state.get_theme()
 
                 # 2. Agent Stats
                 agents_stats = {}
@@ -158,7 +162,9 @@ class HaremOrchestrator:
                 heartbeat = {
                     "type": "system.heartbeat",
                     "sender": {"agent_id": "core", "role": "system"},
-                    "payload": {"content": {"health": health, "agents": agents_stats}},
+                    "payload": {
+                        "content": {"health": health, "agents": agents_stats, "world": {"theme": current_theme}}
+                    },
                 }
                 await self.redis.publish_event("system_stream", heartbeat)
             except Exception as e:
@@ -190,6 +196,12 @@ class HaremOrchestrator:
                 new_cfg = msg.payload.content.get("llm_config")
                 if new_cfg:
                     logger.error(f"⚙️ CORE: Saving global config override...")
+                    # Extract API key if present and move to vault
+                    api_key = new_cfg.pop("api_key", None)
+                    provider = new_cfg.get("provider", "openai")
+                    if api_key and hasattr(self, "vault"):
+                        await self.vault.save_llm_key(provider, api_key)
+
                     await self.surreal.save_config("system", {"llm_config": new_cfg})
                     # Refresh all agents
                     for agent in self.agent_registry.agents.values():
@@ -205,6 +217,12 @@ class HaremOrchestrator:
                     # Handle LLM Config
                     if new_cfg:
                         logger.error(f"⚙️ CORE: Saving override for {agent_id}...")
+                        # Extract API key if present and move to vault
+                        api_key = new_cfg.pop("api_key", None)
+                        provider = new_cfg.get("provider", "openai")
+                        if api_key and hasattr(self, "vault"):
+                            await self.vault.save_llm_key(f"{agent_id}_{provider}", api_key)
+
                         await self.surreal.save_config(f"agent_{agent_id}", new_cfg)
 
                     # Handle Active Status
@@ -273,14 +291,24 @@ class HaremOrchestrator:
             )
             self.command_handler = self.CommandHandler(self.redis, self.visual_service, self.surreal)
             self.consolidator = self.MemoryConsolidator(self.surreal, self.llm, self.redis)
-            self.proactivity_engine = self.ProactivityEngine(self.redis, self.surreal)
+
+            from src.services.spatial.world_state import WorldStateService
+
+            self.world_state = WorldStateService(self.surreal, self.redis)
 
             from src.services.sleep_scheduler import SleepScheduler
 
             self.sleep_scheduler = SleepScheduler(self.consolidator, self.redis)
             self.command_handler.set_sleep_callback(self.sleep_scheduler.force_run)
-            asyncio.create_task(self.sleep_scheduler.run_loop())
+            self.tasks.append(asyncio.create_task(self.sleep_scheduler.run_loop()))
             logger.info("⚙️ SETUP: SleepScheduler started.")
+
+            self.proactivity_engine = self.ProactivityEngine(self.redis, self.surreal)
+
+            # Story 7.5: Secure Vault for Credentials
+            from src.services.vault.credentials import CredentialVaultService
+
+            self.vault = CredentialVaultService(self.surreal)
 
             from src.services.media_cleanup import MediaCleanupWorker
 
@@ -290,8 +318,24 @@ class HaremOrchestrator:
                 surreal_client=self.surreal,
                 max_files=int(os.getenv("MEDIA_MAX_FILES", "200")),
             )
-            asyncio.create_task(self.media_cleanup.run_loop())
+            self.tasks.append(asyncio.create_task(self.media_cleanup.run_loop()))
             logger.info("⚙️ SETUP: MediaCleanupWorker started.")
+
+            # Story 13.2: Relationship Bootstrapping
+            from src.services.relationship_bootstrapper import RelationshipBootstrapper
+
+            bootstrapper = RelationshipBootstrapper(self.surreal)
+            asyncio.create_task(bootstrapper.bootstrap_system_relationships())
+            logger.info("⚙️ SETUP: RelationshipBootstrapper executed.")
+
+            # Story 10.1: Home Assistant Event Worker
+            from src.infrastructure.ha_client import HaClient
+            from src.services.ha_event_worker import HaEventWorker
+
+            self.ha_client = HaClient()
+            self.ha_event_worker = HaEventWorker(self.redis, self.ha_client, self.proactivity_engine)
+            self.tasks.append(asyncio.create_task(self.ha_event_worker.start()))
+            logger.info("⚙️ SETUP: HaEventWorker started.")
 
             from src.infrastructure.plugin_loader import PluginLoader
 

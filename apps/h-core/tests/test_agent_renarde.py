@@ -15,6 +15,11 @@ def _make_agent():
         name="renarde",
         role="coordinator",
         description="Le visage de hAIrem",
+        skills=[
+            {"name": "greet_user", "description": "desc"},
+            {"name": "get_crew_status", "description": "desc"},
+            {"name": "suggest_topic", "description": "desc"},
+        ],
     )
     mock_redis = MagicMock()
     mock_redis.subscribe = AsyncMock()

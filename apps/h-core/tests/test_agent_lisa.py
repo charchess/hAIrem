@@ -12,7 +12,15 @@ from lisa.logic import Agent
 
 
 def _make_agent() -> Agent:
-    config = AgentConfig(name="lisa", role="assistant")
+    config = AgentConfig(
+        name="lisa",
+        role="assistant",
+        skills=[
+            {"name": "get_fridge_status", "description": "desc"},
+            {"name": "get_house_status", "description": "desc"},
+            {"name": "add_reminder", "description": "desc"},
+        ],
+    )
     redis = MagicMock()
     redis.publish = AsyncMock()
     redis.publish_event = AsyncMock()

@@ -5,3 +5,13 @@ description: >-
   Highly efficient and intimidating presence.
 reference_sheets:
   - media/character_sheet_neutral.png
+
+skills:
+  - name: get_entity_state
+    description: "Récupère l'état actuel d'un appareil domotique."
+  - name: call_ha_service
+    description: "Exécute une action sur un appareil (allumer, éteindre, etc)."
+  - name: run_routine
+    description: "Lance une macro d'automatisation complexe."
+  - name: manage_shopping_list
+    description: "Ajoute ou liste les articles de la liste de courses."
