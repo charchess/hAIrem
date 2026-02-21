@@ -17,8 +17,10 @@ class SpeechQueue:
         self._queue: asyncio.PriorityQueue = asyncio.PriorityQueue()
         self._counter = 0
         self._stop_event = asyncio.Event()
+        self.is_interrupted: bool = False
 
     async def enqueue(self, request: SpeechRequest) -> None:
+        self.is_interrupted = False
         self._counter += 1
         request._counter = self._counter
         await self._queue.put((request.priority, self._counter, request))
@@ -29,6 +31,14 @@ class SpeechQueue:
 
     def qsize(self) -> int:
         return self._queue.qsize()
+
+    def interrupt(self) -> None:
+        self.is_interrupted = True
+        while not self._queue.empty():
+            try:
+                self._queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
 
     def stop(self) -> None:
         self._stop_event.set()
