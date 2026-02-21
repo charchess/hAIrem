@@ -35,6 +35,7 @@ class AgentProfile(BaseModel):
     personality_traits: list[str] = Field(default_factory=list)
     emotional_capabilities: AgentEmotionalCapabilities = Field(default_factory=AgentEmotionalCapabilities)
     is_active: bool = True
+    personified: bool = True
     priority_weight: float = 1.0
     last_response_time: Optional[float] = None
     response_count: int = 0

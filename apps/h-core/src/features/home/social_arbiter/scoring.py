@@ -56,9 +56,10 @@ class ScoringEngine:
         """
         for p in agent_profiles:
             desc = getattr(p, "description", "") or ""
-            prompt += (
-                f"- {p.agent_id} ({p.name}): Role={p.role}, Expertise={', '.join(p.domains)}, Desc='{desc[:100]}...'\n"
-            )
+            # Indicate if personified
+            personified = getattr(p, "personified", True)
+            status = "Visible" if personified else "Invisible/System"
+            prompt += f"- {p.agent_id} ({p.name}): Status={status}, Role={p.role}, Expertise={', '.join(p.domains)}, Desc='{desc[:100]}...'\n"
 
         prompt += """
         For each agent, provide a UTS score between 0.0 and 1.0.
@@ -67,13 +68,17 @@ class ScoringEngine:
         - 0.8-0.9: High relevance, fits the agent's core mission or current emotion.
         - 0.5-0.7: Moderate relevance, could contribute but not essential.
         - < 0.5: Low relevance or out of character.
+        - NOTE: De-prioritize 'Invisible/System' agents unless specifically asked for system/entropy tasks.
 
         Output ONLY a JSON object mapping agent_id to score.
         Example: {"lisa": 0.9, "renarde": 0.4}
         """
 
         try:
+            logger.info(f"LLM_ARBITER: Requesting scores for {len(agent_profiles)} agents...")
             response = await self.llm.get_completion([{"role": "system", "content": prompt}], stream=False)
+            logger.info(f"LLM_ARBITER: Raw response: {response}")
+
             clean_json = response.strip()
             if "```json" in clean_json:
                 clean_json = clean_json.split("```json")[1].split("```")[0].strip()
@@ -85,7 +90,9 @@ class ScoringEngine:
 
             scores = json.loads(clean_json)
             # Ensure all requested agents have a score
-            return {p.agent_id: float(scores.get(p.agent_id, 0.1)) for p in agent_profiles}
+            # Case-insensitive lookup
+            normalized_scores = {str(k).lower(): float(v) for k, v in scores.items()}
+            return {p.agent_id: normalized_scores.get(p.agent_id.lower(), 0.1) for p in agent_profiles}
         except Exception as e:
             logger.error(f"LLM Arbiter scoring failed: {e}. Falling back to rule-based.")
             return {p.agent_id: self.calculate_relevance(text, p.domains, p.role) for p in agent_profiles}

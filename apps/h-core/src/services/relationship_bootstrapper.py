@@ -9,6 +9,16 @@ class RelationshipBootstrapper:
     def __init__(self, surreal: SurrealDbClient):
         self.surreal = surreal
 
+    async def bootstrap_system_relationships(self):
+        """Helper to bootstrap relationships for standard crew agents."""
+        agents = [
+            {"name": "Lisa", "role": "Assistant"},
+            {"name": "Renarde", "role": "Coordinator"},
+            {"name": "Electra", "role": "Security/Automation"},
+            {"name": "Dieu", "role": "Entropy"},
+        ]
+        return await self.bootstrap_relationships(agents)
+
     async def bootstrap_relationships(self, agents: List[Dict[str, Any]]):
         """Bootstrap initial KNOWS and TRUSTS edges between agents."""
         logger.info("BOOTSTRAP: Starting relationship bootstrapping...")
