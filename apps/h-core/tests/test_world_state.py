@@ -77,6 +77,12 @@ async def test_dieu_change_world_theme_tool_exists():
         role="Agent invisible",
         system_prompt="Tu es Dieu.",
         capabilities=["proactivity"],
+        skills=[
+            {
+                "name": "change_world_theme",
+                "description": "Change le thème global du monde (ex: Christmas, Cyberpunk, Beach).",
+            }
+        ],
     )
     redis = MagicMock()
     redis.publish = AsyncMock()
@@ -112,6 +118,12 @@ async def test_dieu_change_world_theme_calls_world_state_service():
         role="Agent invisible",
         system_prompt="Tu es Dieu.",
         capabilities=["proactivity"],
+        skills=[
+            {
+                "name": "change_world_theme",
+                "description": "Change le thème global du monde (ex: Christmas, Cyberpunk, Beach).",
+            }
+        ],
     )
     redis = MagicMock()
     redis.publish = AsyncMock()

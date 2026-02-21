@@ -30,7 +30,11 @@ def mock_llm():
 
 @pytest.mark.asyncio
 async def test_agent_generate_image_tool(mock_redis, mock_visual, mock_llm):
-    config = AgentConfig(name="test-agent", role="tester")
+    config = AgentConfig(
+        name="test-agent",
+        role="tester",
+        skills=[{"name": "generate_image", "description": "Génère une image à partir d'un prompt textuel."}],
+    )
     agent = BaseAgent(config, mock_redis, mock_llm, visual_service=mock_visual)
 
     # Check if tool is registered
@@ -77,5 +81,5 @@ async def test_command_handler_imagine(mock_redis, mock_visual):
         agent_id="system",
         prompt="a beautiful landscape",
         tags=["user_requested", "slash_command"],
-        asset_type="background"
+        asset_type="background",
     )
