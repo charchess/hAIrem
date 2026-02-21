@@ -378,6 +378,32 @@ class SurrealDbClient:
             logger.error(f"Failed to retrieve messages from SurrealDB: {e}")
             return []
 
+    async def save_config(self, config_id: str, data: dict[str, Any]):
+        """Saves a configuration object (system or agent override)."""
+        cid = f"config:`{config_id}`"
+        q = f"INSERT INTO config (id, data, updated_at) VALUES ({cid}, $data, time::now()) ON DUPLICATE KEY UPDATE data = $data, updated_at = time::now();"
+        await self._call("query", q, {"data": data})
+
+    async def get_config(self, config_id: str) -> Any | None:
+        """Retrieves a configuration object."""
+        cid = f"config:`{config_id}`"
+        try:
+            res = await self._call("query", f"SELECT data FROM {cid}")
+            if res and isinstance(res, list) and len(res) > 0:
+                first = res[0]
+                if isinstance(first, dict) and "result" in first:
+                    results = first["result"]
+                    if isinstance(results, list) and len(results) > 0:
+                        return results[0].get("data")
+                elif isinstance(first, dict) and "data" in first:
+                    return first["data"]
+            elif res and isinstance(res, dict):
+                if "data" in res:
+                    return res["data"]
+        except:
+            pass
+        return None
+
     async def close(self):
         self._stop_event.set()
         if self.client:

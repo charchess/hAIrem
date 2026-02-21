@@ -1,11 +1,12 @@
 import pytest
 from src.utils.privacy import PrivacyFilter
 
+
 def test_privacy_regex_redaction():
     pf = PrivacyFilter()
-    
+
     # 1. Google API Key
-    text = "My key is AIzaSy-MOCK-KEY-FOR-TESTING"
+    text = "My key is AIzaSy-MOCK-KEY-FOR-TESTING-12345678901"
     redacted, detected = pf.redact(text)
     assert "[REDACTED]" in redacted
     assert "AIza" not in redacted
@@ -18,9 +19,10 @@ def test_privacy_regex_redaction():
     assert "[REDACTED]" in redacted
     assert "IP Address" in detected
 
+
 def test_privacy_contextual_redaction():
     pf = PrivacyFilter()
-    
+
     # 1. Password keyword
     text = "My password: hunter2"
     redacted, detected = pf.redact(text)
@@ -34,9 +36,10 @@ def test_privacy_contextual_redaction():
     assert "super-secret-123" not in redacted
     assert "Contextual Secret" in detected
 
+
 def test_privacy_entropy_redaction():
     pf = PrivacyFilter(entropy_threshold=3.5)
-    
+
     # High entropy random string (often a secret)
     text = "Use this string: 8fG29!Lp0Z99xYz"
     redacted, detected = pf.redact(text)
@@ -48,6 +51,7 @@ def test_privacy_entropy_redaction():
     redacted, detected = pf.redact(text)
     assert redacted == text
     assert len(detected) == 0
+
 
 def test_privacy_no_redaction():
     pf = PrivacyFilter()

@@ -14,6 +14,7 @@ class MessageType(str, Enum):
     SYSTEM_LOG = "system.log"
     SYSTEM_STATUS_UPDATE = "system.status_update"
     SYSTEM_CONFIG_UPDATE = "system.config_update"
+    AGENT_CONFIG_UPDATE = "agent.config_update"
     EXPERT_COMMAND = "expert.command"
     EXPERT_RESPONSE = "expert.response"
     AGENT_INTERNAL_NOTE = "agent.internal_note"
@@ -35,26 +36,35 @@ class MessageType(str, Enum):
     TRANSCRIPTION_UPDATE = "transcription_update"
     TRANSCRIPTION_ERROR = "transcription_error"
     TRANSCRIPTION_STATUS = "transcription_status"
-    TRANSCRIPTION = "transcription" # Added for compatibility
+    TRANSCRIPTION = "transcription"  # Added for compatibility
     # TTS messages
     TTS_REQUEST = "tts_request"
     TTS_AUDIO_CHUNK = "tts_audio_chunk"
     TTS_START = "tts_start"
     TTS_END = "tts_end"
     TTS_ERROR = "tts_error"
+    # Agent social signals
+    AGENT_SPEAKING = "agent.speaking"
+    SYSTEM_INACTIVITY = "system.inactivity"
+    SYSTEM_WHISPER = "system.whisper"
+    WORLD_THEME_CHANGED = "world.theme_changed"
+
 
 class Priority(str, Enum):
     NORMAL = "normal"
     HIGH = "high"
     SYSTEM = "system"
 
+
 class Sender(BaseModel):
     agent_id: str
     role: str
 
+
 class Recipient(BaseModel):
     target: str
     room: str | None = None
+
 
 class Payload(BaseModel):
     content: Any
@@ -75,11 +85,15 @@ class Payload(BaseModel):
     trigger_source: Optional[str] = None
     enabled: Optional[bool] = None
     active: Optional[bool] = None
+    # Spatial
+    room_id: Optional[str] = None
+
 
 class Metadata(BaseModel):
     priority: Priority = Priority.NORMAL
     correlation_id: UUID | None = None
     ttl: int = Field(default=5, description="Prevent infinite loops")
+
 
 class HLinkMessage(BaseModel):
     id: UUID = Field(default_factory=uuid4)
@@ -98,9 +112,4 @@ class HLinkMessage(BaseModel):
         except Exception as e:
             return None, str(e)
 
-    model_config = ConfigDict(
-        use_enum_values=True,
-        extra="allow",
-        arbitrary_types_allowed=True,
-        populate_by_name=True
-    )
+    model_config = ConfigDict(use_enum_values=True, extra="allow", arbitrary_types_allowed=True, populate_by_name=True)

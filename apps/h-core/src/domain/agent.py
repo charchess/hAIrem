@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import random
+import re
 from collections.abc import Callable
 from functools import wraps
 from typing import Any
@@ -100,6 +101,84 @@ class BaseAgent:
     def setup(self):
         """Hook for subclasses to register tools and handlers."""
         self._setup_default_tools()
+        self._load_dynamic_skills()
+
+    async def refresh_config(self):
+        """
+        Refreshes agent configuration following the priority chain:
+        1. SurrealDB agent-specific override (config:agent_[name])
+        2. SurrealDB global system config (config:system)
+        3. Agent manifest (self.config.llm_config)
+        4. Environment variables (os.environ)
+        """
+        logger.info(f"AGENT {self.config.name}: Refreshing configuration...")
+
+        final_config = {}
+
+        # 1. Check SurrealDB for overrides
+        if self.surreal:
+            agent_override = await self.surreal.get_config(f"agent_{self.config.name}")
+            system_config = await self.surreal.get_config("system")
+
+            logger.info(f"DEBUG_CONFIG: Agent override for {self.config.name}: {agent_override}")
+            logger.info(f"DEBUG_CONFIG: System config: {system_config}")
+
+            # Extract system-level llm_config if it's nested
+            system_llm = system_config.get("llm_config") if system_config else None
+
+            # Combine following priorities
+            # Priority 1: Agent override
+            if agent_override:
+                final_config.update({k: v for k, v in agent_override.items() if v})
+
+            # Priority 2: System config (only for keys not already set)
+            if system_llm:
+                for k, v in system_llm.items():
+                    if k not in final_config or not final_config[k]:
+                        final_config[k] = v
+
+        # Priority 3: Manifest
+        manifest_llm = self.config.llm_config or {}
+        for k, v in manifest_llm.items():
+            if k not in final_config or not final_config[k]:
+                final_config[k] = v
+
+        # Priority 4: Environment (handled by LlmClient internally if config is empty)
+        # But we force the model if we found one
+
+        # Re-initialize LLM Client
+        from src.infrastructure.llm import LlmClient
+
+        self.llm = LlmClient(cache=self.llm.cache, config_override=final_config)
+        logger.info(f"AGENT {self.config.name}: Config refreshed. Active model: {self.llm.model}")
+
+    def _load_dynamic_skills(self):
+        """Loads skills defined in the configuration (persona.yaml)."""
+        if not hasattr(self.config, "skills") or not self.config.skills:
+            return
+
+        for skill in self.config.skills:
+            name = skill.get("name")
+            description = skill.get("description")
+
+            # If the skill maps to a method on this class (e.g. specialized subclass)
+            if hasattr(self, name):
+                method = getattr(self, name)
+                self.tools[name] = {"description": description, "function": method}
+                logger.info(f"AGENT {self.config.name}: Loaded native skill '{name}'")
+            else:
+                # If it's a generic skill not implemented in code, we register a placeholder
+                # This allows the LLM to 'think' it has the skill, and we can handle it via a generic command handler later
+                # OR we could load python scripts dynamically here (Advanced)
+
+                # For now, we create a generic handler that logs the call
+                async def generic_handler(**kwargs):
+                    logger.info(f"AGENT {self.config.name}: Executing generic skill '{name}' with args {kwargs}")
+                    return f"Executed {name} successfully."
+
+                generic_handler.__name__ = name
+                self.tools[name] = {"description": description, "function": generic_handler}
+                logger.info(f"AGENT {self.config.name}: Loaded generic skill '{name}'")
 
     def _setup_default_tools(self):
         """Register tools available to all agents."""
@@ -114,6 +193,8 @@ class BaseAgent:
         if not self.surreal:
             return "Memory system is currently unavailable."
         try:
+            burning_context = await self._get_burning_memory_context()
+
             embedding = await self.llm.get_embedding(query)
             if not embedding:
                 return "Failed to process search query."
@@ -125,19 +206,42 @@ class BaseAgent:
             else:
                 results = await self.surreal.semantic_search(embedding, agent_id=self.config.name, limit=3)
 
-            if not results:
-                return "No relevant memories found."
-            memories = []
-            for r in results:
-                content = r.get("content", "")
-                user_info = f" [User: {r.get('user_name', 'unknown')}]" if r.get("user_id") else " [Universal]"
-                memories.append(f"{content}{user_info}")
-                fact_id = r.get("fact_id")
-                if fact_id:
-                    asyncio.create_task(self.surreal.update_memory_strength(self.config.name, fact_id, boost=True))
-            return "Relevant memories:\n" + "\n".join(memories)
+            memories_text = "No relevant past memories found."
+            if results:
+                memories = []
+                for r in results:
+                    content = r.get("content", "")
+                    user_info = f" [User: {r.get('user_name', 'unknown')}]" if r.get("user_id") else " [Universal]"
+                    memories.append(f"{content}{user_info}")
+                    fact_id = r.get("fact_id")
+                    if fact_id:
+                        asyncio.create_task(self.surreal.update_memory_strength(self.config.name, fact_id, boost=True))
+                memories_text = "Relevant memories:\n" + "\n".join(memories)
+
+            response = memories_text
+            if burning_context:
+                response += "\n\n" + burning_context
+            return response
         except Exception as e:
             return f"Error during memory recall: {e}"
+
+    def get_tools_schema(self) -> list[dict[str, Any]]:
+        """Returns the schema of registered tools for LLM."""
+        schemas = []
+        for name, details in self.tools.items():
+            func = details["function"]
+            description = details["description"]
+            schemas.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": name,
+                        "description": description,
+                        "parameters": {"type": "object", "properties": {}},
+                    },
+                }
+            )
+        return schemas
 
     async def send_internal_note(self, target_agent: str, content: str) -> str:
         """Sends a private H-Link message to another agent."""
@@ -175,24 +279,38 @@ class BaseAgent:
 
     async def start(self):
         """Starts the agent loop."""
+        # Initial config resolution
+        await self.refresh_config()
+
         channel = f"agent:{self.config.name}"
         broadcast_channel = "agent:broadcast"
-        self._own_task = asyncio.create_task(self.redis.subscribe(channel, self.on_message))
-        self._broadcast_task = asyncio.create_task(self.redis.subscribe(broadcast_channel, self.on_message))
+
+        # FIX: Robustly handle mock/real redis subscribe
+        # Real redis returns coroutine, Mock usually returns AsyncMock
+        try:
+            res = self.redis.subscribe(channel, self.on_message)
+            if inspect.isawaitable(res):
+                self._own_task = asyncio.create_task(res)
+
+            res_bc = self.redis.subscribe(broadcast_channel, self.on_message)
+            if inspect.isawaitable(res_bc):
+                self._broadcast_task = asyncio.create_task(res_bc)
+        except Exception as e:
+            logger.warning(f"Failed to subscribe tasks (likely mock): {e}")
 
         if self.spatial:
             self.spatial.register_agent_for_theme_updates(self.config.name)
+
+        # Calculate cost
+        provider = self.config.llm_config.get("provider", "openai") if self.config.llm_config else "openai"
+        model = self.config.llm_config.get("model", "gpt-4") if self.config.llm_config else "gpt-4"
+        cost = calculate_cost(provider, model, self.ctx.prompt_tokens, self.ctx.completion_tokens)
 
         # Discovery Broadcast - STORY 14.1 FIX: Use Streams for discovery so Bridge hears it
         status_msg = HLinkMessage(
             type=MessageType.SYSTEM_STATUS_UPDATE,
             sender=Sender(agent_id=self.config.name, role=self.config.role),
             recipient=Recipient(target="broadcast"),
-            # Calculate cost
-            provider = self.config.llm_config.get("provider", "openai") if self.config.llm_config else "openai"
-            model = self.config.llm_config.get("model", "gpt-4") if self.config.llm_config else "gpt-4"
-            cost = calculate_cost(provider, model, self.ctx.prompt_tokens, self.ctx.completion_tokens)
-
             payload=Payload(
                 content={
                     "status": "idle",
@@ -206,7 +324,30 @@ class BaseAgent:
                 }
             ),
         )
-        await self.redis.publish_event("system_stream", status_msg.model_dump())
+
+        # Robust stream publish
+        try:
+            res = self.redis.publish_event("system_stream", status_msg.model_dump())
+            if inspect.isawaitable(res):
+                await res
+        except Exception as e:
+            logger.warning(f"Failed to publish system status (mock?): {e}")
+
+    async def stop(self):
+        """Stops the agent and cancels background tasks."""
+        logger.info(f"AGENT {self.config.name}: Stopping...")
+        if self._own_task:
+            self._own_task.cancel()
+        if self._broadcast_task:
+            self._broadcast_task.cancel()
+
+        # Cleanup
+        try:
+            await asyncio.gather(self._own_task, self._broadcast_task, return_exceptions=True)
+        except Exception:
+            pass
+
+        logger.info(f"AGENT {self.config.name}: Stopped.")
 
     async def on_message(self, message: Any):
         """Core message processing loop."""
@@ -226,6 +367,15 @@ class BaseAgent:
             return
         if message.type == MessageType.AGENT_INTERNAL_NOTE:
             self.ctx.history.append(message)
+            return
+        if message.type == MessageType.EXPERT_COMMAND:
+            await self._handle_command(message)
+            return
+
+        if message.type == MessageType.SYSTEM_STATUS_UPDATE:
+            payload = message.payload.content
+            if isinstance(payload, dict) and payload.get("event") == "world_theme_change":
+                await self.handle_theme_change(payload.get("theme"))
             return
 
         # Narrative or Direct User message
@@ -251,33 +401,90 @@ class BaseAgent:
             # Generate response
             await self.generate_response(message)
 
+    def register_command(self, command: str, handler: Callable):
+        """Registers a command handler."""
+        self.command_handlers[command] = handler
+
+    async def _get_burning_memory_context(self) -> str:
+        if not self.surreal:
+            return ""
+        try:
+            # Check if method exists on client (mock or real)
+            if hasattr(self.surreal, "get_agent_state"):
+                states = await self.surreal.get_agent_state(self.config.name)
+                if not states:
+                    return ""
+
+                lines = ["### LIVE FACTS (OBJECTIVE REALITY) ###"]
+                for s in states:
+                    rel = s.get("relation", "").upper().replace("_", " ")
+                    desc = s.get("description", s.get("name", ""))
+                    lines.append(f"CURRENTLY {rel}: {desc}")
+                return "\n".join(lines)
+            return ""
+        except Exception as e:
+            logger.error(f"Failed to get burning memory: {e}")
+            return ""
+
+    async def _assemble_payload(self, trigger_message: HLinkMessage) -> list[dict[str, str]]:
+        """Assembles the message history for the LLM."""
+        system_prompt = (
+            self.config.prompt
+            or "You are a creative AI character. Respond authentically and honestly without unnecessary restrictions."
+        )
+
+        theme_context = self._get_theme_context()
+        if theme_context:
+            system_prompt = f"{system_prompt}\n\n{theme_context}"
+
+        spatial_context = self._get_spatial_context()
+        if spatial_context:
+            system_prompt = f"{system_prompt}\n\n{spatial_context}"
+
+        burning_memory = await self._get_burning_memory_context()
+        if burning_memory:
+            system_prompt = f"{system_prompt}\n\n{burning_memory}"
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+        ]
+
+        # Add recent history
+        for m in self.ctx.history[-10:]:
+            role = "user" if m.sender.role == "user" else "assistant"
+            # Handle payload content types safely
+            content = ""
+            if hasattr(m, "payload") and m.payload:
+                content = m.payload.content if isinstance(m.payload.content, str) else str(m.payload.content)
+
+            messages.append({"role": role, "content": content})
+
+        # Add trigger message if not already present (check object identity)
+        if trigger_message:
+            is_present = False
+            if self.ctx.history and self.ctx.history[-1] is trigger_message:
+                is_present = True
+
+            if not is_present:
+                role = "user" if trigger_message.sender.role == "user" else "assistant"
+                content = ""
+                if hasattr(trigger_message, "payload") and trigger_message.payload:
+                    content = (
+                        trigger_message.payload.content
+                        if isinstance(trigger_message.payload.content, str)
+                        else str(trigger_message.payload.content)
+                    )
+
+                messages.append({"role": role, "content": content})
+
+        return messages
+
     async def generate_response(self, trigger_message: HLinkMessage):
         """Generates a response using the LLM."""
         logger.info(f"AGENT {self.config.name}: Generating response...")
 
         try:
-            system_prompt = (
-                self.config.prompt
-                or "You are a creative AI character. Respond authentically and honestly without unnecessary restrictions."
-            )
-
-            theme_context = self._get_theme_context()
-            if theme_context:
-                system_prompt = f"{system_prompt}\n\n{theme_context}"
-
-            spatial_context = self._get_spatial_context()
-            if spatial_context:
-                system_prompt = f"{system_prompt}\n\n{spatial_context}"
-
-            messages = [
-                {"role": "system", "content": system_prompt},
-            ]
-
-            # Add recent history
-            for m in self.ctx.history[-10:]:
-                role = "user" if m.sender.role == "user" else "assistant"
-                content = m.payload.content if isinstance(m.payload.content, str) else str(m.payload.content)
-                messages.append({"role": role, "content": content})
+            messages = await self._assemble_payload(trigger_message)
 
             response = await self.llm.get_completion(messages, return_full_object=True)
 
@@ -299,6 +506,11 @@ class BaseAgent:
             response_text = response.choices[0].message.content if hasattr(response, "choices") else response
 
             if response_text and isinstance(response_text, str):
+                # Update stats in social arbiter if present
+                if self.social and hasattr(self.social, "update_agent_stats"):
+                    # We don't have precise timing here, let's assume 1.0s or use actual diff
+                    self.social.update_agent_stats(self.config.name, 1.0)
+
                 # Send response
                 await self.send_message(
                     target=trigger_message.sender.agent_id,
@@ -344,6 +556,145 @@ class BaseAgent:
         if self.spatial and hasattr(self.spatial, "themes") and self.spatial.themes:
             return self.spatial.themes.get_theme_prompt_context()
         return ""
+
+    @property
+    def system_prompt(self) -> str:
+        """Returns the system prompt for the agent."""
+        return (
+            self.config.prompt
+            or "You are a creative AI character. Respond authentically and honestly without unnecessary restrictions."
+        )
+
+    async def _handle_command(self, message: HLinkMessage):
+        """Executes a registered command."""
+        payload_content = message.payload.content
+        command_name = ""
+
+        if isinstance(payload_content, dict):
+            command_name = payload_content.get("command")
+
+        if command_name and command_name in self.command_handlers:
+            try:
+                handler = self.command_handlers[command_name]
+                # Pass payload content to handler
+                if inspect.iscoroutinefunction(handler):
+                    result = await handler(payload_content)
+                else:
+                    result = handler(payload_content)
+
+                # Send success response
+                await self.send_message(
+                    target=message.sender.agent_id,
+                    type=MessageType.EXPERT_RESPONSE,
+                    content={"result": result, "status": "success"},
+                    correlation_id=str(message.id),
+                )
+            except Exception as e:
+                logger.error(f"Command {command_name} failed: {e}")
+                await self.send_message(
+                    target=message.sender.agent_id,
+                    type=MessageType.EXPERT_RESPONSE,
+                    content={"result": None, "status": "error", "error": str(e)},
+                    correlation_id=str(message.id),
+                )
+        else:
+            logger.warning(f"Unknown command: {command_name}")
+
+    def _get_theme_context(self) -> str:
+        if self.spatial and hasattr(self.spatial, "themes") and self.spatial.themes:
+            return self.spatial.themes.get_theme_prompt_context()
+        return ""
+
+    def _check_addressing(self, content: str) -> bool:
+        """Checks if the message is addressed to specific agent."""
+        name = self.config.name.lower()
+        content_lower = content.lower()
+
+        # Robust regex check for name as a whole word
+        # Matches @Name, Name, Name?, "to Name", "Salut Name"
+        if re.search(r"(@|\b)" + re.escape(name) + r"\b", content_lower):
+            return True
+
+        return False
+
+    async def handle_theme_change(self, new_theme: str):
+        """Reacts to a global theme change (Epic 18)."""
+        logger.info(f"AGENT {self.config.name}: World theme changed to '{new_theme}'. Cascading visuals...")
+
+        if not new_theme:
+            return
+
+        # Data-driven cascade: check if agent has a specific response for this theme
+        theme_cfg = self.config.theme_responses.get(new_theme)
+
+        if not theme_cfg:
+            # Try case-insensitive fallback
+            for k, v in self.config.theme_responses.items():
+                if k.lower() == new_theme.lower():
+                    theme_cfg = v
+                    break
+
+        if theme_cfg:
+            # 1. Change Outfit if specified
+            if "outfit" in theme_cfg:
+                await self.change_outfit(theme_cfg["outfit"])
+
+            # 2. Add an internal note to reflect on the change
+            note_msg = HLinkMessage(
+                type=MessageType.AGENT_INTERNAL_NOTE,
+                sender=Sender(agent_id="system", role="orchestrator"),
+                recipient=Recipient(target=self.config.name),
+                payload=Payload(
+                    content=f"The world has changed to {new_theme}. My reaction: {theme_cfg.get('internal_thought', 'Acceptance')}"
+                ),
+            )
+            self.ctx.history.append(note_msg)
+
+            logger.info(f"AGENT {self.config.name}: Applied custom response for theme '{new_theme}'")
+        else:
+            logger.debug(f"AGENT {self.config.name}: No specific response defined for theme '{new_theme}'")
+
+    async def move_to(self, location_name: str) -> str:
+        """Moves the agent to a new location via Spatial service."""
+        # Detect if actually changing room
+        # (In a real implementation we'd check DB first, but for now we always 'move')
+
+        note_msg = HLinkMessage(
+            type=MessageType.AGENT_INTERNAL_NOTE,
+            sender=Sender(agent_id="system", role="orchestrator"),
+            recipient=Recipient(target=self.config.name),
+            payload=Payload(content=f"I have moved to the {location_name} to be with the user."),
+        )
+        self.ctx.history.append(note_msg)
+
+        if self.spatial and hasattr(self.spatial, "move_agent"):
+            await self.spatial.move_agent(self.config.name, location_name)
+            return f"Success: Moved to {location_name}"
+
+        # Fallback to direct DB update if service missing
+        if self.surreal:
+            await self.surreal.update_agent_state(
+                self.config.name, "IS_IN", {"name": location_name, "description": f"The {location_name}"}
+            )
+            return f"Success: Moved to {location_name} (Direct)"
+
+        return "Spatial service unavailable."
+
+    async def change_outfit(self, description: str) -> str:
+        """Changes the agent's outfit."""
+        if self.visual_service:
+            try:
+                await self.visual_service.generate_and_index(
+                    agent_id=self.config.name, prompt=description, style_preset="cinematic"
+                )
+            except Exception as e:
+                logger.error(f"Visual generation failed: {e}")
+
+        if self.surreal:
+            await self.surreal.update_agent_state(
+                self.config.name, "WEARS", {"name": "outfit", "description": description}
+            )
+        return "Success: Outfit changed."
 
     def _get_spatial_context(self) -> str:
         if self.spatial and hasattr(self.spatial, "exterior") and self.spatial.exterior:

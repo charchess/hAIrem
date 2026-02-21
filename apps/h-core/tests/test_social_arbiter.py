@@ -475,6 +475,8 @@ class TestNamedAgentPriority:
 
         responder = arbiter.determine_responder("Tell me about technology")
 
+        if isinstance(responder, list):
+            responder = responder[0]
         assert responder.agent_id == "tech"
 
     def test_named_agent_inactive_not_selected(self):

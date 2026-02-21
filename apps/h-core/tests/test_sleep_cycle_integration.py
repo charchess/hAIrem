@@ -3,6 +3,10 @@ import asyncio
 from unittest.mock import MagicMock, AsyncMock, patch
 import os
 
+import pytest
+pytestmark = pytest.mark.integration
+
+
 # Mock infrastructure before importing main
 with patch("src.infrastructure.redis.RedisClient"), \
      patch("src.infrastructure.surrealdb.SurrealDbClient"), \

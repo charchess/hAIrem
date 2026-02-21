@@ -3,6 +3,10 @@ from unittest.mock import AsyncMock, patch, MagicMock
 from src.infrastructure.surrealdb import SurrealDbClient
 from src.models.hlink import HLinkMessage, MessageType, Sender, Recipient, Payload
 
+import pytest
+pytestmark = pytest.mark.integration
+
+
 @pytest.fixture
 def mock_surreal():
     with patch("src.infrastructure.surrealdb.Surreal", autospec=True) as mock:

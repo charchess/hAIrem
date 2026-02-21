@@ -38,17 +38,11 @@ class SurrealDbClient:
             if inspect.isawaitable(res):
                 res = await res
 
-            # Detect session loss in result string
-            if isinstance(res, str) and any(x in res.lower() for x in ["namespace", "database", "permissions", "iam"]):
-                logger.warning(f"SURREAL_SESSION_LOSS detected. Re-connecting...")
-                await self.connect()
-                return await self._call(method_name, *args, **kwargs)
-
             return res
         except Exception as e:
             err_msg = str(e).lower()
-            if any(x in err_msg for x in ["namespace", "database", "iam", "auth"]):
-                logger.warning(f"SURREAL_AUTH_EXCEPTION: {e}. Re-connecting...")
+            if any(x in err_msg for x in ["namespace", "database", "iam", "auth", "session"]):
+                logger.warning(f"SURREAL_EXCEPTION: {e}. Re-connecting...")
                 await self.connect()
                 try:
                     return await self._call(method_name, *args, **kwargs)
@@ -132,7 +126,13 @@ class SurrealDbClient:
             DEFINE TABLE IF NOT EXISTS messages SCHEMALESS;
             DEFINE TABLE IF NOT EXISTS subject SCHEMAFULL;
             DEFINE FIELD IF NOT EXISTS name ON TABLE subject TYPE string;
+            DEFINE FIELD IF NOT EXISTS description ON TABLE subject TYPE string;
             DEFINE INDEX IF NOT EXISTS subject_name ON TABLE subject FIELDS name UNIQUE;
+
+            DEFINE TABLE IF NOT EXISTS concept SCHEMAFULL;
+            DEFINE FIELD IF NOT EXISTS name ON TABLE concept TYPE string;
+            DEFINE FIELD IF NOT EXISTS description ON TABLE concept TYPE string;
+            DEFINE INDEX IF NOT EXISTS concept_name ON TABLE concept FIELDS name UNIQUE;
 
             DEFINE TABLE IF NOT EXISTS fact SCHEMAFULL;
             DEFINE FIELD IF NOT EXISTS content ON TABLE fact TYPE string;
@@ -148,6 +148,8 @@ class SurrealDbClient:
             DEFINE FIELD IF NOT EXISTS last_reinforced ON TABLE BELIEVES TYPE datetime DEFAULT time::now();
 
             DEFINE TABLE IF NOT EXISTS ABOUT SCHEMAFULL;
+            DEFINE TABLE IF NOT EXISTS CAUSED SCHEMAFULL;
+            DEFINE FIELD IF NOT EXISTS likelihood ON TABLE CAUSED TYPE float DEFAULT 1.0;
             
             DEFINE TABLE IF NOT EXISTS agent_config SCHEMAFULL;
             DEFINE FIELD IF NOT EXISTS agent_id ON TABLE agent_config TYPE string;
@@ -155,6 +157,10 @@ class SurrealDbClient:
             DEFINE FIELD IF NOT EXISTS enabled ON TABLE agent_config TYPE bool DEFAULT true;
             DEFINE FIELD IF NOT EXISTS version ON TABLE agent_config TYPE string DEFAULT '1.0.0';
             DEFINE INDEX IF NOT EXISTS agent_config_id ON TABLE agent_config FIELDS agent_id UNIQUE;
+
+            DEFINE TABLE IF NOT EXISTS config SCHEMAFULL;
+            DEFINE FIELD IF NOT EXISTS data ON TABLE config TYPE object;
+            DEFINE FIELD IF NOT EXISTS updated_at ON TABLE config TYPE datetime DEFAULT time::now();
             """
 
             await self._call("query", setup_queries)
@@ -168,6 +174,73 @@ class SurrealDbClient:
 
         except Exception as e:
             logger.error(f"Failed to setup SurrealDB schema: {e}")
+
+    async def set_secret(self, key: str, value: str):
+        """Stores an encrypted secret in the vault."""
+        import base64
+
+        encoded = base64.b64encode(value.encode()).decode()
+        await self._call(
+            "query",
+            "INSERT INTO vault_secrets (id, secret_value) VALUES ($id, $val) ON DUPLICATE KEY UPDATE secret_value = $val;",
+            {"id": f"vault_secrets:`{key}`", "val": encoded},
+        )
+
+    async def get_secret(self, key: str) -> Optional[str]:
+        """Retrieves and decrypts a secret."""
+        import base64
+
+        try:
+            res = await self._call(
+                "query", "SELECT * FROM vault_secrets WHERE id = $id", {"id": f"vault_secrets:`{key}`"}
+            )
+            if res and isinstance(res, list) and len(res) > 0:
+                results = res[0].get("result", [])
+                if results and isinstance(results, list) and len(results) > 0:
+                    encoded = results[0].get("secret_value")
+                    return base64.b64decode(encoded).decode()
+        except Exception as e:
+            logger.warning(f"SurrealDB: Failed to get secret {key}: {e}")
+        return None
+
+    async def insert_causal_link(self, cause_text: str, effect_text: str, confidence: float = 1.0):
+        """Creates a CAUSED edge between two facts based on their content."""
+        try:
+            # Find the two facts (approximate match)
+            q = """
+            LET $cause = (SELECT id FROM fact WHERE content CONTAINS $cause_text LIMIT 1);
+            LET $effect = (SELECT id FROM fact WHERE content CONTAINS $effect_text LIMIT 1);
+            
+            IF $cause[0].id AND $effect[0].id THEN
+                RELATE $cause[0].id->CAUSED->$effect[0].id SET likelihood = $confidence, timestamp = time::now();
+            END;
+            """
+            await self._call(
+                "query", q, {"cause_text": cause_text, "effect_text": effect_text, "confidence": confidence}
+            )
+        except Exception as e:
+            logger.error(f"Failed to insert causal link: {e}")
+
+    async def insert_concept(self, name: str, description: str, fact_content: str = None):
+        """Creates a concept and optionally links a fact to it via ABOUT."""
+        try:
+            cid = f"concept:`{name.lower().replace(' ', '_')}`"
+            await self._call(
+                "query",
+                f"INSERT INTO concept (id, name, description) VALUES ({cid}, $name, $desc) ON DUPLICATE KEY UPDATE description = $desc;",
+                {"name": name, "desc": description},
+            )
+
+            if fact_content:
+                q = """
+                LET $fact = (SELECT id FROM fact WHERE content CONTAINS $text LIMIT 1);
+                IF $fact[0].id THEN
+                    RELATE $fact[0].id->ABOUT->{cid} SET timestamp = time::now();
+                END;
+                """.replace("{cid}", cid)
+                await self._call("query", q, {"text": fact_content})
+        except Exception as e:
+            logger.error(f"Failed to insert concept: {e}")
 
     async def insert_graph_memory(self, fact_data: Dict[str, Any]):
         """Stores an atomic fact using the graph model.
@@ -215,7 +288,18 @@ class SurrealDbClient:
             fact_res = await self._call("create", "fact", fact_data_db)
             if not fact_res:
                 return
-            fid = fact_res[0].get("id") if isinstance(fact_res, list) else fact_res.get("id")
+
+            # fact_res can be a list or a single dict depending on library version
+            if isinstance(fact_res, list) and len(fact_res) > 0:
+                fid = fact_res[0].get("id")
+            elif isinstance(fact_res, dict):
+                fid = fact_res.get("id")
+            else:
+                logger.error(f"SURREAL: Unexpected fact creation result: {fact_res}")
+                return
+
+            if not fid:
+                return
 
             # Include permanent flag in the BELIEVES edge
             await self._call(
@@ -499,3 +583,70 @@ class SurrealDbClient:
         except Exception as e:
             logger.error(f"Universal semantic search failed: {e}")
             return []
+
+    async def update_agent_state(self, agent_id: str, relation_type: str, target_data: Dict[str, Any]):
+        """Updates the agent's state in the graph (e.g. WEARS, IS_IN)."""
+        agent_key = agent_id.lower().replace(" ", "_")
+        target_name = target_data.get("name", "unknown")
+        target_key = target_name.lower().replace(" ", "_")
+        description = target_data.get("description", "")
+
+        # Create/Update target subject
+        await self._call(
+            "query",
+            f"INSERT INTO subject (id, name) VALUES (subject:`{target_key}`, $name) ON DUPLICATE KEY UPDATE name=$name;",
+            {"name": target_name},
+        )
+
+        # Create edge
+        await self._call(
+            "query",
+            f"RELATE subject:`{agent_key}`->{relation_type}->subject:`{target_key}` SET description = $desc, timestamp = time::now();",
+            {"desc": description},
+        )
+
+    async def get_agent_state(self, agent_id: str) -> List[Dict[str, Any]]:
+        """Retrieves the agent's current state (relations)."""
+        agent_key = agent_id.lower().replace(" ", "_")
+
+        # Query all outgoing edges that are NOT BELIEVES
+        query = f"""
+        SELECT 
+            type::string(->?) AS relation,
+            ->?.name AS name,
+            ->?.description AS description
+        FROM subject:`{agent_key}`
+        """
+        # Note: SurrealQL syntax for edge types varies. Using a simplified approach.
+        res = await self._call("query", query)
+        if res and isinstance(res, list) and len(res) > 0:
+            return res[0].get("result", [])
+        return []
+
+    async def save_config(self, config_id: str, data: Dict[str, Any]):
+        """Saves a configuration object (system or agent override)."""
+        cid = f"config:`{config_id}`"
+        q = f"INSERT INTO config (id, data, updated_at) VALUES ({cid}, $data, time::now()) ON DUPLICATE KEY UPDATE data = $data, updated_at = time::now();"
+        await self._call("query", q, {"data": data})
+
+    async def get_config(self, config_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieves a configuration object."""
+        cid = f"config:`{config_id}`"
+        try:
+            res = await self._call("query", f"SELECT data FROM {cid}")
+            if res and isinstance(res, list) and len(res) > 0:
+                first = res[0]
+                # If first is a dict with 'result' (SurrealDB 1.x style list of results)
+                if isinstance(first, dict) and "result" in first:
+                    results = first["result"]
+                    if isinstance(results, list) and len(results) > 0:
+                        return results[0].get("data")
+                # If first is the record itself (SurrealDB 2.x style directly)
+                elif isinstance(first, dict) and "data" in first:
+                    return first["data"]
+            elif res and isinstance(res, dict):
+                if "data" in res:
+                    return res["data"]
+        except:
+            pass
+        return None

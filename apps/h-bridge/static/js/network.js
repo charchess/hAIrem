@@ -8,7 +8,26 @@ class NetworkClient {
         this.url = url;
         this.socket = null;
         this.agentMetadata = [];
+        this.isFetchingMetadata = false;
         this.connect();
+    }
+
+    async fetchGlobalConfig() {
+        try {
+            const response = await fetch('/api/config');
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+            
+            const modelInput = document.getElementById('global-llm-model');
+            const providerSelect = document.getElementById('global-llm-provider');
+            
+            if (modelInput) modelInput.value = data.llm_model || '';
+            if (providerSelect) providerSelect.value = data.llm_provider || 'ollama';
+            
+            console.log("Global config loaded:", data);
+        } catch (e) {
+            console.error("Failed to fetch global config:", e);
+        }
     }
 
     async fetchMetadata() {
@@ -18,17 +37,11 @@ class NetworkClient {
             const response = await fetch('/api/agents');
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const data = await response.json();
-            this.agentMetadata = Array.isArray(data) ? data : (data.agents || []);
             
-            // Retry if empty (backend might be warming up)
-            if (this.agentMetadata.length === 0) {
-                console.warn("Agent list empty, retrying in 2s...");
-                setTimeout(() => {
-                    this.isFetchingMetadata = false; 
-                    this.fetchMetadata();
-                }, 2000);
-                
-                // Temporary Fallback
+            if (Array.isArray(data)) {
+                this.agentMetadata = data;
+            } else {
+                console.warn("Invalid agent metadata format received");
                 this.agentMetadata = [
                     { id: "Renarde", commands: ["ping"] },
                     { id: "system", commands: ["imagine"] }
@@ -36,20 +49,18 @@ class NetworkClient {
             }
             
             console.log("Agent metadata loaded:", this.agentMetadata);
-            // Populate agents map in renderer immediately
             if (window.renderer) {
-                window.renderer.updateAgentCards(this.agentMetadata);
+                window.renderer.updateAgents(this.agentMetadata);
             }
         } catch (e) {
             console.error("Failed to fetch agent metadata:", e);
-            // Retry on error too
             setTimeout(() => {
                 this.isFetchingMetadata = false; 
                 this.fetchMetadata();
-            }, 3000);
-        } finally {
-            this.isFetchingMetadata = false;
+            }, 10000); 
+            return; 
         }
+        this.isFetchingMetadata = false;
     }
 
     async fetchHistory() {
@@ -59,8 +70,8 @@ class NetworkClient {
             const data = await response.json();
             
             if (data.status === "connecting") {
-                console.log("Database still connecting, retrying history in 2s...");
-                setTimeout(() => this.fetchHistory(), 2000);
+                console.log("Database still connecting, retrying history in 5s...");
+                setTimeout(() => this.fetchHistory(), 5000);
                 return;
             }
 
@@ -86,14 +97,14 @@ class NetworkClient {
                 window.renderer.updateSystemStatus('ws', 'ok');
             }
             
-            // STORY 17.2: Sync initial log level
+            // Sync initial log level
             const savedLevel = localStorage.getItem('hairem_log_level') || 'INFO';
             this.send('system.config_update', { log_level: savedLevel });
 
-            // Retry fetching metadata now that connection implies backend is likely up
             this.fetchMetadata();
+            this.fetchHistory();
+            this.fetchGlobalConfig();
 
-            // Wait a tiny bit to ensure renderer class is fully instantiated
             setTimeout(() => {
                 if (window.renderer && typeof window.renderer.setReady === 'function') {
                     window.renderer.setReady(true);
@@ -125,106 +136,59 @@ class NetworkClient {
     }
 
     handleMessage(message) {
-        console.log(`NETWORK: Received ${message.type} from ${message.sender ? message.sender.agent_id : 'unknown'}`);
-        // Clear processing state on any narrative response
+        // console.log(`NETWORK: Received ${message.type}`);
+        
         if ((message.type === "narrative.text" || message.type === "narrative.chunk" || message.type === "expert.response") && window.renderer && window.renderer.setProcessingState) {
             window.renderer.setProcessingState(false);
         }
 
-        // Route to renderer
         if (message.type === "narrative.text") {
-            // BUG FIX: Skip messages from "user" to prevent echo
-            if (message.sender && message.sender.agent_id === "user") {
-                console.log("NETWORK: Skipping user message to prevent echo");
-                return;
-            }
-            // Queue narrative messages
+            if (message.sender && message.sender.agent_id === "user") return;
             if (window.speechQueue) {
                 window.speechQueue.enqueue(message);
             } else if (window.renderer && window.renderer.render) {
-                // Fallback if queue not loaded
-                const agentName = message.sender.agent_id;
-                const text = message.payload.content;
-                window.renderer.render(agentName, text); 
-                window.renderer.addMessageToHistory(agentName, text);
+                window.renderer.render(message.sender.agent_id, message.payload.content); 
+                window.renderer.addMessageToHistory(message.sender.agent_id, message.payload.content);
             }
-        } else if (message.type === "narrative.chunk") {
-            // Handle streaming chunks in history with full message context
-            if (window.renderer && window.renderer.handleChunk) {
-                window.renderer.handleChunk(message);
-            }
-            
-        } else if (message.type === "expert.response") {
-            // BUG FIX: Skip messages from "user" to prevent echo
-            if (message.sender && message.sender.agent_id === "user") {
-                console.log("NETWORK: Skipping user expert.response to prevent echo");
-                return;
-            }
-            const agentName = message.sender.agent_id;
+        } else if (message.type === "system.heartbeat") {
+            // Signal WebSocket is OK upon receiving heartbeat
+            if (window.renderer) window.renderer.updateSystemStatus('ws', 'ok');
+
             const payload = message.payload.content;
-            const text = typeof payload === 'object' ? (payload.result || payload.error || JSON.stringify(payload)) : payload;
-            if (window.renderer && window.renderer.addMessageToHistory) {
-                window.renderer.addMessageToHistory(agentName, text);
+            if (!payload) return;
+
+            // 1. Update Health Indicators
+            if (payload.health) {
+                Object.entries(payload.health).forEach(([comp, status]) => {
+                    if (window.renderer && window.renderer.updateSystemStatus) {
+                        window.renderer.updateSystemStatus(comp, status);
+                    }
+                });
             }
-            
-        } else if (message.type === "system.log") {
-            const logEntry = message.payload.content;
-            if (window.renderer && window.renderer.addLog) {
-                window.renderer.addLog(logEntry);
-            }
-        } else if (message.type === "system.status_update") {
-            const agentId = message.sender.agent_id;
-            const statusPayload = message.payload.content;
-            console.log(`NETWORK: Status update for ${agentId}:`, statusPayload);
-            
-            // Handle Global System Health Updates
-            // STORY 23.3: Recognize both "system" target or "brain" component
-            if ((message.recipient && message.recipient.target === "system") || statusPayload.component === "brain") {
-                if (statusPayload.component && window.renderer && window.renderer.updateSystemStatus) {
-                    window.renderer.updateSystemStatus(statusPayload.component, statusPayload.status);
+
+            // 2. Update Agents Discovery & Stats
+            if (payload.agents) {
+                if (window.renderer && window.renderer.updateAgents) {
+                    const agentsArray = Object.entries(payload.agents).map(([id, data]) => ({
+                        id: id,
+                        ...data
+                    }));
+                    window.renderer.updateAgents(agentsArray);
                 }
-                return;
             }
-
-            // Sync metadata for autocomplete
-            const existingAgent = this.agentMetadata.find(a => a.id === agentId);
-            if (existingAgent) {
-                if (statusPayload.commands) existingAgent.commands = statusPayload.commands;
-            }
-
-            if (window.renderer && window.renderer.updateAgentStatus) {
-                window.renderer.updateAgentStatus(
-                    agentId, 
-                    statusPayload.status, 
-                    statusPayload.mood, 
-                    statusPayload.prompt_tokens, 
-                    statusPayload.completion_tokens, 
-                    statusPayload.total_tokens,
-                    statusPayload.commands
-                );
+        } else if (message.type === "system.log") {
+            if (window.renderer && window.renderer.addLog) {
+                window.renderer.addLog(message.payload.content);
             }
         } else if (message.type === "visual.asset") {
             const payload = message.payload.content;
             let url = payload.url;
-            
-            // Map internal paths/hosts to web-accessible paths
-            if (url.startsWith('file:///media/generated/')) {
-                url = url.replace('file:///media/generated/', '/media/');
-            } else if (url.includes('/media/generated/')) {
-                // Handle cases where it might be a full URI or mixed path
-                url = '/media/' + url.split('/media/generated/')[1];
-            }
-            
-            if (url.startsWith('http://h-bridge:8000/')) {
-                url = url.replace('http://h-bridge:8000/', '/');
-            }
-            
-            // Story 25.6: Add cache busting
+            if (url.startsWith('file:///media/generated/')) url = url.replace('file:///media/generated/', '/media/');
+            else if (url.includes('/media/generated/')) url = '/media/' + url.split('/media/generated/')[1];
+            if (url.startsWith('http://h-bridge:8000/')) url = url.replace('http://h-bridge:8000/', '/');
             url += (url.includes('?') ? '&' : '?') + 't=' + Date.now();
             
-            console.log("NETWORK: Visual asset received:", url);
             if (window.renderer && window.renderer.renderVisualAsset) {
-                window.renderer.addLog(`🎨 Image reçue: ${url}`);
                 window.renderer.renderVisualAsset({
                     url: url,
                     alt_text: payload.alt_text,
@@ -232,147 +196,62 @@ class NetworkClient {
                     asset_type: payload.asset_type || "background"
                 });
             }
-        } else if (message.type === "admin.llm.test_connection_response") {
-            // Story 7.5: Handle LLM test response
-            const result = message.payload.content;
-            const resultEl = document.getElementById('llm-test-result');
-            if (resultEl) {
-                if (result.success) {
-                    resultEl.textContent = `✓ ${result.message}`;
-                    resultEl.className = 'test-result success';
-                } else {
-                    resultEl.textContent = `✗ ${result.message}`;
-                    resultEl.className = 'test-result error';
-                }
-            }
-            console.log("NETWORK: LLM test result:", result);
         }
     }
 
     generateUUID() {
-        // Fallback for non-secure contexts (http) where crypto.randomUUID is not available
-        try {
-            if (window.crypto && window.crypto.randomUUID) {
-                return window.crypto.randomUUID();
-            }
-        } catch (e) {}
-        
-        // Manual UUID v4 generation
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
             var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
     }
 
-    toggleAgent(agentId, isActive) {
-        console.log(`Toggling agent ${agentId} to ${isActive}`);
-        
-        // Optimistic UI update
-        if (window.renderer.agents[agentId]) {
-            window.renderer.agents[agentId].active = isActive;
-            window.renderer.renderAgentGrid();
-        }
-
+    send(type, content) {
         const message = {
             id: this.generateUUID(),
             timestamp: new Date().toISOString(),
-            type: "system.status_update",
-            sender: { agent_id: "user", role: "admin" },
+            type: type,
+            sender: { agent_id: "user", role: "user" },
             recipient: { target: "system" },
-            payload: {
-                content: {
-                    agent_id: agentId,
-                    active: isActive
-                }
-            },
-            metadata: { priority: "system" }
+            payload: { content: content } // Proper HLink wrapper
         };
-        this.socket.send(JSON.stringify(message));
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            this.socket.send(JSON.stringify(message));
+        }
     }
 
     sendUserMessage(text, target = "broadcast") {
-        console.log("NETWORK_SEND_START: Target =", target, "Text =", text);
         if (!text.trim()) return;
+        const currentRoom = localStorage.getItem('hairem_device_room') || 'Salon';
+        const message = {
+            id: this.generateUUID(),
+            timestamp: new Date().toISOString(),
+            type: "narrative.text",
+            sender: { agent_id: "user", role: "user" },
+            recipient: { target: target },
+            payload: { 
+                content: text, 
+                format: "text",
+                room_id: currentRoom 
+            },
+            metadata: { priority: "normal", ttl: 5 }
+        };
 
-        let message;
-        const globalCommands = ['imagine', 'outfit', 'vault', 'location'];
-        const firstWord = text.slice(1).split(' ')[0].toLowerCase();
-
-        if (text.startsWith('/') && !globalCommands.includes(firstWord)) {
-            // Slash Command Mode for specific agents: /target_agent command_name args...
-            const parts = text.slice(1).split(' ');
-            const slashTarget = parts[0] || "broadcast";
-            const command = parts[1] || "ping";
-            const args = parts.slice(2).join(' ');
-
-            message = {
-                id: this.generateUUID(),
-                timestamp: new Date().toISOString(),
-                type: "expert.command",
-                sender: { agent_id: "user", role: "user" },
-                recipient: { target: slashTarget },
-                payload: {
-                    content: null,
-                    command: command,
-                    args: args,
-                    format: "json"
-                },
-                metadata: { priority: "high", ttl: 5 }
-            };
-            console.log(`Executing direct command on ${slashTarget}:`, command);
-        } else {
-            // Normal Narrative Mode
-            message = {
-                id: this.generateUUID(),
-                timestamp: new Date().toISOString(),
-                type: "narrative.text",
-                sender: { agent_id: "user", role: "user" },
-                recipient: { target: target },
-                payload: { content: text, format: "text" },
-                metadata: { priority: "normal", ttl: 5 }
-            };
-        }
-
-        console.log("Sending to H-Core:", JSON.stringify(message));
         if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-            try {
-                this.socket.send(JSON.stringify(message));
-                console.log("NETWORK_SEND_SUCCESS");
-            } catch (e) {
-                console.error("NETWORK_SEND_EXCEPTION:", e);
-            }
-        } else {
-            console.error("NETWORK_SEND_FAILURE: WebSocket NOT open. State =", this.socket ? this.socket.readyState : "NULL");
-        }
-        
-        if (window.renderer) {
-            window.renderer.setState('thinking');
-            window.renderer.setProcessingState(true);
+            this.socket.send(JSON.stringify(message));
         }
     }
 
-    send(type, content) {
-        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-            const message = {
-                id: this.generateUUID(),
-                timestamp: new Date().toISOString(),
-                type: type,
-                sender: { agent_id: "user", role: "user" },
-                recipient: { target: "system" },
-                payload: { content: content },
-                metadata: { priority: "normal", ttl: 5 }
-            };
-            console.log("NETWORK.send:", type, content);
-            this.socket.send(JSON.stringify(message));
-        } else {
-            console.warn("NETWORK.send: Socket not ready", this.socket?.readyState);
-        }
+    toggleAgent(agentId, isActive) {
+        this.send("agent.config_update", { agent_id: agentId, active: isActive });
+    }
+
+    toggleSkill(agentId, skillName, isActive) {
+        this.send("agent.config_update", { 
+            agent_id: agentId, 
+            skill_update: { name: skillName, active: isActive } 
+        });
     }
 }
 
-// Global instance placeholder
-window.network = null;
-
-document.addEventListener('DOMContentLoaded', () => {
-    window.network = new NetworkClient();
-});
+window.network = new NetworkClient();

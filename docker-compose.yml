@@ -56,6 +56,7 @@ services:
       - ./apps/h-core/src:/app/src
       - ./agents:/app/agents
       - ./config/visual:/app/config/visual
+      - ./config/proactivity:/app/config/proactivity
       - /media/generated:/media/generated
     environment:
       - PYTHONUNBUFFERED=1
@@ -64,9 +65,11 @@ services:
       - SURREALDB_URL=ws://surrealdb:8000/rpc
       - SURREALDB_USER=root
       - SURREALDB_PASS=root
-      - LLM_MODEL=ollama/mistral
-      - LLM_BASE_URL=http://ollama:11434
       - NANOBANANA_BASE_URL=http://h-bridge:8000
+      - PROACTIVITY_CONFIG=/app/config/proactivity/triggers.yaml
+      - VISUAL_CONFIG_DIR=/app/config/visual
+      - MEDIA_OUTPUT_PATH=/media/generated
+      - AGENTS_PATH=/app/agents
     depends_on:
       redis:
         condition: service_healthy
@@ -87,6 +90,7 @@ services:
       - ./apps/h-bridge/src:/app/src
       - ./apps/h-bridge/static:/app/static
       - ./apps/h-bridge/models:/app/models
+      - ./apps/h-core/src:/app/h-core/src
       - ./agents:/app/agents
       - /media/generated:/media/generated
       - hf_cache:/root/.cache/huggingface

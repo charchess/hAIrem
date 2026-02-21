@@ -3,6 +3,10 @@ import pytest
 from src.infrastructure.redis import RedisClient
 from src.models.hlink import HLinkMessage, MessageType, Sender, Recipient, Payload
 
+import pytest
+pytestmark = pytest.mark.integration
+
+
 @pytest.mark.asyncio
 async def test_redis_pub_sub_hlink():
     # Configuration (utilise localhost par défaut pour les tests locaux)

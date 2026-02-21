@@ -22,9 +22,11 @@ RUN pip install --no-cache-dir \
     google-cloud-aiplatform \
     google-genai \
     httpx \
+    aiohttp \
     surrealdb \
     pillow \
-    fastembed
+    fastembed \
+    python-dotenv
 
 # Copy the application
 COPY . .

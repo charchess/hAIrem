@@ -54,19 +54,27 @@ class MemoryConsolidator:
 
     CONSOLIDATION_PROMPT = """
     You are the Cognitive Consolidation service for hAIrem.
-    Your task is to analyze the following conversation chunk and extract 'Atomic Facts' about the user or the environment.
+    Your task is to analyze the following conversation chunk and extract 'Atomic Facts', 'Causal Links', and 'Concepts'.
     
     Guidelines:
     - Extract short, declarative facts (e.g., "User likes green tea", "User is a software engineer").
+    - Extract causal links if one event led to another (e.g., "User is sad BECAUSE it is raining").
+    - Identify key concepts mentioned (e.g., "Quantum Physics", "Veganism").
     - Focus on preferences, recurring topics, personality traits, and important life events.
-    - Ignore technical logs or system status updates unless they contain user context.
-    - For each fact, assign a confidence score (0.0 to 1.0). 
+    - For each item, assign a confidence score (0.0 to 1.0). 
     
-    Output MUST be a JSON list of objects:
-    [
-      {{"fact": "...", "subject": "user", "agent": "AgentName", "confidence": 0.9}},
-      ...
-    ]
+    Output MUST be a JSON object with three lists:
+    {{
+      "facts": [
+        {{"fact": "...", "subject": "user", "agent": "AgentName", "confidence": 0.9}}
+      ],
+      "causal_links": [
+        {{"cause": "fact_content_A", "effect": "fact_content_B", "confidence": 0.8}}
+      ],
+      "concepts": [
+        {{"name": "ConceptName", "description": "...", "confidence": 0.9}}
+      ]
+    }}
     
     Conversation Chunk:
     ---
@@ -130,7 +138,12 @@ class MemoryConsolidator:
             logger.info(f"Extracted {len(facts)} facts from {len(messages)} messages.")
 
             # 4. Store facts and mark messages as processed
-            for fact_data in facts:
+            data = json.loads(clean_json)
+            extracted_facts = data.get("facts", [])
+            causal_links = data.get("causal_links", [])
+            concepts = data.get("concepts", [])
+
+            for fact_data in extracted_facts:
                 # Add source metadata
                 fact_data["source_ids"] = msg_ids
                 # If subject is user, default belief to 'system' (Universal)
@@ -159,14 +172,23 @@ class MemoryConsolidator:
 
                 await self.surreal.insert_graph_memory(fact_data)
 
+            # 4b. Store Causal Links
+            for link in causal_links:
+                await self.surreal.insert_causal_link(link["cause"], link["effect"], link.get("confidence", 1.0))
+
+            # 4c. Store Concepts
+            for concept in concepts:
+                await self.surreal.insert_concept(concept["name"], concept.get("description", ""))
+
             # Mark all messages in this batch as processed
             await self.surreal.mark_as_processed(msg_ids)
 
             # 5. Notify system
-            summary = f"Sleep Cycle complete: {len(facts)} new facts learned from {len(messages)} messages."
+            learned_count = len(extracted_facts) + len(causal_links) + len(concepts)
+            summary = f"Sleep Cycle complete: Learned {learned_count} cognitive elements from {len(messages)} messages."
             await self._broadcast_log(summary)
 
-            return len(facts)
+            return learned_count
 
         except Exception as e:
             logger.error(f"Consolidation failed: {e}")
@@ -210,3 +232,41 @@ class MemoryConsolidator:
             payload=Payload(content=f"[{level.upper()}] {content}"),
         )
         await self.redis.publish("broadcast", msg)
+
+    async def generate_backstory(self, agent_name: str, agent_role: str):
+        """
+        FR18.1: Backstory Generator (Epic 18).
+        Generates consistent past memories for an agent at startup.
+        """
+        logger.info(f"MEMORY: Generating backstory for {agent_name}...")
+
+        prompt = f"""
+        You are the Backstory Generator for hAIrem.
+        Create 5 short, atomic past memories for an AI character named {agent_name} (Role: {agent_role}).
+        These memories should be consistent with their personality and role.
+        
+        Output format: JSON list of facts.
+        Example: ["I remember helping the user with their first python script", "I feel a strong bond with the other crew members"]
+        """
+
+        try:
+            response = await self.llm.get_completion([{"role": "system", "content": prompt}], stream=False)
+            clean_json = response.strip()
+            if "```json" in clean_json:
+                clean_json = clean_json.split("```json")[1].split("```")[0].strip()
+
+            memories = json.loads(clean_json)
+            for m in memories:
+                fact_data = {
+                    "fact": m,
+                    "subject": agent_name,
+                    "agent": agent_name,
+                    "confidence": 1.0,
+                    "permanent": True,  # Backstory doesn't decay
+                }
+                embedding = await self.llm.get_embedding(m)
+                fact_data["embedding"] = embedding
+                await self.surreal.insert_graph_memory(fact_data)
+            logger.info(f"MEMORY: {agent_name} now has a past.")
+        except Exception as e:
+            logger.error(f"Backstory generation failed for {agent_name}: {e}")

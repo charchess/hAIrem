@@ -13,6 +13,7 @@ import tempfile
 import base64
 import threading
 import queue
+import httpx
 from typing import Dict, Any, Optional, Generator
 
 try:
@@ -38,6 +39,8 @@ from services.prosody import prosody_service, IntonationType
 from services.neural_voice_assignment import neural_voice_assignment_service
 
 logger = logging.getLogger(__name__)
+
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 
 
 class TTSService:
@@ -72,7 +75,9 @@ class TTSService:
                 logger.warning("No running event loop found during TTS initialization")
 
             if engine == "auto":
-                if MELO_AVAILABLE:
+                if ELEVENLABS_API_KEY:
+                    self.engine_type = "elevenlabs"
+                elif MELO_AVAILABLE:
                     self.engine_type = "melo"
                 elif PYTTSX3_AVAILABLE:
                     self.engine_type = "pyttsx3"
@@ -84,19 +89,12 @@ class TTSService:
 
             logger.info(f"Initializing TTS with engine={self.engine_type}")
 
-            if self.engine_type == "melo":
-                pass
-
-            elif self.engine_type == "pyttsx3":
-                pass
-
-        await self.voice_profile_service.initialize()
-        await self.voice_modulation_service.initialize()
-        await self.prosody_service.initialize()
-        await neural_voice_assignment_service.initialize()
+            await self.voice_profile_service.initialize()
+            await self.voice_modulation_service.initialize()
+            await self.prosody_service.initialize()
+            await neural_voice_assignment_service.initialize()
 
             self.is_initialized = True
-
             self.is_processing = True
             self.processing_thread = threading.Thread(target=self._processing_loop, daemon=True)
             self.processing_thread.start()
@@ -111,13 +109,11 @@ class TTSService:
         """Background processing loop for TTS requests."""
         logger.info("Starting TTS processing loop")
 
-        # Initialize thread-local resources
         local_engine = None
         if self.engine_type == "pyttsx3":
             try:
                 local_engine = pyttsx3.init()
                 local_engine.setProperty("rate", 150)
-                # Select a French voice if available
                 voices = local_engine.getProperty("voices")
                 for voice in voices:
                     if "french" in voice.name.lower() or "fr" in voice.languages:
@@ -131,20 +127,16 @@ class TTSService:
                 try:
                     item = self.request_queue.get(timeout=1.0)
                     request_id, text, params = item
-
                     self._process_tts_request(request_id, text, params, local_engine)
-
                     self.request_queue.task_done()
-
                 except queue.Empty:
                     continue
-
             except Exception as e:
                 logger.error(f"Error in TTS processing loop: {e}")
                 time.sleep(0.1)
 
     def _process_tts_request(self, request_id: str, text: str, params: Dict, local_engine):
-        """Process a single TTS request synchronously."""
+        """Process a single TTS request."""
         try:
             logger.info(f"Generating audio for request {request_id}: {text[:30]}...")
 
@@ -159,22 +151,34 @@ class TTSService:
                 {"text": text, "voice_params": {"pitch": pitch, "rate": rate, "volume": volume, "emotion": emotion}},
             )
 
-            if self.engine_type == "pyttsx3" and local_engine:
-                try:
-                    base_rate = 150
-                    local_engine.setProperty("rate", int(base_rate * rate))
-                    local_engine.setProperty("volume", min(1.0, volume))
+            # --- ENGINE SELECTION ---
 
-                    voices = local_engine.getProperty("voices")
-                    if voices:
-                        voice_id = params.get("voice_id")
-                        if voice_id:
-                            for voice in voices:
-                                if voice.id == voice_id or voice_id.lower() in voice.name.lower():
-                                    local_engine.setProperty("voice", voice.id)
-                                    break
-                except Exception as e:
-                    logger.warning(f"Could not set voice properties: {e}")
+            # 1. ElevenLabs (High-Fi)
+            if self.engine_type == "elevenlabs":
+                voice_id = params.get("voice_id", "21m00Tcm4TlvDq8ikWAM")
+                url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+                headers = {"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"}
+                data = {
+                    "text": text,
+                    "model_id": "eleven_multilingual_v2",
+                    "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
+                }
+
+                resp = httpx.post(url, json=data, headers=headers, timeout=30.0)
+                if resp.status_code == 200:
+                    b64_audio = base64.b64encode(resp.content).decode("utf-8")
+                    self._send_event(
+                        MessageType.TTS_AUDIO_CHUNK,
+                        request_id,
+                        {"audio_chunk": b64_audio, "index": 0, "is_last": True, "format": "mp3"},
+                    )
+                else:
+                    logger.error(f"ElevenLabs failed: {resp.text}")
+
+            # 2. Pyttsx3 (Local Fallback)
+            elif self.engine_type == "pyttsx3" and local_engine:
+                local_engine.setProperty("rate", int(150 * rate))
+                local_engine.setProperty("volume", min(1.0, volume))
 
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
                     temp_filename = tf.name
@@ -186,20 +190,15 @@ class TTSService:
                     audio_data = f.read()
 
                 b64_audio = base64.b64encode(audio_data).decode("utf-8")
-
                 self._send_event(
                     MessageType.TTS_AUDIO_CHUNK,
                     request_id,
                     {"audio_chunk": b64_audio, "index": 0, "is_last": True, "format": "wav"},
                 )
-
                 try:
                     os.remove(temp_filename)
                 except:
                     pass
-
-            elif self.engine_type == "melo":
-                pass
 
             self._send_event(MessageType.TTS_END, request_id, {"status": "completed"})
 
@@ -208,12 +207,10 @@ class TTSService:
             self._send_event(MessageType.TTS_ERROR, request_id, {"error": str(e)})
 
     def _send_event(self, msg_type, request_id, content):
-        """Send event to WebSocket via main loop."""
         if self.loop and not self.loop.is_closed():
             asyncio.run_coroutine_threadsafe(self._dispatch_event(msg_type, request_id, content), self.loop)
 
     async def _dispatch_event(self, msg_type, request_id, content):
-        """Dispatch event to Redis."""
         try:
             message = HLinkMessage(
                 type=msg_type,
@@ -221,69 +218,49 @@ class TTSService:
                 recipient=Recipient(target="a2ui"),
                 payload=Payload(content=content, session_id=request_id),
             )
-
             await self.redis_client.publish_event("tts_stream", "tts_update", message.model_dump())
-
         except Exception as e:
             logger.error(f"Failed to dispatch TTS event: {e}")
 
     async def speak(self, text: str, request_id: str = None, params: Dict = None):
-        """Queue a text to be spoken with voice modulation and prosody."""
         if not request_id:
             request_id = f"tts_{int(time.time() * 1000)}"
-
         params = params or {}
         agent_id = params.get("agent_id", "default")
-
         base_params = await self.voice_profile_service.apply_to_tts_params(
             agent_id, {"pitch": 1.0, "rate": 1.0, "volume": 1.0}
         )
-
         emotion = params.get("emotion")
         if emotion:
             base_params = self.voice_modulation_service.modulate_voice(base_params, emotion)
-
         style = params.get("prosody_style", "default")
         base_params = self.prosody_service.apply_prosody(base_params, text, style=style)
-
         final_params = {**params, **base_params}
-
         self.request_queue.put((request_id, text, final_params))
         return request_id
 
     async def cleanup(self):
-        """Cleanup resources."""
         self.is_processing = False
         if self.processing_thread:
             self.processing_thread.join(timeout=2.0)
 
 
-# Main interface function
 tts_service = None
 
 
 async def handle_tts_request(websocket, message: Dict[str, Any], redis_client):
-    """Handle TTS-related WebSocket messages."""
     global tts_service
-
     if not tts_service:
         tts_service = TTSService(redis_client)
         await tts_service.initialize()
-
     try:
         msg_type = message.get("type")
         payload = message.get("payload", {})
-
         if msg_type == MessageType.TTS_REQUEST:
             text = payload.get("content")
             if text:
                 req_id = await tts_service.speak(text)
-                # Ack
                 await websocket.send_text(json.dumps({"type": "tts_ack", "request_id": req_id, "status": "queued"}))
-
     except Exception as e:
         logger.error(f"Error handling TTS request: {e}")
-
-        import json
-
         await websocket.send_text(json.dumps({"type": "error", "message": str(e)}))

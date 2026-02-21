@@ -4,6 +4,10 @@ from unittest.mock import MagicMock, AsyncMock, patch
 import logging
 import os
 
+import pytest
+pytestmark = pytest.mark.integration
+
+
 # Mock infrastructure before importing main to avoid side effects
 with patch("src.infrastructure.redis.RedisClient"), \
      patch("src.infrastructure.surrealdb.SurrealDbClient"), \

@@ -22,6 +22,18 @@ class AudioPlayer {
         // Note: WebSocket handling is centralized, we hook into it
         this.setupWebSocketHook();
     }
+
+    stopAll() {
+        console.log('AudioPlayer: Stopping all playback');
+        if (this.audioContext) {
+            // Re-creating the context is the most reliable way to kill all scheduled sounds
+            this.audioContext.close().catch(() => {});
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        this.audioQueue = [];
+        this.startTime = 0;
+        this.updateStatus('ready');
+    }
     
     setupWebSocketHook() {
         // This assumes global websocket or event bus

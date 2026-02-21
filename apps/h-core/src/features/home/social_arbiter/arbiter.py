@@ -24,6 +24,7 @@ class SocialArbiter:
         default_agent_id: str | None = None,
         scoring_config: dict[str, float] | None = None,
         suppression_config: dict[str, Any] | None = None,
+        llm_client: Any | None = None,
     ):
         scoring_config = scoring_config or {}
         self.scoring_engine = ScoringEngine(
@@ -31,6 +32,7 @@ class SocialArbiter:
             interest_weight=scoring_config.get("interest_weight", 0.3),
             emotional_weight=scoring_config.get("emotional_weight", 0.2),
             tiebreaker_margin=scoring_config.get("tiebreaker_margin", 0.1),
+            llm_client=llm_client,
         )
         self.tiebreaker = Tiebreaker()
         self.fallback = FallbackBehavior(
@@ -73,6 +75,115 @@ class SocialArbiter:
         mentioned_agents: list[str] | None = None,
         allow_suppression: bool = True,
     ) -> list[AgentProfile] | None:
+        """Determines which agents should respond. Synchronous version."""
+        # This is a wrapper around determined_responder_async for legacy compatibility
+        # In a real async environment, use determine_responder_async
+        import asyncio
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # We are in an async loop, but this is a sync call
+                # Fallback to rule-based scoring to avoid blocking
+                return self._determine_responder_sync(
+                    message_content, emotional_context, mentioned_agents, allow_suppression
+                )
+            else:
+                return loop.run_until_complete(
+                    self.determine_responder_async(
+                        message_content, emotional_context, mentioned_agents, allow_suppression
+                    )
+                )
+        except RuntimeError:
+            return self._determine_responder_sync(
+                message_content, emotional_context, mentioned_agents, allow_suppression
+            )
+
+    async def determine_responder_async(
+        self,
+        message_content: str,
+        emotional_context: dict[str, Any] | None = None,
+        mentioned_agents: list[str] | None = None,
+        allow_suppression: bool = True,
+    ) -> list[AgentProfile] | None:
+        """Determines which agents should respond using LLM scoring (ADR-10)."""
+        mentioned_agents = mentioned_agents or []
+
+        # 1. Detect mentions (Priority 1)
+        if mentioned_agents:
+            return [a for a in self._agents.values() if a.agent_id in mentioned_agents]
+
+        active_agents = [a for a in self._agents.values() if a.is_active]
+        if not active_agents:
+            return None
+
+        # 2. Collective greeting or general address? (Priority 2)
+        greetings = ["bonjour", "salut", "hey", "coucou", "hello"]
+        collective_terms = ["les filles", "tout le monde", "equipe", "l'equipe", "crew"]
+        lower_content = message_content.lower()
+
+        has_greeting = any(g in lower_content for g in greetings)
+        has_collective = any(c in lower_content for c in collective_terms)
+
+        if has_greeting and has_collective:
+            logger.info("Social Arbiter: Collective greeting detected. Picking a spokesperson.")
+            # Pick one random active agent to respond for the group
+            import random
+
+            return [random.choice(active_agents)]
+
+        # 3. Named agent check (Priority 3)
+        named_agent_id = self._detect_named_agent(message_content, active_agents)
+        if named_agent_id:
+            named_agent = self._agents.get(named_agent_id)
+            if named_agent:
+                return [named_agent]
+
+        # 4. LLM-Based Scoring (Priority 4)
+        llm_scores = await self.scoring_engine.calculate_relevance_llm(message_content, active_agents)
+
+        scored_agents = []
+        for agent in active_agents:
+            # Combine LLM relevance with Repetition Penalty
+            relevance = llm_scores.get(agent.agent_id, 0.5)
+            time_since = self.suppressor.get_time_since_last_spoke(agent.agent_id)
+            final_score = self.scoring_engine.apply_repetition_penalty(relevance, time_since)
+            scored_agents.append((agent, final_score))
+
+        scored_agents.sort(key=lambda x: -x[1])
+
+        # Cascade mode (> 0.75)
+        winners = [agent for agent, score in scored_agents if score > 0.75]
+        if not winners and scored_agents:
+            winners = [scored_agents[0][0]]
+
+        # Filter suppressed agents (ADR-10)
+        if allow_suppression:
+            filtered_list = []
+            for agent in winners:
+                # Find score for this agent
+                score = next(s for a, s in scored_agents if a == agent)
+                if not self.suppressor.should_suppress(agent.agent_id, score):
+                    filtered_list.append(agent)
+                else:
+                    self.suppressor.suppress_response(
+                        agent_id=agent.agent_id,
+                        message_content=message_content,
+                        score=score,
+                        reason=SuppressionReason.BELOW_THRESHOLD,
+                    )
+            winners = filtered_list
+
+        return winners if winners else None
+
+    def _determine_responder_sync(
+        self,
+        message_content: str,
+        emotional_context: dict[str, Any] | None = None,
+        mentioned_agents: list[str] | None = None,
+        allow_suppression: bool = True,
+    ) -> list[AgentProfile] | None:
+        # Original rule-based implementation (moved here)
         mentioned_agents = mentioned_agents or []
 
         detected_emotion = None

@@ -32,9 +32,7 @@ async def test_memory_consolidation_success():
     ]
 
     # Mock LLM extraction
-    mock_llm.get_completion.return_value = (
-        '[{"fact": "User likes green tea", "subject": "user", "agent": "Renarde", "confidence": 0.9}]'
-    )
+    mock_llm.get_completion.return_value = '{"facts": [{"fact": "User likes green tea", "subject": "user", "agent": "Renarde", "confidence": 0.9}], "causal_links": [], "concepts": []}'
     mock_llm.get_embedding.return_value = [0.1, 0.2]
 
     # Mock semantic search to avoid conflict check issues

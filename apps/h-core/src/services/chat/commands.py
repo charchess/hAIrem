@@ -4,23 +4,27 @@ from src.models.hlink import HLinkMessage, MessageType, Payload, Recipient, Send
 
 logger = logging.getLogger(__name__)
 
+
 class CommandHandler:
     def __init__(self, redis_client, visual_service, surreal_client=None):
         self.redis = redis_client
         self.visual = visual_service
         self.surreal = surreal_client
+        self._sleep_callback = None
         self.commands = {
             "imagine": self._run_imagine,
             "outfit": self._run_outfit,
             "location": self._run_location,
             "vault": self._run_vault,
-            "ping": self._run_ping
+            "ping": self._run_ping,
+            "routine": self._run_routine,
+            "sleep": self._run_sleep,
         }
 
     async def execute(self, command_line: str, original_msg: HLinkMessage):
         parts = command_line.strip().split(" ", 2)
         cmd_name = parts[0].lstrip("/")
-        
+
         if cmd_name in self.commands:
             # Handle case where user just types /imagine or /outfit without agent name
             # We use the original sender if it's a specific agent, or a default
@@ -39,14 +43,11 @@ class CommandHandler:
         if not prompt:
             await self._send_ack(msg, "❌ Précisez ce que je dois imaginer.")
             return
-        
+
         await self._send_ack(msg, f"🎨 J'imagine... *{prompt}*")
         try:
             await self.visual.generate_and_index(
-                agent_id="system",
-                prompt=prompt,
-                tags=["user_requested", "slash_command"],
-                asset_type="background"
+                agent_id="system", prompt=prompt, tags=["user_requested", "slash_command"], asset_type="background"
             )
         except Exception as e:
             await self._send_ack(msg, f"❌ Désolé, l'imagination a échoué: {e}")
@@ -59,7 +60,7 @@ class CommandHandler:
         # Smart Parsing: Check if first arg is a known agent
         target_agent = args[0]
         description = " ".join(args[1:]) if len(args) > 1 else ""
-        
+
         # If the first word isn't an agent name, maybe they forgot it?
         # Check against character vault (simplified check)
         known_agents = ["lisa", "renarde", "electra", "dieu"]
@@ -70,7 +71,7 @@ class CommandHandler:
             target_agent = "Renarde"
 
         await self._send_ack(msg, f"👗 Je change la tenue de {target_agent} pour : *{description}*...")
-        
+
         # STORY 25.7: Check Vault
         vault_item = await self.visual.vault.get_item(target_agent, description, category="garment")
         if vault_item:
@@ -78,36 +79,34 @@ class CommandHandler:
             asset_uri = vault_item["asset"]["url"]
             # Update state with exact vault name
             if self.surreal:
-                 await self.surreal.update_agent_state(target_agent, "WEARS", {"name": description, "description": description})
-            
+                await self.surreal.update_agent_state(
+                    target_agent, "WEARS", {"name": description, "description": description}
+                )
+
             # Notify Visual Asset (Reuse)
             await self.visual.notify_visual_asset(asset_uri, description, target_agent, "pose")
             return
 
         # 1. Update Graph State (Transient Memory)
         if self.surreal:
-             try:
-                 # Create target data
-                 desc_hash = hashlib.md5(description.encode()).hexdigest()[:8]
-                 target_data = {
-                     "id": f"outfit_{desc_hash}",
-                     "name": f"outfit_{desc_hash}",
-                     "description": description
-                 }
-                 await self.surreal.update_agent_state(target_agent, "WEARS", target_data)
+            try:
+                # Create target data
+                desc_hash = hashlib.md5(description.encode()).hexdigest()[:8]
+                target_data = {"id": f"outfit_{desc_hash}", "name": f"outfit_{desc_hash}", "description": description}
+                await self.surreal.update_agent_state(target_agent, "WEARS", target_data)
 
-                 # 2. Notify Agent (System Message)
-                 notification = HLinkMessage(
-                    type=MessageType.NARRATIVE_TEXT, 
+                # 2. Notify Agent (System Message)
+                notification = HLinkMessage(
+                    type=MessageType.NARRATIVE_TEXT,
                     sender=Sender(agent_id="system", role="orchestrator"),
                     recipient=Recipient(target=target_agent),
-                    payload=Payload(content=f"[SYSTEM] Your state updated: You are now wearing '{description}'.")
-                 )
-                 # Publish to broadcast so the agent (or router) picks it up
-                 await self.redis.publish("broadcast", notification)
-                 logger.info(f"OUTFIT: Updated state for {target_agent} and sent notification.")
-             except Exception as e:
-                 logger.error(f"OUTFIT: Failed to update state: {e}")
+                    payload=Payload(content=f"[SYSTEM] Your state updated: You are now wearing '{description}'."),
+                )
+                # Publish to broadcast so the agent (or router) picks it up
+                await self.redis.publish("broadcast", notification)
+                logger.info(f"OUTFIT: Updated state for {target_agent} and sent notification.")
+            except Exception as e:
+                logger.error(f"OUTFIT: Failed to update state: {e}")
 
         try:
             asset_uri, asset_id = await self.visual.generate_and_index(
@@ -115,13 +114,15 @@ class CommandHandler:
                 prompt=description,
                 tags=["outfit_change", "slash_command"],
                 asset_type="pose",
-                attitude="full_body"
+                attitude="full_body",
             )
-            
+
             # STORY 25.7: Auto-save to Vault
             if asset_id:
                 # We already have the ID from generate_and_index
-                await self.visual.vault.save_item(target_agent, description, asset_uri, description, category="garment", asset_id=asset_id)
+                await self.visual.vault.save_item(
+                    target_agent, description, asset_uri, description, category="garment", asset_id=asset_id
+                )
                 logger.info(f"VAULT_AUTO_SAVE: Successfully saved '{description}' for {target_agent}")
             else:
                 logger.warning(f"VAULT_AUTO_SAVE: No asset_id returned for {asset_uri}")
@@ -136,57 +137,56 @@ class CommandHandler:
 
         target_agent = args[0]
         location_name = " ".join(args[1:]) if len(args) > 1 else ""
-        
+
         known_agents = ["lisa", "renarde", "electra", "dieu"]
         if target_agent.lower() not in known_agents:
             location_name = " ".join(args)
             target_agent = "Renarde"
 
         await self._send_ack(msg, f"📍 {target_agent} se déplace vers : *{location_name}*...")
-        
+
         # STORY 25.7: Check Vault
         vault_item = await self.visual.vault.get_item(target_agent, location_name, category="background")
         if vault_item:
             logger.info(f"VAULT_HIT: Found location '{location_name}' for {target_agent}")
             asset_uri = vault_item["asset"]["url"]
             if self.surreal:
-                await self.surreal.update_agent_state(target_agent, "IS_IN", {"name": location_name, "description": location_name})
-            
+                await self.surreal.update_agent_state(
+                    target_agent, "IS_IN", {"name": location_name, "description": location_name}
+                )
+
             await self.visual.notify_visual_asset(asset_uri, location_name, target_agent, "background")
             return
 
         if self.surreal:
-             try:
-                 target_data = {
-                     "name": location_name,
-                     "description": f"The {location_name}"
-                 }
-                 await self.surreal.update_agent_state(target_agent, "IS_IN", target_data)
+            try:
+                target_data = {"name": location_name, "description": f"The {location_name}"}
+                await self.surreal.update_agent_state(target_agent, "IS_IN", target_data)
 
-                 notification = HLinkMessage(
-                    type=MessageType.NARRATIVE_TEXT, 
+                notification = HLinkMessage(
+                    type=MessageType.NARRATIVE_TEXT,
                     sender=Sender(agent_id="system", role="orchestrator"),
                     recipient=Recipient(target=target_agent),
-                    payload=Payload(content=f"[SYSTEM] Your state updated: You are now in '{location_name}'.")
-                 )
-                 await self.redis.publish("broadcast", notification)
-                 logger.info(f"LOCATION: Updated state for {target_agent} and sent notification.")
-             except Exception as e:
-                 logger.error(f"LOCATION: Failed to update state: {e}")
+                    payload=Payload(content=f"[SYSTEM] Your state updated: You are now in '{location_name}'."),
+                )
+                await self.redis.publish("broadcast", notification)
+                logger.info(f"LOCATION: Updated state for {target_agent} and sent notification.")
+            except Exception as e:
+                logger.error(f"LOCATION: Failed to update state: {e}")
 
         try:
             asset_uri, asset_id = await self.visual.generate_and_index(
                 agent_id=target_agent,
                 prompt=location_name,
                 tags=["location_change", "slash_command"],
-                asset_type="background"
+                asset_type="background",
             )
 
             # STORY 25.7: Auto-save to Vault
             logger.info(f"VAULT_AUTO_SAVE: Looking up location asset for {asset_uri}")
             query = f"SELECT id FROM visual_asset WHERE url = '{asset_uri}' LIMIT 1"
             res = await self.surreal._call("query", query)
-            
+
             asset_id = None
             if isinstance(res, list) and len(res) > 0:
                 first_stmt = res[0]
@@ -196,10 +196,16 @@ class CommandHandler:
                     asset_id = first_record.get("id")
 
             if asset_id:
-                await self.visual.vault.save_item(target_agent, location_name, asset_uri, location_name, category="background", asset_id=asset_id)
-                logger.info(f"VAULT_AUTO_SAVE: Successfully saved location '{location_name}' for {target_agent} -> ID: {asset_id}")
+                await self.visual.vault.save_item(
+                    target_agent, location_name, asset_uri, location_name, category="background", asset_id=asset_id
+                )
+                logger.info(
+                    f"VAULT_AUTO_SAVE: Successfully saved location '{location_name}' for {target_agent} -> ID: {asset_id}"
+                )
             else:
-                logger.warning(f"VAULT_AUTO_SAVE: Could not find location record for URI {asset_uri} in DB. Result type: {type(res)}")
+                logger.warning(
+                    f"VAULT_AUTO_SAVE: Could not find location record for URI {asset_uri} in DB. Result type: {type(res)}"
+                )
 
         except Exception as e:
             await self._send_ack(msg, f"❌ Le déplacement pour {target_agent} a échoué: {e}")
@@ -207,7 +213,7 @@ class CommandHandler:
     async def _run_vault(self, args: list[str], msg: HLinkMessage):
         # 1. Try to get agent from args
         target_agent = args[0] if args else None
-        
+
         # 2. Check if first arg is actually an agent name
         known_agents = ["lisa", "renarde", "electra", "dieu"]
         if target_agent and target_agent.lower() not in known_agents:
@@ -218,26 +224,56 @@ class CommandHandler:
             if msg.recipient.target.lower() in known_agents:
                 target_agent = msg.recipient.target
             else:
-                target_agent = "Lisa" # Ultimate fallback
+                target_agent = "Lisa"  # Ultimate fallback
 
         items = await self.visual.vault.list_items(target_agent)
         if not items:
-            await self._send_ack(msg, f"📦 Le vault de **{target_agent}** est vide.\n💡 Astuce: Demandez à {target_agent} d'enregistrer une tenue, ou utilisez `/vault [Nom]` pour voir un autre agent.")
+            await self._send_ack(
+                msg,
+                f"📦 Le vault de **{target_agent}** est vide.\n💡 Astuce: Demandez à {target_agent} d'enregistrer une tenue, ou utilisez `/vault [Nom]` pour voir un autre agent.",
+            )
             return
 
         lines = [f"📦 **Vault de {target_agent}** :"]
         for item in items:
-            cat_icon = "👗" if item['category'] == "garment" else "📍"
+            cat_icon = "👗" if item["category"] == "garment" else "📍"
             lines.append(f"{cat_icon} {item['category'].capitalize()}: **{item['name']}**")
-        
+
         lines.append(f"\n💡 Pour réutiliser: `/outfit {target_agent} [Nom]` ou `/location {target_agent} [Nom]`")
         await self._send_ack(msg, "\n".join(lines))
+
+    async def _run_routine(self, args: list[str], msg: HLinkMessage):
+        if not args:
+            await self._send_ack(msg, "❌ Usage: /routine [nom_routine]")
+            return
+
+        routine_name = args[0]
+        await self._send_ack(msg, f"⚙️ Exécution de la routine : *{routine_name}*...")
+
+        # Send command to Electra (Expert-Domotique)
+        cmd_msg = HLinkMessage(
+            type=MessageType.EXPERT_COMMAND,
+            sender=Sender(agent_id="system", role="orchestrator"),
+            recipient=Recipient(target="Electra"),
+            payload=Payload(content={"command": "run_routine", "routine_name": routine_name}),
+        )
+        await self.redis.publish("agent:Electra", cmd_msg)
+
+    def set_sleep_callback(self, callback):
+        self._sleep_callback = callback
+
+    async def _run_sleep(self, args: list[str], msg: HLinkMessage):
+        if self._sleep_callback is None:
+            await self._send_ack(msg, "⚠️ Le cycle de sommeil n'est pas disponible.")
+            return
+        await self._send_ack(msg, "🌙 Déclenchement du cycle de sommeil...")
+        await self._sleep_callback()
 
     async def _send_ack(self, original_msg: HLinkMessage, text: str):
         ack = HLinkMessage(
             type=MessageType.NARRATIVE_TEXT,
             sender=Sender(agent_id="system", role="orchestrator"),
             recipient=Recipient(target="broadcast"),
-            payload=Payload(content=text)
+            payload=Payload(content=text),
         )
         await self.redis.publish("broadcast", ack)

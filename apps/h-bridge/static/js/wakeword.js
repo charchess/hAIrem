@@ -280,12 +280,10 @@ class WakeWordDetector {
         const stage = document.getElementById('the-stage');
         if (stage) {
             stage.style.transition = 'all 0.3s ease';
-            stage.style.boxShadow = '0 0 30px rgba(0, 255, 136, 0.6)';
-            stage.style.border = '2px solid rgba(0, 255, 136, 0.8)';
+            stage.style.boxShadow = 'inset 0 0 0 2px rgba(0, 255, 136, 0.8), 0 0 30px rgba(0, 255, 136, 0.6)';
             
             setTimeout(() => {
                 stage.style.boxShadow = '';
-                stage.style.border = '';
             }, 500);
         }
     }

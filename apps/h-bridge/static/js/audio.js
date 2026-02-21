@@ -100,6 +100,17 @@ class AudioCapture {
             this.mediaRecorder.start(); 
             this.isRecording = true;
             
+            // Story 14.1: Barge-in (Stop current speech)
+            if (window.speechQueue) {
+                window.speechQueue.clear();
+            }
+            if (window.audioPlayer) {
+                window.audioPlayer.stopAll();
+            }
+            if (window.renderer) {
+                window.renderer.setState('listening');
+            }
+            
             this.updateRecordingStatus('recording');
             console.log('Audio recording started');
             
@@ -136,6 +147,7 @@ class AudioCapture {
         reader.onloadend = () => {
             const base64Audio = reader.result.split(',')[1]; 
             
+            const currentRoom = localStorage.getItem('hairem_device_room') || 'Salon';
             const message = {
                 type: 'user_audio',
                 sender: { agent_id: 'user', role: 'user' },
@@ -144,7 +156,8 @@ class AudioCapture {
                     content: base64Audio,
                     format: 'webm',
                     sample_rate: this.sampleRate,
-                    duration: Date.now() 
+                    duration: Date.now(),
+                    room_id: currentRoom // Story 19.1
                 }
             };
             

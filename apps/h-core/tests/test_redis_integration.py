@@ -4,6 +4,10 @@ import logging
 from src.infrastructure.redis import RedisClient
 from src.models.hlink import HLinkMessage, MessageType, Sender, Recipient, Payload
 
+import pytest
+pytestmark = pytest.mark.integration
+
+
 # Configuration du logging pour voir ce qui se passe
 logging.basicConfig(level=logging.INFO)
 

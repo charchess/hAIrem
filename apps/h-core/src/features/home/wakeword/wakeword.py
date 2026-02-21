@@ -227,14 +227,10 @@ class WakewordEngine:
 
 
 class WakewordDetector:
-    """
-    High-level wakeword detector that manages the wakeword engine
-    and integrates with the hAIrem event system.
-    """
-
-    def __init__(self, config: Dict[str, Any], event_bus):
+    def __init__(self, config: Dict[str, Any], event_bus, redis_client=None):
         self.config = config
         self.event_bus = event_bus
+        self.redis = redis_client
         self.engine: Optional[WakewordEngine] = None
 
     async def initialize(self) -> bool:
@@ -258,11 +254,32 @@ class WakewordDetector:
         if self.engine:
             await self.engine.stop_listening()
 
+    def process_audio(self, buffer: bytes) -> Optional[str]:
+        if not OPENWAKEWORD_AVAILABLE or not self.engine or not self.engine.model or not buffer:
+            return None
+        audio = np.frombuffer(buffer, dtype=np.int16).astype(np.float32) / 32768.0
+        prediction = self.engine.model.predict(audio)
+        for wakeword, score in prediction.items():
+            if score > self.engine.threshold:
+                return wakeword.replace("hey_", "").replace("_", " ").title()
+        return None
+
     async def _on_wakeword_detected(self, detection_info: Dict[str, Any]) -> None:
-        """Handle wakeword detection event."""
         logger.info(f"Wakeword detected: {detection_info}")
 
-        # Publish wakeword detected event
+        if self.redis:
+            from src.models.hlink import HLinkMessage, MessageType, Sender, Recipient, Payload
+
+            wakeword = detection_info.get("wakeword", "")
+            target = wakeword.replace("hey_", "").replace("_", " ").title() or "broadcast"
+            msg = HLinkMessage(
+                type=MessageType.USER_MESSAGE,
+                sender=Sender(agent_id="wakeword", role="system"),
+                recipient=Recipient(target=target),
+                payload=Payload(content={"wakeword": wakeword, "confidence": detection_info.get("confidence", 0.0)}),
+            )
+            await self.redis.publish_event("conversation_stream", msg.model_dump(mode="json"))
+
         await self.event_bus.publish(
             {"type": "wakeword.detected", "data": detection_info, "timestamp": detection_info["timestamp"]}
         )

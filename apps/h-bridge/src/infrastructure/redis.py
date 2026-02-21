@@ -8,6 +8,7 @@ import redis.asyncio as redis
 
 logger = logging.getLogger(__name__)
 
+
 class RedisClient:
     def __init__(self, host: str = "localhost", port: int = 6379, db: int = 0):
         self.redis_url = f"redis://{host}:{port}/{db}"
@@ -35,43 +36,41 @@ class RedisClient:
         return False
 
     async def publish_event(self, stream: str, data: Dict[str, Any], max_len: int = 1000):
-        """
-        Add an event to a Redis Stream. 
-        Supports both flattened dicts and wrapped messages for compatibility.
-        """
+        """Add an event to a Redis Stream with proper serialization."""
         if not self.client:
-            if not await self.connect(): return
-        
-        try:
-            # Ensure we are passing a dict
-            if not isinstance(data, dict):
-                logger.error(f"publish_event: expected dict data, got {type(data)}")
+            if not await self.connect():
                 return
 
-            # Flatten dict for Redis Stream (only strings/bytes supported as keys/values)
+        try:
+            # Flatten dict for Redis Stream
             payload = {}
             for k, v in data.items():
                 if isinstance(v, (dict, list)):
                     payload[k] = json.dumps(v)
                 else:
                     payload[k] = str(v)
-            
-            # XADD
+
             await self.client.xadd(stream, payload, maxlen=max_len, approximate=True)
-            logger.debug(f"REDIS_STREAM_ADD: {stream}")
+            logger.info(f"STREAM_ADD: {stream} | Type: {data.get('type')}")
         except Exception as e:
             logger.error(f"Failed to add to stream {stream}: {e}")
 
-    async def listen_stream(self, stream: str, group: str, consumer: str, handler: Callable[[Dict[str, Any]], Coroutine[Any, Any, None]]):
+    async def listen_stream(
+        self,
+        stream: str,
+        group: str,
+        consumer: str,
+        handler: Callable[[Dict[str, Any]], Coroutine[Any, Any, None]],
+        start_id: str = "$",
+    ):
         """Consume messages from a Stream using a Consumer Group."""
         if not self.client:
-            if not await self.connect(): return
+            if not await self.connect():
+                return
 
         # Create group if not exists
-        # FIX: Use id="$" to start from end of stream (only new messages)
-        # This prevents replay of old messages on new connections
         try:
-            await self.client.xgroup_create(stream, group, id="$", mkstream=True)
+            await self.client.xgroup_create(stream, group, id=start_id, mkstream=True)
         except redis.ResponseError as e:
             if "already exists" not in str(e):
                 logger.error(f"Failed to create group {group}: {e}")
@@ -80,7 +79,7 @@ class RedisClient:
         while not self._stop_event.is_set():
             try:
                 messages = await self.client.xreadgroup(group, consumer, {stream: ">"}, count=1, block=1000)
-                
+
                 if messages:
                     for s_name, msgs in messages:
                         for m_id, m_data in msgs:
@@ -88,28 +87,29 @@ class RedisClient:
                                 # De-serialize values
                                 decoded_data = {}
                                 for k, v in m_data.items():
-                                    if isinstance(v, str) and (v.startswith('{') or v.startswith('[')):
+                                    if isinstance(v, str) and (v.startswith("{") or v.startswith("[")):
                                         try:
                                             decoded_data[k] = json.loads(v)
                                         except:
                                             decoded_data[k] = v
                                     else:
                                         decoded_data[k] = v
-                                
+
                                 # Compatibility Check: If it's a wrapped message {"type": ..., "data": "..."}
                                 if "data" in decoded_data and "type" in decoded_data and len(decoded_data) == 2:
                                     if isinstance(decoded_data["data"], dict):
                                         decoded_data = decoded_data["data"]
-                                
-                                # Process
+
+                                # FIX: ALWAYS pass the DICT to the handler
+                                # (Do not wrap in HLinkMessage here, let the handler decide)
                                 await handler(decoded_data)
-                                
+
                                 # ACK
                                 await self.client.xack(stream, group, m_id)
-                                
+
                             except Exception as e:
                                 logger.error(f"STREAM_PROC_FAIL on {stream}:{m_id}: {e}")
-                
+
             except redis.ConnectionError:
                 logger.error("Redis connection lost in stream listener. Re-connecting...")
                 await self.connect()
@@ -126,16 +126,17 @@ class RedisClient:
 
     async def publish(self, channel: str, message: Any):
         """Legacy Pub/Sub support."""
-        if not self.client: await self.connect()
+        if not self.client:
+            await self.connect()
         try:
             # Handle both HLinkMessage objects and dicts
-            if hasattr(message, 'model_dump_json'):
+            if hasattr(message, "model_dump_json"):
                 data = message.model_dump_json()
             elif isinstance(message, dict):
                 data = json.dumps(message)
             else:
                 data = str(message)
-                
+
             await self.client.publish(channel, data)
         except Exception as e:
             logger.error(f"Legacy publish failed: {e}")
@@ -144,7 +145,8 @@ class RedisClient:
         """Legacy Pub/Sub support."""
         while not self._stop_event.is_set():
             try:
-                if not self.client: await self.connect()
+                if not self.client:
+                    await self.connect()
                 async with self.client.pubsub() as pubsub:
                     await pubsub.subscribe(channel)
                     while not self._stop_event.is_set():
@@ -152,8 +154,9 @@ class RedisClient:
                         if msg and msg["type"] == "message":
                             try:
                                 data = json.loads(msg["data"])
+                                # FIX: ALWAYS pass the DICT to the handler
                                 await handler(data)
                             except Exception as e:
-                                logger.error(f"Legacy sub fail: {e}")
+                                logger.error(f"Legacy sub message parsing fail: {e}")
             except Exception:
                 await asyncio.sleep(1)

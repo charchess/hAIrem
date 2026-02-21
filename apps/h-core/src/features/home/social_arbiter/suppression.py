@@ -56,15 +56,15 @@ class SuppressionLogger:
 
     def log_suppression(self, response: SuppressedResponse) -> None:
         self._suppression_history.append(response)
-        
+
         self._suppression_count_by_agent[response.agent_id] = (
             self._suppression_count_by_agent.get(response.agent_id, 0) + 1
         )
-        
+
         self._suppression_count_by_reason[response.reason] = (
             self._suppression_count_by_reason.get(response.reason, 0) + 1
         )
-        
+
         logger.warning(
             f"Response suppressed: agent={response.agent_id}, "
             f"score={response.score:.3f}, reason={response.reason.value}, "
@@ -77,8 +77,7 @@ class SuppressionLogger:
             "by_agent": dict(self._suppression_count_by_agent),
             "by_reason": {k.value: v for k, v in self._suppression_count_by_reason.items()},
             "recent_suppressions": len(
-                [s for s in self._suppression_history 
-                 if (datetime.now() - s.timestamp).total_seconds() < 3600]
+                [s for s in self._suppression_history if (datetime.now() - s.timestamp).total_seconds() < 3600]
             ),
         }
 
@@ -107,6 +106,18 @@ class ResponseSuppressor:
         self.config = config or SuppressionConfig()
         self.suppression_logger = SuppressionLogger()
         self._delayed_queue: list[SuppressedResponse] = []
+        self._last_spoke_times: dict[str, float] = {}
+
+    def record_speech(self, agent_id: str) -> None:
+        """Records the time an agent spoke."""
+        self._last_spoke_times[agent_id] = time.time()
+
+    def get_time_since_last_spoke(self, agent_id: str) -> float:
+        """Returns seconds since agent last spoke."""
+        last_time = self._last_spoke_times.get(agent_id, 0)
+        if last_time == 0:
+            return 999999.0
+        return time.time() - last_time
 
     def should_suppress(self, agent_id: str, score: float) -> bool:
         if not self.config.enable_suppression:
@@ -123,7 +134,7 @@ class ResponseSuppressor:
     ) -> SuppressedResponse | None:
         if not self.should_suppress(agent_id, score):
             return None
-        
+
         suppressed = SuppressedResponse(
             agent_id=agent_id,
             message_content=message_content,
@@ -131,25 +142,25 @@ class ResponseSuppressor:
             reason=reason,
             metadata=metadata or {},
         )
-        
+
         self.suppression_logger.log_suppression(suppressed)
-        
+
         if self.config.enable_reevaluation:
             self._delayed_queue.append(suppressed)
-        
+
         return suppressed
 
     def get_pending_reevaluations(self) -> list[SuppressedResponse]:
         pending = []
         remaining = []
-        
+
         for suppressed in self._delayed_queue:
             if suppressed.should_reevaluate(self.config):
                 suppressed.reevaluation_count += 1
                 pending.append(suppressed)
             else:
                 remaining.append(suppressed)
-        
+
         self._delayed_queue = remaining
         return pending
 
@@ -172,22 +183,22 @@ class ResponseSuppressor:
         current_context: dict[str, Any],
     ) -> float:
         previous_context = suppressed.metadata.get("context", {})
-        
+
         if not previous_context:
             return 0.0
-        
+
         change_score = 0.0
-        
+
         if "emotional_context" in current_context:
             current_emotion = current_context.get("emotional_context", {}).get("primary_emotion")
             prev_emotion = previous_context.get("emotional_context", {}).get("primary_emotion")
             if current_emotion and prev_emotion and current_emotion != prev_emotion:
                 change_score += self.config.context_change_weight
-        
+
         if "mentioned_agents" in current_context:
             current_mentioned = set(current_context.get("mentioned_agents", []))
             prev_mentioned = set(previous_context.get("mentioned_agents", []))
             if current_mentioned != prev_mentioned:
                 change_score += self.config.context_change_weight
-        
+
         return min(change_score, 1.0)

@@ -32,6 +32,7 @@ RUN pip install --no-cache-dir \
     torch \
     torchaudio \
     PyJWT \
+    python-dotenv \
     --extra-index-url https://download.pytorch.org/whl/cpu
 
 # Copy the application and shared infrastructure
