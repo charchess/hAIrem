@@ -163,11 +163,18 @@ class HaremOrchestrator:
                     }
 
                 # 3. Broadcast Bundle
+                from src.services.metrics import get_metrics
+
                 heartbeat = {
                     "type": "system.heartbeat",
                     "sender": {"agent_id": "core", "role": "system"},
                     "payload": {
-                        "content": {"health": health, "agents": agents_stats, "world": {"theme": current_theme}}
+                        "content": {
+                            "health": health,
+                            "agents": agents_stats,
+                            "world": {"theme": current_theme},
+                            "metrics": get_metrics().to_dict(),
+                        }
                     },
                 }
                 await self.redis.publish_event("system_stream", heartbeat)
@@ -260,8 +267,12 @@ class HaremOrchestrator:
                 dynamic_threshold = 0.75 + (5 - self.discussion_budget) * 0.05
 
                 elapsed_turns = self.MAX_DISCUSSION_BUDGET - self.discussion_budget
+                _wctx = {"theme": self.world_state.get_theme()} if hasattr(self, "world_state") else None
                 responders = await self.social_arbiter.determine_responder_async(
-                    content, min_threshold_override=dynamic_threshold, discussion_turn=elapsed_turns
+                    content,
+                    min_threshold_override=dynamic_threshold,
+                    discussion_turn=elapsed_turns,
+                    world_context=_wctx,
                 )
                 if responders:
                     for p in responders:
@@ -278,7 +289,8 @@ class HaremOrchestrator:
 
             if target == "broadcast" or target == "all":
                 logger.error("👥 Calling SocialArbiter...")
-                responders = await self.social_arbiter.determine_responder_async(content)
+                _wctx = {"theme": self.world_state.get_theme()} if hasattr(self, "world_state") else None
+                responders = await self.social_arbiter.determine_responder_async(content, world_context=_wctx)
                 logger.error(f"👥 ARBITER: Found {len(responders) if responders else 0} responders")
                 if responders:
                     for p in responders:
@@ -383,6 +395,8 @@ class HaremOrchestrator:
                     domains=agent.config.capabilities,
                     is_active=agent.is_active,
                     personified=agent.personified,
+                    preferred_location=getattr(agent.config, "preferred_location", None),
+                    themes=list(getattr(agent.config, "theme_responses", {}).keys()),
                 )
                 self.social_arbiter.register_agent(p)
                 # Pass social arbiter to agent for stats tracking

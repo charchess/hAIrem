@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Optional, Callable, Awaitable
 from datetime import datetime, UTC
@@ -27,6 +28,8 @@ class WorldThemeService:
         )
         self._theme_callbacks: list[ThemeUpdateCallback] = []
         self._custom_themes: dict[str, Theme] = {}
+        self._transition_task: Optional[asyncio.Task] = None
+        self._pending_theme: Optional[str] = None
 
     async def initialize(self):
         logger.info("WorldThemeService: Initializing with neutral theme")
@@ -61,13 +64,52 @@ class WorldThemeService:
         await self._notify_all_agents()
         return True
 
+    async def transition_to(self, theme_name: str, duration_seconds: float = 30.0) -> bool:
+        if not self.get_theme_by_name(theme_name):
+            logger.warning(f"WorldThemeService: Cannot transition — theme '{theme_name}' not found")
+            return False
+
+        if self._transition_task and not self._transition_task.done():
+            self._transition_task.cancel()
+
+        self._pending_theme = theme_name
+        logger.info(f"WorldThemeService: Transition to '{theme_name}' starting — applying in {duration_seconds}s")
+        await self._notify_transition_start(theme_name, duration_seconds)
+        self._transition_task = asyncio.create_task(self._run_transition(theme_name, duration_seconds))
+        return True
+
+    async def _run_transition(self, theme_name: str, delay: float) -> None:
+        try:
+            await asyncio.sleep(delay)
+            await self.set_theme(theme_name)
+            self._pending_theme = None
+        except asyncio.CancelledError:
+            logger.info(f"WorldThemeService: Transition to '{theme_name}' cancelled")
+            self._pending_theme = None
+
+    async def _notify_transition_start(self, theme_name: str, duration_seconds: float) -> None:
+        for callback_obj in self._theme_callbacks:
+            try:
+                if hasattr(callback_obj.callback, "__self__") and hasattr(
+                    callback_obj.callback.__self__, "handle_theme_transition"
+                ):
+                    await callback_obj.callback.__self__.handle_theme_transition(theme_name, duration_seconds)
+            except Exception as e:
+                logger.debug(f"WorldThemeService: Transition notify error for '{callback_obj.agent_id}': {e}")
+
+    @property
+    def is_transitioning(self) -> bool:
+        return self._transition_task is not None and not self._transition_task.done()
+
+    @property
+    def pending_theme(self) -> Optional[str]:
+        return self._pending_theme
+
     async def clear_theme(self):
         logger.info("WorldThemeService: Clearing theme, reverting to neutral")
         await self.set_theme("neutral")
 
-    def register_theme_callback(
-        self, agent_id: str, callback: Callable[[str, Theme], Awaitable[None]]
-    ):
+    def register_theme_callback(self, agent_id: str, callback: Callable[[str, Theme], Awaitable[None]]):
         callback_obj = ThemeUpdateCallback(callback)
         callback_obj.agent_id = agent_id
         self._theme_callbacks.append(callback_obj)
@@ -77,24 +119,16 @@ class WorldThemeService:
             self._theme_state.active_agents.append(agent_id)
 
     def unregister_theme_callback(self, agent_id: str):
-        self._theme_callbacks = [
-            cb for cb in self._theme_callbacks if cb.agent_id != agent_id
-        ]
-        self._theme_state.active_agents = [
-            a for a in self._theme_state.active_agents if a != agent_id
-        ]
+        self._theme_callbacks = [cb for cb in self._theme_callbacks if cb.agent_id != agent_id]
+        self._theme_state.active_agents = [a for a in self._theme_state.active_agents if a != agent_id]
         logger.info(f"WorldThemeService: Unregistered theme callback for agent '{agent_id}'")
 
     async def _notify_all_agents(self):
         for callback_obj in self._theme_callbacks:
             try:
-                await callback_obj.callback(
-                    self._theme_state.current_theme, self._current_theme
-                )
+                await callback_obj.callback(self._theme_state.current_theme, self._current_theme)
             except Exception as e:
-                logger.error(
-                    f"WorldThemeService: Error notifying agent '{callback_obj.agent_id}': {e}"
-                )
+                logger.error(f"WorldThemeService: Error notifying agent '{callback_obj.agent_id}': {e}")
 
     def get_theme_prompt_context(self) -> str:
         theme = self._current_theme
@@ -104,12 +138,8 @@ class WorldThemeService:
         ]
 
         if theme.decorations:
-            decoration_list = [
-                f"{d.item} in {d.location}" for d in theme.decorations
-            ]
-            context_parts.append(
-                f"[Decorations] {', '.join(decoration_list)}"
-            )
+            decoration_list = [f"{d.item} in {d.location}" for d in theme.decorations]
+            context_parts.append(f"[Decorations] {', '.join(decoration_list)}")
 
         return " ".join(context_parts)
 

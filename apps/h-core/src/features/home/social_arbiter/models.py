@@ -39,3 +39,5 @@ class AgentProfile(BaseModel):
     priority_weight: float = 1.0
     last_response_time: Optional[float] = None
     response_count: int = 0
+    preferred_location: str | None = None
+    themes: list[str] = Field(default_factory=list)

@@ -44,4 +44,9 @@ Pour éviter les boucles infinies et la consommation excessive de tokens :
 - Chaque interaction utilisateur ouvre une "Session Narrative" limitée à **5 échanges inter-agents**.
 - Un agent "Animateur" (ex: Lisa) force la synthèse finale une fois le budget épuisé.
 
+## 6.6 ProactivityEngine (Implémenté)
+`apps/h-core/src/services/proactivity/engine.py`
+
+Registre de déclencheurs proactifs liés à des stimuli Home Assistant ou temporels. Chaque stimulus est associé à une liste d'agents cibles. Lorsqu'un événement correspond, l'Engine publie un whisper ciblé pour chaque agent inscrit.
+
 ---

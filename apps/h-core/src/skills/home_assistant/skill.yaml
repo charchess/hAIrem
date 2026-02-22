@@ -1,0 +1,14 @@
+name: home_assistant
+version: "1.0.0"
+description: Control Home Assistant entities (lights, switches, sensors, climate)
+author: hAIrem
+requires: []
+tools:
+  - name: turn_on
+    description: Turn on a Home Assistant entity (light, switch, etc.)
+  - name: turn_off
+    description: Turn off a Home Assistant entity
+  - name: get_state
+    description: Get the current state of a Home Assistant entity
+  - name: set_temperature
+    description: Set the target temperature of a climate entity

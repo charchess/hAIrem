@@ -353,6 +353,14 @@ class BaseAgent:
         except Exception as e:
             logger.warning(f"Failed to publish system status (mock?): {e}")
 
+    async def teardown(self) -> None:
+        """Optional hook for subclasses to release resources on agent unload.
+
+        Called automatically by stop() after all tasks are cancelled.
+        Override in subclasses to close sockets, file handles, or external
+        connections acquired during setup().
+        """
+
     async def stop(self):
         """Stops the agent and cancels background tasks."""
         logger.info(f"AGENT {self.config.name}: Stopping...")
@@ -367,6 +375,7 @@ class BaseAgent:
         except Exception:
             pass
 
+        await self.teardown()
         logger.info(f"AGENT {self.config.name}: Stopped.")
 
     async def on_message(self, message: Any):

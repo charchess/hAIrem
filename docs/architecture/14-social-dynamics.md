@@ -46,5 +46,22 @@ Le H-Core maintient une liste des agents "présents" dans la session actuelle.
 - Cette liste est injectée dans le prompt système de chaque agent.
 - Permet aux agents de répondre collectivement (ex: "On arrive !" ou "Les filles, on y va").
 
+## 6. Composants Implémentés
+
+### 6.1 RelationshipBootstrapper
+`apps/h-core/src/services/relationship_bootstrapper.py`
+
+Initialise les arêtes de graphe inter-agents (`KNOWS`, `LIKES`, `TRUSTS`) au démarrage. Vérifie l'existence des arêtes avant création pour l'idempotence.
+
+### 6.2 Onboarding — "The Interview"
+`apps/h-core/src/features/home/onboarding/service.py`
+
+Flux guidé pour les nouveaux utilisateurs (4 questions séquentielles). Les réponses sont stockées comme `fact` dans SurrealDB. Broadcast de `system.onboarding_complete` en fin de session.
+
+Routes : `POST /api/onboarding/start`, `POST /api/onboarding/answer`, `GET /api/onboarding/status/{user_id}`
+
+### 6.3 Contextual Bias Arbiter (Implémenté)
+`determine_responder_async(world_context={"theme": ..., "location": ...})` — bonus +0.1 pour `preferred_location`, +0.05 pour correspondance de thème.
+
 ---
 🏗️ Winston - Architecte hAIrem

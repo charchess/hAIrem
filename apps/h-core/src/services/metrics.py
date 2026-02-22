@@ -26,6 +26,13 @@ class MetricsCollector:
             return 0.0
         return sum(values) / len(values)
 
+    def to_dict(self) -> dict:
+        counters = dict(self._counters)
+        histograms = {
+            name: {"avg": sum(vals) / len(vals), "count": len(vals)} for name, vals in self._histograms.items() if vals
+        }
+        return {"counters": counters, "histograms": histograms}
+
     def to_prometheus_text(self) -> str:
         lines: List[str] = []
         for name, value in self._counters.items():

@@ -6,6 +6,7 @@ Epic 5: Voice Capabilities - Dedicated Base Voice, Voice Modulation, Prosody
 """
 
 import asyncio
+import hashlib
 import logging
 import time
 import os
@@ -15,6 +16,29 @@ import threading
 import queue
 import httpx
 from typing import Dict, Any, Optional, Generator
+
+_TTS_CACHE_DIR = os.getenv("TTS_CACHE_DIR", "/tmp/tts_cache")
+os.makedirs(_TTS_CACHE_DIR, exist_ok=True)
+
+
+def _tts_cache_key(text: str, engine: str, voice_id: str, pitch: float, rate: float) -> str:
+    payload = f"{engine}|{voice_id}|{pitch:.2f}|{rate:.2f}|{text}"
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _cache_hit(key: str, ext: str) -> bytes | None:
+    path = os.path.join(_TTS_CACHE_DIR, f"{key}.{ext}")
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            return f.read()
+    return None
+
+
+def _cache_store(key: str, ext: str, data: bytes) -> None:
+    path = os.path.join(_TTS_CACHE_DIR, f"{key}.{ext}")
+    with open(path, "wb") as f:
+        f.write(data)
+
 
 try:
     from melo.api import TTS as MeloTTS
@@ -156,38 +180,56 @@ class TTSService:
             # 1. ElevenLabs (High-Fi)
             if self.engine_type == "elevenlabs":
                 voice_id = params.get("voice_id", "21m00Tcm4TlvDq8ikWAM")
-                url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-                headers = {"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"}
-                data = {
-                    "text": text,
-                    "model_id": "eleven_multilingual_v2",
-                    "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
-                }
+                cache_key = _tts_cache_key(text, "elevenlabs", voice_id, pitch, rate)
+                cached = _cache_hit(cache_key, "mp3")
+                if cached:
+                    logger.debug(f"TTS cache hit (elevenlabs): {cache_key[:8]}")
+                    audio_bytes = cached
+                else:
+                    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+                    headers = {"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"}
+                    data = {
+                        "text": text,
+                        "model_id": "eleven_multilingual_v2",
+                        "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
+                    }
+                    resp = httpx.post(url, json=data, headers=headers, timeout=30.0)
+                    if resp.status_code != 200:
+                        logger.error(f"ElevenLabs failed: {resp.text}")
+                        audio_bytes = b""
+                    else:
+                        audio_bytes = resp.content
+                        _cache_store(cache_key, "mp3", audio_bytes)
 
-                resp = httpx.post(url, json=data, headers=headers, timeout=30.0)
-                if resp.status_code == 200:
-                    b64_audio = base64.b64encode(resp.content).decode("utf-8")
+                if audio_bytes:
+                    b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
                     self._send_event(
                         MessageType.TTS_AUDIO_CHUNK,
                         request_id,
                         {"audio_chunk": b64_audio, "index": 0, "is_last": True, "format": "mp3"},
                     )
-                else:
-                    logger.error(f"ElevenLabs failed: {resp.text}")
 
             # 2. Pyttsx3 (Local Fallback)
             elif self.engine_type == "pyttsx3" and local_engine:
-                local_engine.setProperty("rate", int(150 * rate))
-                local_engine.setProperty("volume", min(1.0, volume))
-
-                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
-                    temp_filename = tf.name
-
-                local_engine.save_to_file(text, temp_filename)
-                local_engine.runAndWait()
-
-                with open(temp_filename, "rb") as f:
-                    audio_data = f.read()
+                cache_key = _tts_cache_key(text, "pyttsx3", "", pitch, rate)
+                cached = _cache_hit(cache_key, "wav")
+                if cached:
+                    logger.debug(f"TTS cache hit (pyttsx3): {cache_key[:8]}")
+                    audio_data = cached
+                else:
+                    local_engine.setProperty("rate", int(150 * rate))
+                    local_engine.setProperty("volume", min(1.0, volume))
+                    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+                        temp_filename = tf.name
+                    local_engine.save_to_file(text, temp_filename)
+                    local_engine.runAndWait()
+                    with open(temp_filename, "rb") as f:
+                        audio_data = f.read()
+                    _cache_store(cache_key, "wav", audio_data)
+                    try:
+                        os.remove(temp_filename)
+                    except Exception:
+                        pass
 
                 b64_audio = base64.b64encode(audio_data).decode("utf-8")
                 self._send_event(
@@ -195,10 +237,6 @@ class TTSService:
                     request_id,
                     {"audio_chunk": b64_audio, "index": 0, "is_last": True, "format": "wav"},
                 )
-                try:
-                    os.remove(temp_filename)
-                except:
-                    pass
 
             self._send_event(MessageType.TTS_END, request_id, {"status": "completed"})
 

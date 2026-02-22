@@ -1,0 +1,12 @@
+name: music
+version: "1.0.0"
+description: Control music playback via Home Assistant media players
+author: hAIrem
+requires: [home_assistant]
+tools:
+  - name: play_music
+    description: Start music playback on a media player entity
+  - name: pause_music
+    description: Pause playback on a media player entity
+  - name: set_volume
+    description: Set the volume level (0.0–1.0) on a media player entity

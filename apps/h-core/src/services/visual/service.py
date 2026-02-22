@@ -15,6 +15,7 @@ from src.services.visual.manager import AssetManager
 from src.services.visual.provider import VisualProvider
 from src.services.visual.bible import build_prompt, bible
 from src.services.visual.vault import VaultService
+from src.services.visual.inference_lock import InferenceLock
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +132,8 @@ class VisualImaginationService:
         except Exception as e:
             logger.warning(f"OBSERVABILITY: Failed to broadcast RAW_PROMPT: {e}")
 
-        return await self.provider.generate(full_prompt, **kwargs)
+        async with InferenceLock(self.redis):
+            return await self.provider.generate(full_prompt, **kwargs)
 
     async def generate_and_index(
         self, agent_id: str, prompt: str, tags: list[str] = None, **kwargs: Any

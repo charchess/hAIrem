@@ -269,3 +269,13 @@ pytest --cov=src --cov-report=term-missing --cov-fail-under=80
 
 Cible : **≥ 80%** sur `apps/h-core/src/`.  
 Les modules d'infrastructure (redis, surrealdb, llm) sont exemptés si couverts par les tests d'intégration.
+
+## 8. QualityGates (Implémenté)
+`apps/h-core/src/features/home/quality_gates/`
+
+Service de validation des outputs agents avant diffusion sur le `system_stream`. Vérifie :
+- Longueur de réponse (évite les réponses vides ou trop courtes)
+- Format JSON valide si attendu
+- Absence de patterns interdits (boucles, auto-références)
+
+Les QualityGates sont optionnels et configurables per-agent via `persona.yaml`.

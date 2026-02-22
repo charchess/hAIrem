@@ -179,6 +179,87 @@ app.mount("/static", StaticFiles(directory=public_path), name="static")
 app.mount("/agents", StaticFiles(directory=agents_path), name="agents")
 
 
+@app.post("/api/voice/enroll")
+async def voice_enroll(payload: dict):
+    import base64
+    from features.home.voice_recognition.service import VoiceRecognitionService
+    from features.home.voice_recognition.models import VoiceEnrollmentRequest
+
+    try:
+        audio_bytes = base64.b64decode(payload["audio_data"])
+        svc = VoiceRecognitionService(redis_client=redis_client, surreal_client=surreal_client)
+        req = VoiceEnrollmentRequest(user_id=payload["user_id"], name=payload["name"], audio_data=audio_bytes)
+        profile = await svc.enroll_voice(req)
+        return {"status": "enrolled", "user_id": profile.user_id, "name": profile.name}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/voice/identify")
+async def voice_identify(payload: dict):
+    import base64
+    from features.home.voice_recognition.service import VoiceRecognitionService
+    from features.home.voice_recognition.models import VoiceIdentificationRequest
+
+    try:
+        audio_bytes = base64.b64decode(payload["audio_data"])
+        svc = VoiceRecognitionService(redis_client=redis_client, surreal_client=surreal_client)
+        req = VoiceIdentificationRequest(session_id=payload["session_id"], audio_data=audio_bytes)
+        result = await svc.identify_voice(req)
+        return result.model_dump(exclude={"embedding", "matched_profile"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/onboarding/start")
+async def onboarding_start(payload: dict):
+    from features.home.onboarding.service import OnboardingService
+
+    svc = OnboardingService(redis_client=redis_client, surreal_client=surreal_client)
+    return await svc.start_interview(payload["user_id"], payload.get("user_name"))
+
+
+@app.post("/api/onboarding/answer")
+async def onboarding_answer(payload: dict):
+    from features.home.onboarding.service import OnboardingService
+
+    svc = OnboardingService(redis_client=redis_client, surreal_client=surreal_client)
+    return await svc.submit_answer(payload["user_id"], payload["answer"])
+
+
+@app.get("/api/onboarding/status/{user_id}")
+async def onboarding_status(user_id: str):
+    from features.home.onboarding.service import OnboardingService
+
+    svc = OnboardingService(redis_client=redis_client, surreal_client=surreal_client)
+    onboarded = await svc.is_onboarded(user_id)
+    return {"user_id": user_id, "onboarded": onboarded}
+
+
+@app.get("/api/voice/profiles")
+async def voice_profiles():
+    from features.home.voice_recognition.repository import VoiceProfileRepository
+
+    try:
+        repo = VoiceProfileRepository(surreal_client)
+        profiles = await repo.get_all_profiles()
+        return {"profiles": [{"user_id": p.get("user_id"), "name": p.get("name")} for p in profiles]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/metrics")
+async def get_metrics():
+    if not last_heartbeat:
+        return {"counters": {}, "histograms": {}}
+    content = last_heartbeat.get("payload", {}).get("content", {})
+    if isinstance(content, str):
+        import json as _json
+
+        content = _json.loads(content)
+    return content.get("metrics", {"counters": {}, "histograms": {}})
+
+
 @app.get("/api/status")
 async def get_status():
     return {"status": "ok", "heartbeat": last_heartbeat, "agents": len(discovered_agents)}

@@ -193,3 +193,20 @@ Composant chapeau qui orchestre la séquence STT → VoiceRecognition → public
 | ElevenLabs API | Provider TTS secondaire | Pas de TTS |
 
 Toutes les dépendances optionnelles sont importées en `try/except ImportError` pour ne pas bloquer le démarrage du Core.
+
+## 8. Composants Supplémentaires Implémentés
+
+### 8.1 VoiceModulator (h-core)
+`apps/h-core/src/services/voice/modulator.py`
+
+Module côté Core qui transforme l'état émotionnel d'un agent en paramètres vocaux (pitch, rate, volume). Les paramètres sont transmis au Bridge via le payload du message TTS.
+
+### 8.2 ProsodyService (h-bridge)
+`apps/h-bridge/src/services/prosody.py`
+
+Applique des règles de prosodie contextuelles (intonation, rythme) en fonction du style narratif détecté dans le texte (exclamation, question, liste). Fonctionne en post-traitement des paramètres vocaux de base.
+
+### 8.3 TTS Caching Disque
+`apps/h-bridge/src/handlers/tts.py`
+
+Les fichiers audio générés sont mis en cache sur disque (`/tmp/tts_cache/`) avec une clé SHA-256 calculée à partir du texte + engine + voice_id + pitch + rate. Évite les appels API redondants pour les phrases répétées (réponses formulaires, annonces système).

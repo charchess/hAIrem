@@ -115,6 +115,7 @@ class SocialArbiter:
         allow_suppression: bool = True,
         min_threshold_override: float | None = None,
         discussion_turn: int = 0,
+        world_context: dict[str, Any] | None = None,
     ) -> list[AgentProfile] | None:
         """Determines which agents should respond using LLM scoring (ADR-10)."""
         mentioned_agents = mentioned_agents or []
@@ -171,7 +172,19 @@ class SocialArbiter:
         for agent in active_agents:
             relevance = llm_scores.get(agent.agent_id, 0.5)
             time_since = self.suppressor.get_time_since_last_spoke(agent.agent_id)
-            final_score = self.scoring_engine.apply_repetition_penalty(relevance, time_since) * decay
+            base_score = self.scoring_engine.apply_repetition_penalty(relevance, time_since) * decay
+
+            location_bonus = 0.0
+            theme_bonus = 0.0
+            if world_context:
+                current_location = world_context.get("location")
+                current_theme = world_context.get("theme", "")
+                if current_location and agent.preferred_location == current_location:
+                    location_bonus = 0.1
+                if current_theme and current_theme.lower() in [t.lower() for t in agent.themes]:
+                    theme_bonus = 0.05
+
+            final_score = min(1.0, base_score + location_bonus + theme_bonus)
             scored_agents.append((agent, final_score))
 
         scored_agents.sort(key=lambda x: -x[1])

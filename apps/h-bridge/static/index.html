@@ -93,6 +93,9 @@
                 <button class="admin-tab active" data-tab="system">⚙️ System</button>
                 <button class="admin-tab" data-tab="llm">🤖 LLM</button>
                 <button class="admin-tab" data-tab="agents">👥 Agents</button>
+                <button class="admin-tab" data-tab="metrics">📊 Metrics</button>
+                <button class="admin-tab" data-tab="voice">🎤 Voice</button>
+                <button class="admin-tab" data-tab="onboarding">🚀 Onboarding</button>
             </div>
             <div class="panel-content">
                 <div class="admin-tab-content active" id="tab-system">
@@ -148,6 +151,41 @@
                         </div>
                     </div>
                 </div>
+                <div class="admin-tab-content" id="tab-metrics">
+                    <div class="config-section">
+                        <h3>📊 Métriques Système</h3>
+                        <button id="btn-refresh-metrics" class="btn-primary">🔄 Actualiser</button>
+                        <div id="metrics-display" style="margin-top:12px;max-height:300px;overflow-y:auto"></div>
+                    </div>
+                </div>
+                <div class="admin-tab-content" id="tab-voice">
+                    <div class="config-section">
+                        <h3>🎤 Enrôlement Vocal</h3>
+                        <label for="voice-user-id">User ID :</label>
+                        <input type="text" id="voice-user-id" placeholder="ex: alice">
+                        <label for="voice-user-name">Nom affiché :</label>
+                        <input type="text" id="voice-user-name" placeholder="ex: Alice">
+                        <button id="btn-voice-enroll" class="btn-primary">🎙️ Enregistrer (3s)</button>
+                        <div id="voice-enroll-status" style="margin-top:8px;color:#00ffcc"></div>
+                        <hr style="border-color:#333;margin:16px 0">
+                        <button id="btn-voice-list" class="btn-primary">📋 Profils existants</button>
+                        <div id="voice-profiles-list" style="margin-top:8px;font-size:12px"></div>
+                    </div>
+                </div>
+                <div class="admin-tab-content" id="tab-onboarding">
+                    <div class="config-section">
+                        <h3>🚀 Onboarding Utilisateur</h3>
+                        <label for="onboarding-user-id">User ID :</label>
+                        <input type="text" id="onboarding-user-id" placeholder="ex: alice">
+                        <label for="onboarding-user-name">Nom (optionnel) :</label>
+                        <input type="text" id="onboarding-user-name" placeholder="ex: Alice">
+                        <div style="display:flex;gap:8px;margin-top:8px">
+                            <button id="btn-onboarding-check" class="btn-primary">🔍 Vérifier statut</button>
+                            <button id="btn-onboarding-start" class="btn-primary">▶️ Démarrer interview</button>
+                        </div>
+                        <div id="onboarding-status" style="margin-top:12px;color:#00ffcc"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -168,6 +206,7 @@
     </div>
 
     <!-- Scripts -->
+    <script src="/static/js/admin.js?v=1.0"></script>
     <script src="/static/js/network.js?v=8.3"></script>
     <script src="/static/js/audio.js?v=8.3"></script>
     <script src="/static/js/wakeword.js?v=8.3"></script>

@@ -1,0 +1,10 @@
+name: calendar
+version: "1.0.0"
+description: Query and create calendar events via Home Assistant calendar integration
+author: hAIrem
+requires: [home_assistant]
+tools:
+  - name: get_events
+    description: Get upcoming calendar events for a given calendar entity
+  - name: create_event
+    description: Create a new calendar event

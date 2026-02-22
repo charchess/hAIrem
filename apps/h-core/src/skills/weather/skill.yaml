@@ -1,0 +1,10 @@
+name: weather
+version: "1.0.0"
+description: Fetch current weather and forecasts via Home Assistant weather entities
+author: hAIrem
+requires: [home_assistant]
+tools:
+  - name: get_current_weather
+    description: Get current weather conditions (temperature, humidity, condition)
+  - name: get_forecast
+    description: Get weather forecast for the next N days

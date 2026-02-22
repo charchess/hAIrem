@@ -147,3 +147,20 @@ Les thèmes sont des chaînes libres. Exemples utilisés dans les tests et la do
 | `winter_night` | Nuit d'hiver |
 
 La liste n'est pas exhaustive — tout thème peut être défini librement via la commande vocale ou l'API.
+
+## 5. Composants Supplémentaires Implémentés
+
+### 5.1 WeatherService
+`apps/h-core/src/services/spatial/weather.py`
+
+Interroge Home Assistant pour récupérer les données météo en temps réel. Fournit un contexte textuel (`get_weather_context()`) utilisé par le Dreamer et le prompt système des agents. Intégré à `WorldStateService`.
+
+### 5.2 Theme Transitions
+`apps/h-core/src/features/home/spatial/themes/service.py`
+
+`WorldThemeService.transition_to(theme_name, duration_seconds)` déclenche une transition graduelle :
+1. Notification préparatoire aux agents enregistrés (permet pré-génération d'assets)
+2. Délai configurable (défaut 30s)
+3. Application effective du thème via `set_theme()`
+
+La propriété `is_transitioning` et `pending_theme` permettent de connaître l'état de transition en cours.

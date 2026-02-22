@@ -47,4 +47,9 @@ ORDER BY score DESC;
 ```
 Cela permet à Lisa et Electra d'avoir des bases de connaissances divergentes tout en partageant les faits "système" (universels).
 
+## 4.4 PerUserMemory (Implémenté)
+`apps/h-core/src/features/home/per_user_memory/service.py`
+
+Extension de la MDP pour segmenter la mémoire par utilisateur physique (en complément de la mémoire par agent). Permet de stocker des faits attachés à un `user_id` spécifique, distincts des faits universels. Utilisé par l'onboarding et le système de reconnaissance vocale.
+
 ---

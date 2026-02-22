@@ -1,0 +1,12 @@
+name: cooking
+version: "1.0.0"
+description: Recipe suggestions, ingredient substitutions, and cooking timers
+author: hAIrem
+requires: []
+tools:
+  - name: suggest_recipe
+    description: Suggest a recipe based on available ingredients
+  - name: substitute_ingredient
+    description: Suggest a substitution for a missing ingredient
+  - name: set_timer
+    description: Set a cooking timer for a given duration in minutes

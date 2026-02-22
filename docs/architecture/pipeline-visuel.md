@@ -20,4 +20,9 @@ L'A2UI (Epic 17) gère dynamiquement l'opacité, le placement et les transitions
 - **Overlays :** Assets narratifs temporaires affichés par-dessus la scène.
 - **Focus Dynamique :** Mise en avant automatique de l'agent qui "parle" via le message `narrative.text`.
 
+## 4. VisualVault (Implémenté)
+`apps/h-core/src/services/visual/vault.py`
+
+Registre nommé d'assets visuels par agent (`save_item`, `get_item`). Permet aux agents de conserver des tenues, décors ou objets récurrents référençables par nom (ex: `tenue_soiree`, `fond_cuisine`). Persisté dans SurrealDB.
+
 ---

@@ -304,6 +304,17 @@ async def call_with_fallback(agent_id: str, prompt: str):
 - **Charts**: Recharts pour les métriques
 - **Forms**: React Hook Form + Zod
 
+## 10. État d'Implémentation
+
+| Couche | Statut | Détail |
+|--------|--------|--------|
+| **Backend API** (h-bridge) | ✅ Partiellement | `/api/agents`, `/api/config`, `/api/history`, `/api/status`, `/api/metrics` |
+| **Voice Routes** | ✅ Implémenté | `/api/voice/enroll`, `/api/voice/identify`, `/api/voice/profiles` |
+| **Onboarding Routes** | ✅ Implémenté | `/api/onboarding/start`, `/api/onboarding/answer`, `/api/onboarding/status` |
+| **Frontend SPA** | ❌ Backlog | Aucun frontend admin — toute la gestion se fait via l'A2UI (A2UI = UI principale) |
+
+Le frontend Admin SPA est en backlog. Les routes backend sont fonctionnelles et documentées ci-dessus.
+
 ---
 
 🏗️ PM Agent - hAIrem Architecture

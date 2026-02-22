@@ -38,5 +38,16 @@ Le `VisualImaginationService` doit implémenter un gestionnaire de priorité pou
 ### 2.2 Mécanisme de Verrouillage
 Un `InferenceLock` (via Redis) empêche le système de lancer plus de N générations simultanées (N dépendant de la VRAM disponible), évitant les crashs `Out of Memory (OOM)`.
 
+## 3. État d'Implémentation
+
+| Composant | Statut | Fichier |
+|-----------|--------|---------|
+| **InferenceLock** (Redis) | ✅ Implémenté | `services/visual/inference_lock.py` |
+| **GPUQueue** (asyncio) | ✅ Disponible | `services/visual/gpu_queue.py` |
+| **ControlNet** (depth/canny) | ❌ Backlog | — Requiert modèle ControlNet local |
+| **Semantic Masks / Inpainting** | ❌ Backlog | — Requiert pipeline ComfyUI/A1111 |
+
+L'InferenceLock est actif dans `VisualImaginationService.generate_for_agent()`. Le GPUQueue est disponible comme utilitaire pour les déploiements nécessitant une file d'attente inter-processus.
+
 ---
 🏗️ Winston - Architecte hAIrem
