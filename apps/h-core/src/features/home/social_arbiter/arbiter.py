@@ -61,6 +61,9 @@ class SocialArbiter:
     def should_stop_discussion(self) -> bool:
         return self.discussion_turn >= self.max_discussion_turns
 
+    def _compute_discussion_decay(self, turn: int) -> float:
+        return max(0.1, 1.0 - turn * 0.1)
+
     def register_agent(self, agent: AgentProfile) -> None:
         self._agents[agent.agent_id] = agent
         logger.info(f"Social Arbiter: Registered agent {agent.agent_id}")
@@ -111,6 +114,7 @@ class SocialArbiter:
         mentioned_agents: list[str] | None = None,
         allow_suppression: bool = True,
         min_threshold_override: float | None = None,
+        discussion_turn: int = 0,
     ) -> list[AgentProfile] | None:
         """Determines which agents should respond using LLM scoring (ADR-10)."""
         mentioned_agents = mentioned_agents or []
@@ -162,12 +166,12 @@ class SocialArbiter:
 
         llm_scores = await self.scoring_engine.calculate_relevance_llm(message_content, active_agents, detected_emotion)
 
+        decay = self._compute_discussion_decay(discussion_turn)
         scored_agents = []
         for agent in active_agents:
-            # Combine LLM relevance with Repetition Penalty
             relevance = llm_scores.get(agent.agent_id, 0.5)
             time_since = self.suppressor.get_time_since_last_spoke(agent.agent_id)
-            final_score = self.scoring_engine.apply_repetition_penalty(relevance, time_since)
+            final_score = self.scoring_engine.apply_repetition_penalty(relevance, time_since) * decay
             scored_agents.append((agent, final_score))
 
         scored_agents.sort(key=lambda x: -x[1])

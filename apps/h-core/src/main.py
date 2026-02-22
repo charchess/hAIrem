@@ -259,8 +259,9 @@ class HaremOrchestrator:
                 # turn 5: 0.75, turn 4: 0.80, turn 3: 0.85, turn 2: 0.90, turn 1: 0.95
                 dynamic_threshold = 0.75 + (5 - self.discussion_budget) * 0.05
 
+                elapsed_turns = self.MAX_DISCUSSION_BUDGET - self.discussion_budget
                 responders = await self.social_arbiter.determine_responder_async(
-                    content, min_threshold_override=dynamic_threshold
+                    content, min_threshold_override=dynamic_threshold, discussion_turn=elapsed_turns
                 )
                 if responders:
                     for p in responders:
