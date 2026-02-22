@@ -180,6 +180,16 @@ class NetworkClient {
             if (window.renderer && window.renderer.addLog) {
                 window.renderer.addLog(message.payload.content);
             }
+        } else if (message.type === "agent.speaking") {
+            const content = message.payload && message.payload.content;
+            const isSpeaking = content && content.speaking === true;
+            if (window.renderer) {
+                if (isSpeaking) {
+                    window.renderer.setAgentSpeaking(message.sender && message.sender.agent_id);
+                } else {
+                    window.renderer.clearAgentSpeaking();
+                }
+            }
         } else if (message.type === "visual.asset") {
             const payload = message.payload.content;
             let url = payload.url;

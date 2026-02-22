@@ -346,6 +346,16 @@ class Renderer {
         this.layers.logs.scrollTop = this.layers.logs.scrollHeight;
     }
 
+    setAgentSpeaking(agentId) {
+        this.activeSpeakerId = agentId;
+        if (this.layers.avatar) this.layers.avatar.classList.add('active-speaker');
+    }
+
+    clearAgentSpeaking() {
+        this.activeSpeakerId = null;
+        if (this.layers.avatar) this.layers.avatar.classList.remove('active-speaker');
+    }
+
     updateSystemStatus(component, status) {
         this.systemStatus[component] = status;
         const cssStatus = (status === 'ok' || status === 'online' || status === 'connected') ? 'ok' : status;

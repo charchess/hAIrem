@@ -90,6 +90,32 @@ class HaClient:
             logger.error(f"HA_FETCH_ALL_EXCEPTION: {e}")
             return []
 
+    async def get_all_entities(self, surreal=None) -> List[Dict[str, Any]]:
+        """Fetch all HA entities and optionally cache them in SurrealDB."""
+        entities = await self.fetch_all_states()
+        if surreal and entities:
+            try:
+                await surreal._call(
+                    "query",
+                    "DELETE ha_entities; INSERT INTO ha_entities (entity_id, state, attributes, last_updated) "
+                    "SELECT entity_id, state, attributes, last_updated FROM $batch;",
+                    {
+                        "batch": [
+                            {
+                                "entity_id": e.get("entity_id", ""),
+                                "state": e.get("state", ""),
+                                "attributes": e.get("attributes", {}),
+                                "last_updated": e.get("last_updated", ""),
+                            }
+                            for e in entities
+                        ]
+                    },
+                )
+                logger.info(f"HA_DISCOVERY: Cached {len(entities)} entities in SurrealDB.")
+            except Exception as exc:
+                logger.warning(f"HA_DISCOVERY: SurrealDB cache failed (non-blocking): {exc}")
+        return entities
+
     async def listen_events(self, callback):
         """Persistent WebSocket listener for HA events with auto-reconnect."""
         if not self.token:

@@ -368,6 +368,8 @@ class HaremOrchestrator:
             from src.services.ha_event_worker import HaEventWorker
 
             self.ha_client = HaClient()
+            asyncio.create_task(self.ha_client.get_all_entities(self.surreal))
+            logger.info("⚙️ SETUP: HA entity discovery scheduled.")
             self.ha_event_worker = HaEventWorker(self.redis, self.ha_client, self.proactivity_engine)
             self.tasks.append(asyncio.create_task(self.ha_event_worker.start()))
             logger.info("⚙️ SETUP: HaEventWorker started.")

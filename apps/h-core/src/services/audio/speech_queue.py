@@ -9,6 +9,7 @@ class SpeechRequest:
     agent_id: str
     priority: int = 1
     voice_id: Optional[str] = None
+    room_id: Optional[str] = None
     _counter: int = field(default=0, compare=False, repr=False)
 
 
