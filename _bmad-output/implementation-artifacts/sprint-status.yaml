@@ -149,11 +149,11 @@ epic-14_retrospective: done
 # ============================================================
 # EPIC 18: Social Dynamics (Vision V4) - Sprint 26
 # ============================================================
-epic-18: in-progress
+epic-18: done
 18-1-relationship-initialization: done
 18-2-social-arbiter-uts: done
 18-3-polyphony-visual-focus: done
-18-4-inter-agent-discussion: backlog
+18-4-inter-agent-discussion: done
 
 # ============================================================
 # Summary
