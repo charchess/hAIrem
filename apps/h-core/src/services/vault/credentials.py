@@ -1,41 +1,45 @@
 import logging
-import base64
-from typing import Any, Optional
+import os
+from typing import Optional
+from cryptography.fernet import Fernet
 from src.infrastructure.surrealdb import SurrealDbClient
 
 logger = logging.getLogger(__name__)
 
 
 class CredentialVaultService:
-    """
-    EPIC 7.5: Secure Credential Storage.
-    Manages sensitive keys and tokens in a dedicated secured table.
-    """
-
     def __init__(self, db_client: SurrealDbClient):
         self.db = db_client
+        self._fernet = self._init_fernet()
+
+    def _init_fernet(self) -> Fernet:
+        raw_key = os.environ.get("VAULT_KEY")
+        if raw_key:
+            try:
+                return Fernet(raw_key.encode() if isinstance(raw_key, str) else raw_key)
+            except Exception as e:
+                logger.warning(f"VAULT: Invalid VAULT_KEY ({e}). Generating ephemeral key.")
+        else:
+            logger.warning("VAULT: VAULT_KEY not set. Generated ephemeral key — secrets will be lost on restart.")
+        key = Fernet.generate_key()
+        return Fernet(key)
 
     def _obfuscate(self, secret: str) -> str:
-        """Simple obfuscation layer (Dette technique: replace with AES)."""
         if not secret:
             return ""
-        return base64.b64encode(secret.encode()).decode()
+        return self._fernet.encrypt(secret.encode()).decode()
 
     def _deobfuscate(self, obfuscated: str) -> str:
-        """Simple de-obfuscation layer."""
         if not obfuscated:
             return ""
         try:
-            return base64.b64decode(obfuscated.encode()).decode()
-        except:
+            return self._fernet.decrypt(obfuscated.encode()).decode()
+        except Exception:
             return obfuscated
 
     async def save_llm_key(self, provider: str, key: str):
-        """Saves an LLM API key securely."""
         logger.info(f"VAULT: Storing credential for provider '{provider}'")
-
         obfuscated_key = self._obfuscate(key)
-
         q = """
         INSERT INTO vault_credentials {
             id: $id,
@@ -50,7 +54,6 @@ class CredentialVaultService:
         await self.db._call("query", q, params)
 
     async def get_llm_key(self, provider: str) -> Optional[str]:
-        """Retrieves and de-obfuscates an LLM API key."""
         cid = f"vault_credentials:`{provider}`"
         try:
             res = await self.db._call("query", f"SELECT key FROM {cid}")
@@ -59,6 +62,6 @@ class CredentialVaultService:
                 results = first.get("result", []) if isinstance(first, dict) else first
                 if results and len(results) > 0:
                     return self._deobfuscate(results[0].get("key"))
-        except:
+        except Exception:
             pass
         return None
