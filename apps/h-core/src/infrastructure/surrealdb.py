@@ -312,11 +312,20 @@ class SurrealDbClient:
             logger.error(f"Failed to insert graph memory: {e}")
 
     async def persist_message(self, message: Dict[str, Any]):
-        """Save a message to SurrealDB."""
+        from src.utils.privacy import PrivacyFilter
+
+        _privacy = PrivacyFilter()
+
+        raw_payload = message.get("payload", {})
+        safe_payload = dict(raw_payload) if isinstance(raw_payload, dict) else raw_payload
+        if isinstance(safe_payload, dict) and isinstance(safe_payload.get("content"), str):
+            redacted, _ = _privacy.redact(safe_payload["content"])
+            safe_payload["content"] = redacted
+
         data = {
             "agent_id": message.get("sender", {}).get("agent_id", "unknown"),
             "type": message.get("type", "unknown"),
-            "payload": message.get("payload", {}),
+            "payload": safe_payload,
             "timestamp": message.get("timestamp") or datetime.utcnow().isoformat(),
             "processed": False,
         }

@@ -198,15 +198,31 @@ class BaseAgent:
                     logger.info(f"AGENT {self.config.name}: Registered skill '{name}' (Method found)")
                     continue
 
-            # Case 2: Placeholder / Future External Plugins
-            # We register it so the LLM knows about it, but log it as placeholder
-            async def placeholder_handler(**kwargs):
-                logger.warning(f"AGENT {self.config.name}: Called unimplemented skill '{name}' with {kwargs}")
-                return f"Skill '{name}' is not fully implemented in this agent's logic."
+            try:
+                from src.skills.registry import SkillRegistry
 
-            placeholder_handler.__name__ = name
-            self.tools[name] = {"description": description, "function": placeholder_handler}
-            logger.info(f"AGENT {self.config.name}: Registered skill '{name}' (Placeholder)")
+                _registry = SkillRegistry()
+                for _skill_pkg in _registry.list_available():
+                    _pkg_tools = _registry.load(_skill_pkg)
+                    if name in _pkg_tools:
+                        self.tools[name] = {
+                            "description": description,
+                            "function": _pkg_tools[name],
+                            "skill_package": _skill_pkg,
+                        }
+                        logger.info(f"AGENT {self.config.name}: Registered skill '{name}' (Package: {_skill_pkg})")
+                        break
+                else:
+                    raise KeyError(name)
+            except (KeyError, Exception):
+
+                async def placeholder_handler(**kwargs):
+                    logger.warning(f"AGENT {self.config.name}: Called unimplemented skill '{name}' with {kwargs}")
+                    return f"Skill '{name}' is not fully implemented in this agent's logic."
+
+                placeholder_handler.__name__ = name
+                self.tools[name] = {"description": description, "function": placeholder_handler}
+                logger.info(f"AGENT {self.config.name}: Registered skill '{name}' (Placeholder)")
 
     async def recall_memory(self, query: str) -> str:
         """Semantic search tool."""
@@ -297,10 +313,28 @@ class BaseAgent:
 
         return decorator
 
+    async def _apply_skill_grants(self):
+        if not self.surreal:
+            return
+        try:
+            from src.features.admin.skill_management.service import SkillGrantService
+
+            grant_service = SkillGrantService(self.surreal)
+            skill_packages = {details["skill_package"] for details in self.tools.values() if "skill_package" in details}
+            for skill_pkg in skill_packages:
+                if not await grant_service.is_active(self.config.name, skill_pkg):
+                    revoked = [k for k, v in self.tools.items() if v.get("skill_package") == skill_pkg]
+                    for tool_name in revoked:
+                        del self.tools[tool_name]
+                    logger.info(f"AGENT {self.config.name}: Skill '{skill_pkg}' revoked — removed tools: {revoked}")
+        except Exception as e:
+            logger.warning(f"AGENT {self.config.name}: Skill grant check failed: {e}")
+
     async def start(self):
         """Starts the agent loop."""
         # Initial config resolution
         await self.refresh_config()
+        await self._apply_skill_grants()
 
         channel = f"agent:{self.config.name}"
         broadcast_channel = "agent:broadcast"

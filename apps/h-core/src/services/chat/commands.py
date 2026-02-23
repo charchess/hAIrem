@@ -73,7 +73,7 @@ class CommandHandler:
         await self._send_ack(msg, f"👗 Je change la tenue de {target_agent} pour : *{description}*...")
 
         # STORY 25.7: Check Vault
-        vault_item = await self.visual.vault.get_item(target_agent, description, category="garment")
+        vault_item = await self.visual.wardrobe.get_item(target_agent, description, category="garment")
         if vault_item:
             logger.info(f"VAULT_HIT: Found garment '{description}' for {target_agent}")
             asset_uri = vault_item["asset"]["url"]
@@ -120,7 +120,7 @@ class CommandHandler:
             # STORY 25.7: Auto-save to Vault
             if asset_id:
                 # We already have the ID from generate_and_index
-                await self.visual.vault.save_item(
+                await self.visual.wardrobe.save_item(
                     target_agent, description, asset_uri, description, category="garment", asset_id=asset_id
                 )
                 logger.info(f"VAULT_AUTO_SAVE: Successfully saved '{description}' for {target_agent}")
@@ -146,7 +146,7 @@ class CommandHandler:
         await self._send_ack(msg, f"📍 {target_agent} se déplace vers : *{location_name}*...")
 
         # STORY 25.7: Check Vault
-        vault_item = await self.visual.vault.get_item(target_agent, location_name, category="background")
+        vault_item = await self.visual.wardrobe.get_item(target_agent, location_name, category="background")
         if vault_item:
             logger.info(f"VAULT_HIT: Found location '{location_name}' for {target_agent}")
             asset_uri = vault_item["asset"]["url"]
@@ -196,7 +196,7 @@ class CommandHandler:
                     asset_id = first_record.get("id")
 
             if asset_id:
-                await self.visual.vault.save_item(
+                await self.visual.wardrobe.save_item(
                     target_agent, location_name, asset_uri, location_name, category="background", asset_id=asset_id
                 )
                 logger.info(
@@ -226,7 +226,7 @@ class CommandHandler:
             else:
                 target_agent = "Lisa"  # Ultimate fallback
 
-        items = await self.visual.vault.list_items(target_agent)
+        items = await self.visual.wardrobe.list_items(target_agent)
         if not items:
             await self._send_ack(
                 msg,

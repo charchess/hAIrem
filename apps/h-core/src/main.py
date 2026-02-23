@@ -203,6 +203,12 @@ class HaremOrchestrator:
                     self.sleep_scheduler.record_activity()
 
             # Handle Config Updates
+            if hasattr(self, "admin_handler") and msg_type.startswith("admin."):
+                if await self.admin_handler.handle(
+                    msg_type, msg.payload.content if isinstance(msg.payload.content, dict) else {}
+                ):
+                    return
+
             if msg_type == "system.config_update":
                 new_cfg = msg.payload.content.get("llm_config")
                 if new_cfg:
@@ -340,10 +346,15 @@ class HaremOrchestrator:
 
             self.proactivity_engine = self.ProactivityEngine(self.redis, self.surreal)
 
-            # Story 7.5: Secure Vault for Credentials
             from src.services.vault.credentials import CredentialVaultService
 
             self.vault = CredentialVaultService(self.surreal)
+
+            from src.features.admin.skill_management.service import SkillGrantService, SkillManagementService
+            from src.features.admin.command_handler import AdminCommandHandler
+
+            self.skill_mgmt = SkillManagementService(SkillGrantService(self.surreal))
+            self.admin_handler = AdminCommandHandler(self.agent_registry, self.skill_mgmt, self.redis)
 
             from src.services.media_cleanup import MediaCleanupWorker
 

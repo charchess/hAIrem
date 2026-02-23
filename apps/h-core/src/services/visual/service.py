@@ -14,7 +14,7 @@ from src.models.hlink import HLinkMessage, MessageType, Payload, Recipient, Send
 from src.services.visual.manager import AssetManager
 from src.services.visual.provider import VisualProvider
 from src.services.visual.bible import build_prompt, bible
-from src.services.visual.vault import VaultService
+from src.services.visual.wardrobe import WardrobeService
 from src.services.visual.inference_lock import InferenceLock
 
 logger = logging.getLogger(__name__)
@@ -37,14 +37,14 @@ class VisualImaginationService:
         llm_client: LlmClient,
         redis_client: RedisClient,
         agents_base_path: str = "agents",
-        vault_service: Optional[VaultService] = None,
+        wardrobe_service: Optional[WardrobeService] = None,
     ):
         self.provider = visual_provider
         self.asset_manager = asset_manager
         self.llm = llm_client
         self.redis = redis_client
         self.agents_base_path = agents_base_path
-        self.vault = vault_service or VaultService(self.asset_manager.db)
+        self.wardrobe = wardrobe_service or WardrobeService(self.asset_manager.db)
 
     async def _remove_background(self, local_path: str) -> bool:
         """Removes background from image using rembg in a separate thread."""
