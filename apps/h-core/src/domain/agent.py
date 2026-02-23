@@ -581,6 +581,11 @@ class BaseAgent:
             "sender": {"agent_id": self.config.name, "role": self.config.role},
             "payload": {"content": {"speaking": True}},
         }
+        idle_signal = {
+            "type": MessageType.AGENT_SPEAKING,
+            "sender": {"agent_id": self.config.name, "role": self.config.role},
+            "payload": {"content": {"speaking": False}},
+        }
         try:
             await self.redis.publish_event("system_stream", speaking_signal)
         except Exception:
@@ -635,6 +640,11 @@ class BaseAgent:
                 content=error_text,
                 correlation_id=str(trigger_message.id),
             )
+        finally:
+            try:
+                await self.redis.publish_event("system_stream", idle_signal)
+            except Exception:
+                pass
 
     async def send_message(self, target: str, type: MessageType, content: Any, correlation_id: str | None = None):
         """Sends a structured H-Link message via both Pub/Sub and Streams."""
