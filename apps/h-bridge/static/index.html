@@ -122,18 +122,21 @@
                 <div class="admin-tab-content" id="tab-llm">
                     <div class="config-section">
                         <h3>🤖 Global LLM Configuration</h3>
+                        <div id="llm-config-source" style="margin-bottom:10px;font-size:12px;color:#888">Source: —</div>
                         <label for="global-llm-provider">Provider:</label>
-                        <select id="global-llm-provider">
-                            <option value="ollama">Ollama (Local)</option>
-                            <option value="openrouter">OpenRouter</option>
-                            <option value="openai">OpenAI</option>
-                            <option value="google">Google Gemini</option>
-                        </select>
+                        <select id="global-llm-provider"></select>
+                        <label for="global-llm-base-url">Base URL:</label>
+                        <input type="text" id="global-llm-base-url" placeholder="http://localhost:11434">
                         <label for="global-llm-model">Model:</label>
-                        <input type="text" id="global-llm-model" placeholder="e.g. mistral, gpt-4">
-                        <label for="global-llm-key">API Key (Stored in Vault):</label>
+                        <input type="text" id="global-llm-model" list="llm-model-suggestions" placeholder="e.g. llama3.2, gpt-4o">
+                        <datalist id="llm-model-suggestions"></datalist>
+                        <label for="global-llm-key">API Key:</label>
                         <input type="password" id="global-llm-key" placeholder="••••••••">
-                        <button id="save-global-llm" class="btn-primary">Save Global Config</button>
+                        <div style="display:flex;gap:8px;margin-top:10px">
+                            <button id="save-global-llm" class="btn-primary">💾 Save</button>
+                            <button id="test-global-llm" class="btn-secondary">🔌 Test Connection</button>
+                        </div>
+                        <div id="llm-test-result" style="margin-top:8px;font-size:12px"></div>
                     </div>
                 </div>
                 <div class="admin-tab-content" id="tab-agents">
@@ -143,11 +146,12 @@
                     <div id="agent-config-panel" class="config-section" style="margin-top: 20px;">
                         <div id="agent-config-form">
                             <h3 id="agent-config-title">Select an agent</h3>
+                            <div id="agent-config-source" style="margin-bottom:8px;font-size:12px;color:#888"></div>
                             <label>Model Override:</label>
                             <input type="text" id="agent-llm-model" placeholder="Leave empty for global">
                             <label>API Key Override:</label>
                             <input type="password" id="agent-llm-key" placeholder="Leave empty for global">
-                            <button id="save-agent-override" class="btn-primary" style="margin-top:10px">Save Agent Override</button>
+                            <button id="save-agent-override" class="btn-primary" style="margin-top:10px">💾 Save Override</button>
                         </div>
                     </div>
                 </div>

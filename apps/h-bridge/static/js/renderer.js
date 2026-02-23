@@ -102,7 +102,7 @@ class Renderer {
 
         // Save Overrides
         document.getElementById('save-global-llm').onclick = () => {
-            const cfg = { provider: document.getElementById('global-llm-provider').value, model: document.getElementById('global-llm-model').value, api_key: document.getElementById('global-llm-key').value };
+            const cfg = { provider: document.getElementById('global-llm-provider').value, model: document.getElementById('global-llm-model').value, api_key: document.getElementById('global-llm-key').value, base_url: document.getElementById('global-llm-base-url').value };
             if (window.network) window.network.send('system.config_update', { llm_config: cfg });
         };
         document.getElementById('save-agent-override').onclick = () => {

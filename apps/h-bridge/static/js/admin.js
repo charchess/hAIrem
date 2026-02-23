@@ -12,6 +12,88 @@ class AdminExtensions {
         this._bindMetricsTab();
         this._bindVoiceTab();
         this._bindOnboardingTab();
+        this._bindLlmTab();
+    }
+
+    // ── LLM Config ───────────────────────────────────────────────────────────
+
+    _bindLlmTab() {
+        this._providers = [];
+        this._loadProviders();
+
+        document.querySelector('.admin-tab[data-tab="llm"]')
+            ?.addEventListener('click', () => this._loadCurrentLlmConfig());
+
+        document.getElementById('global-llm-provider')
+            ?.addEventListener('change', (e) => this._onProviderChange(e.target.value));
+
+        document.getElementById('test-global-llm')
+            ?.addEventListener('click', () => this._testConnection());
+    }
+
+    async _loadProviders() {
+        try {
+            const resp = await fetch('/api/admin/providers');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            this._providers = data.providers || [];
+            const sel = document.getElementById('global-llm-provider');
+            if (!sel) return;
+            sel.innerHTML = this._providers
+                .map(p => `<option value="${p.id}">${p.name}</option>`)
+                .join('');
+            if (this._providers.length) this._onProviderChange(this._providers[0].id);
+        } catch (_) {}
+    }
+
+    async _loadCurrentLlmConfig() {
+        try {
+            const resp = await fetch('/api/config');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const sourceEl = document.getElementById('llm-config-source');
+            if (sourceEl) sourceEl.textContent = `Source: ${(data.source || 'env').toUpperCase()}`;
+            if (data.llm_provider) {
+                const sel = document.getElementById('global-llm-provider');
+                if (sel) { sel.value = data.llm_provider; this._onProviderChange(data.llm_provider); }
+            }
+            const modelEl = document.getElementById('global-llm-model');
+            if (modelEl && data.llm_model) modelEl.value = data.llm_model;
+            const urlEl = document.getElementById('global-llm-base-url');
+            if (urlEl && data.llm_base_url) urlEl.value = data.llm_base_url;
+        } catch (_) {}
+    }
+
+    _onProviderChange(providerId) {
+        const prov = this._providers.find(p => p.id === providerId);
+        if (!prov) return;
+        const datalist = document.getElementById('llm-model-suggestions');
+        if (datalist) {
+            datalist.innerHTML = (prov.models || []).map(m => `<option value="${m}">`).join('');
+        }
+        const urlEl = document.getElementById('global-llm-base-url');
+        if (urlEl && prov.base_url) urlEl.value = prov.base_url;
+    }
+
+    async _testConnection() {
+        const resultEl = document.getElementById('llm-test-result');
+        if (resultEl) resultEl.textContent = '🔄 Testing…';
+        const payload = {
+            provider: document.getElementById('global-llm-provider')?.value || '',
+            base_url: document.getElementById('global-llm-base-url')?.value || '',
+            api_key: document.getElementById('global-llm-key')?.value || '',
+        };
+        try {
+            const resp = await fetch('/api/admin/test-connection', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await resp.json();
+            if (resultEl) resultEl.textContent = data.success ? `✅ ${data.message}` : `❌ ${data.message}`;
+        } catch (e) {
+            if (resultEl) resultEl.textContent = `❌ ${e.message}`;
+        }
     }
 
     // ── Metrics ──────────────────────────────────────────────────────────────

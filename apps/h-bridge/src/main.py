@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import sys
+from typing import Any
 from uuid import UUID, uuid4
 
 # Pathing
@@ -38,7 +39,7 @@ agents_path = os.getenv("AGENTS_PATH", "/app/agents")
 
 # Global
 discovered_agents = {}
-active_connections = set()
+active_connections: set[WebSocket] = set()
 last_heartbeat = None
 redis_client = RedisClient(host=os.getenv("REDIS_HOST", "redis"))
 surreal_client = SurrealDbClient(
@@ -263,6 +264,132 @@ async def get_metrics():
 @app.get("/api/status")
 async def get_status():
     return {"status": "ok", "heartbeat": last_heartbeat, "agents": len(discovered_agents)}
+
+
+_PROVIDERS: list[dict[str, Any]] = [
+    {
+        "id": "ollama",
+        "name": "Ollama (Local)",
+        "base_url": "http://localhost:11434",
+        "default_model": "llama3.2",
+        "models": ["llama3.2", "llama3.1", "mistral", "phi4", "gemma3", "qwen2.5", "deepseek-r1"],
+        "requires_key": False,
+    },
+    {
+        "id": "openrouter",
+        "name": "OpenRouter",
+        "base_url": "https://openrouter.ai/api/v1",
+        "default_model": "google/gemini-flash-1.5",
+        "models": [
+            "google/gemini-flash-1.5",
+            "google/gemini-2.0-flash",
+            "anthropic/claude-3.5-sonnet",
+            "anthropic/claude-3.5-haiku",
+            "openai/gpt-4o",
+            "openai/gpt-4o-mini",
+            "deepseek/deepseek-chat",
+            "meta-llama/llama-3.3-70b-instruct",
+        ],
+        "requires_key": True,
+    },
+    {
+        "id": "openai",
+        "name": "OpenAI",
+        "base_url": "https://api.openai.com/v1",
+        "default_model": "gpt-4o",
+        "models": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
+        "requires_key": True,
+    },
+    {
+        "id": "anthropic",
+        "name": "Anthropic",
+        "base_url": "https://api.anthropic.com",
+        "default_model": "claude-3-5-sonnet-20241022",
+        "models": ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"],
+        "requires_key": True,
+    },
+    {
+        "id": "google",
+        "name": "Google Gemini",
+        "base_url": "https://generativelanguage.googleapis.com/v1",
+        "default_model": "gemini-2.0-flash",
+        "models": ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-pro"],
+        "requires_key": True,
+    },
+    {
+        "id": "deepseek",
+        "name": "DeepSeek",
+        "base_url": "https://api.deepseek.com/v1",
+        "default_model": "deepseek-chat",
+        "models": ["deepseek-chat", "deepseek-reasoner"],
+        "requires_key": True,
+    },
+    {
+        "id": "mistral",
+        "name": "Mistral AI",
+        "base_url": "https://api.mistral.ai/v1",
+        "default_model": "mistral-large-latest",
+        "models": ["mistral-large-latest", "mistral-medium-latest", "mistral-small-latest", "codestral-latest"],
+        "requires_key": True,
+    },
+    {
+        "id": "azure",
+        "name": "Azure OpenAI",
+        "base_url": None,
+        "default_model": "gpt-4",
+        "models": ["gpt-4", "gpt-4o", "gpt-4-turbo"],
+        "requires_key": True,
+    },
+]
+
+
+@app.get("/api/admin/providers")
+async def get_providers():
+    return {"providers": _PROVIDERS}
+
+
+@app.post("/api/admin/test-connection")
+async def test_connection(payload: dict):
+    import httpx as _httpx
+
+    provider = payload.get("provider", "")
+    base_url = payload.get("base_url", "").rstrip("/")
+    api_key = payload.get("api_key", "")
+
+    if not base_url:
+        prov = next((p for p in _PROVIDERS if p["id"] == provider), None)
+        base_url = (prov or {}).get("base_url") or ""
+
+    if not base_url:
+        return {"success": False, "message": "No base URL configured for this provider"}
+
+    try:
+        async with _httpx.AsyncClient(timeout=5.0) as client:
+            if provider == "ollama":
+                resp = await client.get(f"{base_url}/api/tags")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    model_names = [m.get("name") for m in data.get("models", [])]
+                    return {
+                        "success": True,
+                        "message": f"Ollama reachable — {len(model_names)} models found",
+                        "models": model_names,
+                    }
+                return {"success": False, "message": f"Ollama returned HTTP {resp.status_code}"}
+            else:
+                headers = {}
+                if api_key:
+                    headers["Authorization"] = f"Bearer {api_key}"
+                resp = await client.get(base_url, headers=headers)
+                reachable = resp.status_code < 500
+                return {
+                    "success": reachable,
+                    "message": f"Endpoint reachable (HTTP {resp.status_code})"
+                    if reachable
+                    else f"Endpoint error (HTTP {resp.status_code})",
+                }
+    except Exception as e:
+        return {"success": False, "message": f"Connection failed: {e}"}
 
 
 if __name__ == "__main__":
