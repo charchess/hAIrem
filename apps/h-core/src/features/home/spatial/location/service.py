@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, List
+from typing import Literal, Optional, List, cast
 from datetime import datetime, timedelta, UTC
 
 from src.features.home.spatial.location.models import AgentLocation, LocationConfidence
@@ -17,10 +17,7 @@ class LocationService:
         logger.info("LocationService: Initializing...")
 
     async def update_agent_location(
-        self,
-        agent_id: str,
-        room_id: str,
-        confidence: Optional[LocationConfidence] = None
+        self, agent_id: str, room_id: str, confidence: Optional[LocationConfidence] = None
     ) -> dict:
         if not agent_id or not agent_id.strip():
             return {"success": False, "error": "agent_id is required"}
@@ -34,13 +31,10 @@ class LocationService:
 
         try:
             location = AgentLocation(
-                agent_id=agent_id,
-                room_id=room_id,
-                timestamp=datetime.now(UTC),
-                confidence=confidence
+                agent_id=agent_id, room_id=room_id, timestamp=datetime.now(UTC), confidence=confidence
             )
             saved = await self.repository.save_location(location)
-            
+
             logger.info(f"LocationService: Updated location for agent {agent_id} to room {room_id}")
             return {
                 "success": True,
@@ -50,9 +44,11 @@ class LocationService:
                     "timestamp": saved.timestamp.isoformat() if saved.timestamp else None,
                     "confidence": {
                         "level": saved.confidence.level if saved.confidence else "high",
-                        "reason": saved.confidence.reason if saved.confidence else None
-                    } if saved.confidence else None
-                }
+                        "reason": saved.confidence.reason if saved.confidence else None,
+                    }
+                    if saved.confidence
+                    else None,
+                },
             }
         except Exception as e:
             logger.error(f"LocationService: Failed to update location for agent {agent_id}: {e}")
@@ -69,8 +65,10 @@ class LocationService:
             "timestamp": location.timestamp.isoformat() if location.timestamp else None,
             "confidence": {
                 "level": location.confidence.level if location.confidence else "high",
-                "reason": location.confidence.reason if location.confidence else None
-            } if location.confidence else None
+                "reason": location.confidence.reason if location.confidence else None,
+            }
+            if location.confidence
+            else None,
         }
 
     async def get_location_history(self, agent_id: str, limit: int = 10) -> List[dict]:
@@ -82,8 +80,10 @@ class LocationService:
                 "timestamp": loc.timestamp.isoformat() if loc.timestamp else None,
                 "confidence": {
                     "level": loc.confidence.level if loc.confidence else "high",
-                    "reason": loc.confidence.reason if loc.confidence else None
-                } if loc.confidence else None
+                    "reason": loc.confidence.reason if loc.confidence else None,
+                }
+                if loc.confidence
+                else None,
             }
             for loc in locations
         ]
@@ -98,21 +98,18 @@ class LocationService:
                 "timestamp": loc.timestamp.isoformat() if loc.timestamp else None,
                 "confidence": {
                     "level": loc.confidence.level if loc.confidence else "high",
-                    "reason": loc.confidence.reason if loc.confidence else None
-                } if loc.confidence else None
+                    "reason": loc.confidence.reason if loc.confidence else None,
+                }
+                if loc.confidence
+                else None,
             }
             for loc in locations
         ]
 
     async def track_ambiguous_location(
-        self,
-        agent_id: str,
-        room_id: str,
-        confidence_level: str = "medium",
-        confidence_reason: Optional[str] = None
+        self, agent_id: str, room_id: str, confidence_level: str = "medium", confidence_reason: Optional[str] = None
     ) -> dict:
         confidence = LocationConfidence(
-            level=confidence_level,
-            reason=confidence_reason
+            level=cast(Literal["high", "medium", "low"], confidence_level), reason=confidence_reason
         )
         return await self.update_agent_location(agent_id, room_id, confidence)

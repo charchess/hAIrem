@@ -113,10 +113,7 @@ class RelationshipNotification:
             created_at = datetime.utcnow()
 
         event_data = data.get("event", {})
-        if isinstance(event_data, dict):
-            event = RelationshipChangeEvent.from_dict(event_data)
-        else:
-            event = None
+        event = RelationshipChangeEvent.from_dict(event_data if isinstance(event_data, dict) else {})
 
         return cls(
             notification_type=NotificationType(data.get("notification_type", "status_upgrade")),
@@ -142,6 +139,8 @@ class SocialGridState:
             "agent_user_relationships_count": self.agent_user_relationships_count,
             "agent_agent_relationships_count": self.agent_agent_relationships_count,
             "pending_notifications": self.pending_notifications,
-            "last_evolution_timestamp": self.last_evolution_timestamp.isoformat() if self.last_evolution_timestamp else None,
+            "last_evolution_timestamp": self.last_evolution_timestamp.isoformat()
+            if self.last_evolution_timestamp
+            else None,
             "loaded_from_db": self.loaded_from_db,
         }

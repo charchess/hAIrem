@@ -24,7 +24,7 @@ class AgentCreationPayload(BaseModel):
         return v
 
     def to_agent_config(self) -> dict[str, Any]:
-        config = {
+        config: dict[str, Any] = {
             "name": self.name,
             "role": self.role,
             "description": self.description,
@@ -33,8 +33,8 @@ class AgentCreationPayload(BaseModel):
             "personified": True,
             "use_default_tools": True,
         }
-        
-        llm_config = {}
+
+        llm_config: dict[str, Any] = {}
         if self.model:
             llm_config["model"] = self.model
         if self.temperature is not None:
@@ -47,10 +47,10 @@ class AgentCreationPayload(BaseModel):
             llm_config["base_url"] = self.base_url
         if self.api_key:
             llm_config["api_key"] = self.api_key
-            
+
         if llm_config:
             config["llm_config"] = llm_config
-            
+
         return config
 
     def to_manifest_dict(self) -> dict[str, Any]:
@@ -68,6 +68,8 @@ class AgentCreationPayload(BaseModel):
                 "top_p": self.top_p,
                 "base_url": self.base_url,
                 "api_key": self.api_key,
-            } if any([self.model, self.temperature, self.max_tokens, self.top_p, self.base_url, self.api_key]) else None,
+            }
+            if any([self.model, self.temperature, self.max_tokens, self.top_p, self.base_url, self.api_key])
+            else None,
             "enabled": self.enabled,
         }

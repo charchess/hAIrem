@@ -182,6 +182,7 @@ class ScoringEngine:
         relevance_score = self._calculate_relevance(agent, message_content)
         interest_score = self.interest_scorer.calculate_interest_score(agent, message_content)
 
+        detected: Any
         if emotional_context and emotional_context.get("detected_emotions"):
             detected = emotional_context
         else:

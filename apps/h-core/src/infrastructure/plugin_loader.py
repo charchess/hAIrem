@@ -12,6 +12,7 @@ from src.models.agent import AgentConfig
 
 logger = logging.getLogger(__name__)
 
+
 class AgentRegistry:
     def __init__(self):
         self.agents: dict[str, Any] = {}
@@ -20,8 +21,17 @@ class AgentRegistry:
         self.agents[agent.config.name] = agent
         logger.info(f"AGENT_REGISTRY: Agent '{agent.config.name}' registered successfully.")
 
+
 class AgentFileHandler(FileSystemEventHandler):
-    def __init__(self, registry: AgentRegistry, loop: asyncio.AbstractEventLoop, redis_client, llm_client, surreal_client=None, visual_service=None):
+    def __init__(
+        self,
+        registry: AgentRegistry,
+        loop: asyncio.AbstractEventLoop,
+        redis_client,
+        llm_client,
+        surreal_client=None,
+        visual_service=None,
+    ):
         self.registry = registry
         self.loop = loop
         self.redis = redis_client
@@ -30,13 +40,14 @@ class AgentFileHandler(FileSystemEventHandler):
         self.visual_service = visual_service
 
     def on_modified(self, event):
-        if event.is_directory: return
+        if event.is_directory:
+            return
         filename = os.path.basename(event.src_path)
         if filename in ["manifest.yaml", "persona.yaml", "logic.py"]:
             manifest_path = event.src_path
             if filename != "manifest.yaml":
                 manifest_path = os.path.join(os.path.dirname(event.src_path), "manifest.yaml")
-            
+
             if os.path.exists(manifest_path):
                 self.loop.call_soon_threadsafe(asyncio.create_task, self._load_agent(manifest_path))
 
@@ -50,8 +61,18 @@ class AgentFileHandler(FileSystemEventHandler):
     async def _load_agent(self, manifest_path: str):
         pass
 
+
 class PluginLoader:
-    def __init__(self, agents_dir: str, registry: AgentRegistry, redis_client, llm_client, surreal_client=None, visual_service=None, token_tracking_service=None):
+    def __init__(
+        self,
+        agents_dir: str,
+        registry: AgentRegistry,
+        redis_client,
+        llm_client,
+        surreal_client=None,
+        visual_service=None,
+        token_tracking_service=None,
+    ):
         self.agents_dir = os.path.abspath(agents_dir)
         self.registry = registry
         self.redis = redis_client
@@ -65,12 +86,12 @@ class PluginLoader:
     async def start(self):
         logger.info("PLUGIN_LOADER: Starting initial scan...")
         await self._initial_scan()
-        
+
         try:
             loop = asyncio.get_running_loop()
             handler = AgentFileHandler(self.registry, loop, self.redis, self.llm, self.surreal, self.visual_service)
-            handler._load_agent = self._load_agent # type: ignore
-            
+            handler._load_agent = self._load_agent  # type: ignore
+
             self.observer.schedule(handler, self.agents_dir, recursive=True)
             self.observer.start()
             logger.info(f"PLUGIN_LOADER: Watcher started on {self.agents_dir}")
@@ -94,20 +115,20 @@ class PluginLoader:
         logger.info(f"PLUGIN_LOADER: Loading agent bundle from {manifest_path}")
         try:
             agent_dir = os.path.dirname(manifest_path)
-            
+
             with open(manifest_path) as f:
                 manifest_data = yaml.safe_load(f) or {}
-            
+
             persona_path = os.path.join(agent_dir, "persona.yaml")
-            persona_data = {}
+            persona_data: dict[str, Any] = {}
             if os.path.exists(persona_path):
                 with open(persona_path) as f:
                     persona_data = yaml.safe_load(f) or {}
-            
+
             combined_data = {**manifest_data, **persona_data}
             if "system_prompt" in combined_data and "prompt" not in combined_data:
                 combined_data["prompt"] = combined_data.pop("system_prompt")
-            
+
             if "name" not in combined_data and "id" in combined_data:
                 combined_data["name"] = combined_data["id"]
 
@@ -119,23 +140,27 @@ class PluginLoader:
                 combined_data["role"] = "Unknown"
 
             config = AgentConfig.model_validate(combined_data)
-            
+
             agent_llm = self.llm
             if config.llm_config:
                 from src.infrastructure.llm import LlmClient
+
                 agent_llm = LlmClient(cache=self.llm.cache, config_override=config.llm_config)
 
             agent_class = None
             logic_path = os.path.join(agent_dir, "logic.py")
-            
+
             if os.path.exists(logic_path):
                 try:
-                    spec = importlib.util.spec_from_file_location(f"agent_logic_{config.name.replace('-', '_')}", logic_path)
-                    module = importlib.util.module_from_spec(spec) # type: ignore
-                    spec.loader.exec_module(module) # type: ignore
+                    spec = importlib.util.spec_from_file_location(
+                        f"agent_logic_{config.name.replace('-', '_')}", logic_path
+                    )
+                    module = importlib.util.module_from_spec(spec)  # type: ignore
+                    spec.loader.exec_module(module)  # type: ignore
                     if hasattr(module, "Agent"):
                         loaded_class = module.Agent
                         from src.domain.agent import BaseAgent
+
                         if issubclass(loaded_class, BaseAgent):
                             agent_class = loaded_class
                 except Exception as e:
@@ -143,17 +168,18 @@ class PluginLoader:
 
             if not agent_class:
                 from src.domain.agent import BaseAgent
+
                 agent_class = BaseAgent
 
             instance = agent_class(
-                config=config, 
-                redis_client=self.redis, 
-                llm_client=agent_llm, 
-                surreal_client=self.surreal, 
+                config=config,
+                redis_client=self.redis,
+                llm_client=agent_llm,
+                surreal_client=self.surreal,
                 visual_service=self.visual_service,
-                token_tracking_service=self.token_tracking_service
+                token_tracking_service=self.token_tracking_service,
             )
-            
+
             if config.name in self.registry.agents:
                 old_agent = self.registry.agents[config.name]
                 await old_agent.stop()
@@ -190,14 +216,14 @@ class PluginLoader:
             agent_name = agent_data.get("name")
             if not agent_name:
                 return None
-            
+
             agent_folder = os.path.join(self.agents_dir, agent_name)
             os.makedirs(agent_folder, exist_ok=True)
-            
+
             manifest_path = os.path.join(agent_folder, "manifest.yaml")
             with open(manifest_path, "w") as f:
                 yaml.dump(agent_data, f, default_flow_style=False)
-            
+
             logger.info(f"PLUGIN_LOADER: Created agent folder at {agent_folder}")
             return agent_folder
         except Exception as e:

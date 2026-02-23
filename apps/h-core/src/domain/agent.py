@@ -438,7 +438,7 @@ class BaseAgent:
         if message.type == MessageType.SYSTEM_STATUS_UPDATE:
             payload = message.payload.content
             if isinstance(payload, dict) and payload.get("event") == "world_theme_change":
-                await self.handle_theme_change(payload.get("theme"))
+                await self.handle_theme_change(payload.get("theme") or "")
             return
 
         if message.type == MessageType.WORLD_THEME_CHANGED:
@@ -654,7 +654,7 @@ class BaseAgent:
         command_name = ""
 
         if isinstance(payload_content, dict):
-            command_name = payload_content.get("command")
+            command_name = str(payload_content.get("command") or "")
 
         if command_name and command_name in self.command_handlers:
             try:
@@ -683,11 +683,6 @@ class BaseAgent:
         else:
             logger.warning(f"Unknown command: {command_name}")
 
-    def _get_theme_context(self) -> str:
-        if self.spatial and hasattr(self.spatial, "themes") and self.spatial.themes:
-            return self.spatial.themes.get_theme_prompt_context()
-        return ""
-
     def _check_addressing(self, content: str) -> bool:
         """Checks if the message is addressed to specific agent."""
         name = self.config.name.lower()
@@ -699,6 +694,9 @@ class BaseAgent:
             return True
 
         return False
+
+    async def _process_whisper(self, message: "HLinkMessage") -> None:
+        logger.debug(f"AGENT {self.config.name}: whisper received, no handler registered")
 
     async def handle_theme_change(self, new_theme: str):
         """Reacts to a global theme change (Epic 18)."""

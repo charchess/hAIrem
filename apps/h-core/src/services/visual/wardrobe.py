@@ -4,28 +4,31 @@ from src.infrastructure.surrealdb import SurrealDbClient
 
 logger = logging.getLogger(__name__)
 
+
 class WardrobeService:
     def __init__(self, db_client: SurrealDbClient):
         self.db = db_client
 
-    async def save_item(self, agent_id: str, name: str, uri: str, prompt: str, category: str = "general", asset_id: str = None):
+    async def save_item(
+        self, agent_id: str, name: str, uri: str, prompt: str, category: str = "general", asset_id: str | None = None
+    ):
         """Saves a named asset to the vault."""
         logger.info(f"WARDROBE: Saving '{name}' for {agent_id} (Category: {category}, URI: {uri}, ID: {asset_id})")
-        
+
         if not asset_id:
             # Last resort lookup
             q = "SELECT id FROM visual_asset WHERE url = $uri LIMIT 1;"
-            res = await self.db._call('query', q, {"uri": uri})
+            res = await self.db._call("query", q, {"uri": uri})
             if isinstance(res, list) and len(res) > 0:
                 first_stmt = res[0]
                 results = first_stmt if isinstance(first_stmt, list) else first_stmt.get("result", [])
                 if results and len(results) > 0:
                     asset_id = str(results[0].get("id"))
-        
+
         if not asset_id:
             logger.warning(f"WARDROBE: Could not resolve record ID for URI: {uri}")
             return None
-            
+
         # Story 25.7: Use INSERT ON DUPLICATE KEY UPDATE for robust upsert on unique index
         q = """
         INSERT INTO vault {
@@ -49,18 +52,18 @@ class WardrobeService:
             "asset": asset_id,
             "uri": uri,
             "prompt": prompt,
-            "category": category
+            "category": category,
         }
-        
-        res = await self.db._call('query', q, params)
+
+        res = await self.db._call("query", q, params)
         logger.info(f"VAULT_UPSERT_RES: {res}")
-        
+
         if isinstance(res, list) and len(res) > 0:
-             # Check for error in response if client doesn't raise
-             first = res[0]
-             if isinstance(first, dict) and first.get("status") == "ERR":
-                 logger.error(f"VAULT_UPSERT_ERR: {first}")
-                 return None
+            # Check for error in response if client doesn't raise
+            first = res[0]
+            if isinstance(first, dict) and first.get("status") == "ERR":
+                logger.error(f"VAULT_UPSERT_ERR: {first}")
+                return None
 
         logger.info(f"WARDROBE: Successfully upserted '{name}' for {agent_id}")
         return asset_id
@@ -71,13 +74,13 @@ class WardrobeService:
         """
         name = name.strip().lower().replace(" ", "_").replace("'", "\\'")
         aid = f"subject:`{agent_id.lower().replace(' ', '_')}`"
-        
+
         # Fetch with asset details joined
         query = f"SELECT *, asset_id.* as asset FROM vault WHERE agent_id = {aid} AND name = '{name}'"
         if category:
             query += f" AND category = '{category}'"
         query += " LIMIT 1;"
-        
+
         try:
             res = await self.db._call("query", query)
             if res and isinstance(res, list) and len(res) > 0:
@@ -97,7 +100,7 @@ class WardrobeService:
         query = f"SELECT *, asset_id.* as asset FROM vault WHERE agent_id = {aid}"
         if category:
             query += f" AND category = '{category}'"
-        
+
         try:
             res = await self.db._call("query", query)
             if res and isinstance(res, list) and len(res) > 0:

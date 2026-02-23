@@ -147,14 +147,16 @@ class SocialArbiter:
         # 3. Named agent check (Priority 3)
         named_agent_ids = self._detect_named_agents(message_content, active_agents)
         if named_agent_ids:
-            named_agents = [self._agents.get(aid) for aid in named_agent_ids if self._agents.get(aid)]
+            named_agents: list[AgentProfile] = [
+                a for aid in named_agent_ids if (a := self._agents.get(aid)) is not None
+            ]
             if named_agents:
                 logger.info(f"Social Arbiter: Named agents detected: {[a.name for a in named_agents]}")
                 return named_agents
 
         # 4. LLM-Based Scoring (Priority 4)
         # Pass emotional context to LLM
-        detected_emotion = None
+        detected_emotion: dict[str, Any] | None = None
         if not emotional_context or not emotional_context.get("detected_emotions"):
             detected = self.emotion_detector.detect_emotions(message_content)
             if detected.primary_emotion:
@@ -234,7 +236,7 @@ class SocialArbiter:
         # Original rule-based implementation (moved here)
         mentioned_agents = mentioned_agents or []
 
-        detected_emotion = None
+        detected_emotion: dict[str, Any] | None = None
         if not emotional_context or not emotional_context.get("detected_emotions"):
             detected = self.emotion_detector.detect_emotions(message_content)
             if detected.primary_emotion:
@@ -266,16 +268,18 @@ class SocialArbiter:
         named_agent_ids = self._detect_named_agents(message_content, active_agents)
 
         if named_agent_ids:
-            named_agents = [self._agents.get(aid) for aid in named_agent_ids if self._agents.get(aid)]
-            if named_agents:
-                logger.info(f"Social Arbiter: Named agents detected: {[a.name for a in named_agents]}")
+            named_agents_sync: list[AgentProfile] = [
+                a for aid in named_agent_ids if (a := self._agents.get(aid)) is not None
+            ]
+            if named_agents_sync:
+                logger.info(f"Social Arbiter: Named agents detected: {[a.name for a in named_agents_sync]}")
                 if detected_emotion:
-                    for a in named_agents:
+                    for a in named_agents_sync:
                         self.emotion_state_manager.update_emotional_state(
                             a.agent_id,
                             detected_emotion.get("primary_emotion"),
                         )
-                return named_agents
+                return named_agents_sync
 
         scored_agents = []
         for agent in active_agents:

@@ -23,7 +23,7 @@ class RoomService:
             self._room_cache[room.room_id] = room
         logger.info(f"RoomService: Loaded {len(self._room_cache)} rooms")
 
-    async def create_room(self, room_id: str, name: str, type: str = "generic", description: str = None) -> dict:
+    async def create_room(self, room_id: str, name: str, type: str = "generic", description: str | None = None) -> dict:
         if not room_id or not room_id.strip():
             return {"success": False, "error": "room_id is required"}
         if not name or not name.strip():
@@ -40,8 +40,8 @@ class RoomService:
                     "room_id": created.room_id,
                     "name": created.name,
                     "type": created.type,
-                    "description": created.description
-                }
+                    "description": created.description,
+                },
             }
         except Exception as e:
             logger.error(f"RoomService: Failed to create room {room_id}: {e}")
@@ -57,17 +57,11 @@ class RoomService:
 
     async def list_rooms(self) -> list[dict]:
         rooms = await self.repository.list_rooms()
-        return [
-            {
-                "room_id": r.room_id,
-                "name": r.name,
-                "type": r.type,
-                "description": r.description
-            }
-            for r in rooms
-        ]
+        return [{"room_id": r.room_id, "name": r.name, "type": r.type, "description": r.description} for r in rooms]
 
-    async def update_room(self, room_id: str, name: str = None, type: str = None, description: str = None) -> dict:
+    async def update_room(
+        self, room_id: str, name: str | None = None, type: str | None = None, description: str | None = None
+    ) -> dict:
         room = await self.repository.update_room(room_id, name, type, description)
         if room:
             self._room_cache[room_id] = room
@@ -77,8 +71,8 @@ class RoomService:
                     "room_id": room.room_id,
                     "name": room.name,
                     "type": room.type,
-                    "description": room.description
-                }
+                    "description": room.description,
+                },
             }
         return {"success": False, "error": "Room not found"}
 
@@ -105,11 +99,7 @@ class RoomService:
                 return {
                     "success": True,
                     "agent_id": agent_id,
-                    "room": {
-                        "room_id": room.room_id,
-                        "name": room.name,
-                        "type": room.type
-                    }
+                    "room": {"room_id": room.room_id, "name": room.name, "type": room.type},
                 }
             return {"success": False, "error": "Failed to assign agent to room"}
         except Exception as e:
@@ -125,12 +115,7 @@ class RoomService:
         if not room:
             return None
 
-        return {
-            "room_id": room.room_id,
-            "name": room.name,
-            "type": room.type,
-            "description": room.description
-        }
+        return {"room_id": room.room_id, "name": room.name, "type": room.type, "description": room.description}
 
     async def remove_agent_assignment(self, agent_id: str) -> dict:
         result = await self.repository.remove_agent_assignment(agent_id)

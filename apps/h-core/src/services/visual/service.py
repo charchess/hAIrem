@@ -136,7 +136,7 @@ class VisualImaginationService:
             return await self.provider.generate(full_prompt, **kwargs)
 
     async def generate_and_index(
-        self, agent_id: str, prompt: str, tags: list[str] = None, **kwargs: Any
+        self, agent_id: str, prompt: str, tags: list[str] | None = None, **kwargs: Any
     ) -> tuple[str, str | None]:
         logger.info(f"VISUAL_SERVICE: Processing {agent_id}: {prompt[:50]}...")
         if agent_id.lower() != "system":
@@ -159,6 +159,7 @@ class VisualImaginationService:
             image_url = await self.generate_for_agent(agent_id, prompt, **kwargs)
 
             # Support local file paths directly from provider (e.g. Google SDK)
+            local_path: str | None = None
             if image_url.startswith("file://") or image_url.startswith("/"):
                 local_path = image_url.replace("file://", "")
                 if not os.path.exists(local_path):
@@ -182,7 +183,7 @@ class VisualImaginationService:
             raise
 
     async def index_generated_asset(
-        self, local_path: str, agent_id: str, prompt: str, tags: list[str] = None, reference_image_used: str = ""
+        self, local_path: str, agent_id: str, prompt: str, tags: list[str] | None = None, reference_image_used: str = ""
     ) -> tuple[str, str | None]:
         embedding = await self.llm.get_embedding(prompt)
         metadata = {

@@ -28,7 +28,7 @@ class EmotionalHistoryService:
         agent_id: str = "system",
     ) -> Optional[EmotionalStateRecord]:
         context = self.emotion_detector.detect_emotions(message)
-        
+
         if not context.primary_emotion:
             return None
 
@@ -60,7 +60,7 @@ class EmotionalHistoryService:
         limit: int = DEFAULT_EMOTION_LIMIT,
     ) -> dict[str, Any]:
         recent = await self.repository.get_recent_emotions(user_id, limit)
-        
+
         if not recent:
             return {
                 "has_history": False,
@@ -70,7 +70,7 @@ class EmotionalHistoryService:
             }
 
         current = recent[0]
-        
+
         emotion_counts: dict[str, int] = {}
         total_intensity = 0.0
         for r in recent:
@@ -90,7 +90,7 @@ class EmotionalHistoryService:
 
     async def _check_and_archive(self, user_id: str) -> bool:
         recent = await self.repository.get_recent_emotions(user_id, SUMMARY_THRESHOLD + 1)
-        
+
         if len(recent) < SUMMARY_THRESHOLD:
             return False
 
@@ -98,9 +98,9 @@ class EmotionalHistoryService:
         remaining = recent[SUMMARY_THRESHOLD:]
 
         summary = self._create_summary(user_id, to_archive)
-        
+
         await self.repository.archive_emotions(user_id, summary.to_dict())
-        
+
         redis_client = self.repository.redis
         if redis_client and redis_client.client:
             key = f"emotional_history:{user_id}"
@@ -119,7 +119,7 @@ class EmotionalHistoryService:
     ) -> EmotionalSummary:
         emotion_counts: dict[str, int] = {}
         total_intensity = 0.0
-        
+
         for r in records:
             emotion = r.get("emotion", "neutral")
             emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
@@ -136,13 +136,15 @@ class EmotionalHistoryService:
 
         period_start = min(timestamps) if timestamps else datetime.utcnow()
         period_end = max(timestamps) if timestamps else datetime.utcnow()
-        
-        dominant_emotion = max(emotion_counts, key=emotion_counts.get) if emotion_counts else "neutral"
+
+        dominant_emotion = max(emotion_counts, key=lambda e: emotion_counts.get(e, 0)) if emotion_counts else "neutral"
         avg_intensity = total_intensity / len(records) if records else 0.0
 
         emotion_percentages = {e: (c / len(records) * 100) for e, c in emotion_counts.items()}
         summary_parts = [f"{e}: {p:.0f}%" for e, p in sorted(emotion_percentages.items(), key=lambda x: -x[1])[:3]]
-        summary_text = f"User expressed {dominant_emotion} as dominant emotion. Distribution: {', '.join(summary_parts)}"
+        summary_text = (
+            f"User expressed {dominant_emotion} as dominant emotion. Distribution: {', '.join(summary_parts)}"
+        )
 
         return EmotionalSummary(
             user_id=user_id,
@@ -159,9 +161,9 @@ class EmotionalHistoryService:
         user_id: str,
     ) -> dict[str, Any]:
         emotional_context = await self.get_emotional_context(user_id)
-        
+
         archived = await self.repository.get_archived_summaries(user_id, limit=5)
-        
+
         emotional_context["archived_summaries"] = archived
         emotional_context["total_archived"] = len(archived)
 

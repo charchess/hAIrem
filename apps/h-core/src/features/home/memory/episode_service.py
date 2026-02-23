@@ -74,7 +74,7 @@ class EpisodeService:
         prompt = _SUMMARY_PROMPT.format(facts=facts_text, emotion_arc=arc_text)
         try:
             response = await self.llm.get_completion([{"role": "system", "content": prompt}], stream=False)
-            return (response or "").strip()
+            return str(response).strip() if isinstance(response, str) else ""
         except Exception as exc:
             logger.warning(f"Episode summary generation failed: {exc}")
             return ""

@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 RESEMBLYZER_AVAILABLE = False
 try:
     from resemblyzer import VoiceEncoder
+
     RESEMBLYZER_AVAILABLE = True
 except ImportError:
     logger.warning("resemblyzer not available, voice recognition will use fallback mode")
@@ -15,6 +16,7 @@ except ImportError:
 PYANNOTE_AVAILABLE = False
 try:
     from pyannote.audio import Pipeline
+
     PYANNOTE_AVAILABLE = True
 except ImportError:
     logger.warning("pyannote.audio not available, voice recognition will use fallback mode")
@@ -61,10 +63,11 @@ class VoiceEmbeddingExtractor:
     def _bytes_to_audio(self, audio_data: bytes) -> Optional[np.ndarray]:
         try:
             import wave
-            with wave.open(io.BytesIO(audio_data), 'rb') as wav:
+
+            with wave.open(io.BytesIO(audio_data), "rb") as wav:
                 frames = wav.readframes(wav.getnframes())
-                audio_np = np.frombuffer(frames, dtype=np.int16)
-                audio_np = audio_np.astype(np.float32) / 32768.0
+                audio_raw = np.frombuffer(frames, dtype=np.int16)
+                audio_np = audio_raw.astype(np.float32) / 32768.0
                 return audio_np
         except Exception as e:
             logger.error(f"Failed to parse audio data: {e}")
@@ -81,7 +84,7 @@ class VoiceEmbeddingExtractor:
                 chunk_size = len(audio_np) // num_chunks
                 features = []
                 for i in range(num_chunks):
-                    chunk = audio_np[i * chunk_size:(i + 1) * chunk_size]
+                    chunk = audio_np[i * chunk_size : (i + 1) * chunk_size]
                     chunk_features = self._extract_simple_features(chunk)
                     features.append(chunk_features)
                 return np.mean(features, axis=0).tolist()
@@ -99,11 +102,11 @@ class VoiceEmbeddingExtractor:
         num_frames = max(1, (len(audio_np) - frame_length) // hop_length)
         for i in range(min(num_frames, 40)):
             start = i * hop_length
-            frame = audio_np[start:start + frame_length]
+            frame = audio_np[start : start + frame_length]
             if len(frame) < frame_length:
                 frame = np.pad(frame, (0, frame_length - len(frame)))
 
-            rms = np.sqrt(np.mean(frame ** 2))
+            rms = np.sqrt(np.mean(frame**2))
             features.append(rms)
 
             fft = np.fft.rfft(frame)

@@ -73,4 +73,4 @@ class SeedingService:
 
         for s in streams:
             logger.info(f"SEEDING: Resetting stream {s}")
-            await self.redis.client.delete(s)
+            await self.redis.delete(s)

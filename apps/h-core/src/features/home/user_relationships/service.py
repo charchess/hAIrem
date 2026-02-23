@@ -9,6 +9,7 @@ from .models import (
     INTERACTION_SCORES,
     PREFERENCE_EXPRESSION_THRESHOLDS,
     RELATIONSHIP_THRESHOLDS,
+    InteractionType,
     PreferenceExpression,
     PreferenceModifier,
     RelationshipStatus,
@@ -64,7 +65,7 @@ class UserRelationshipService:
 
         history_entry = {
             "timestamp": datetime.utcnow().isoformat(),
-            "type": interaction_type.value if hasattr(interaction_type, 'value') else str(interaction_type),
+            "type": interaction_type.value if hasattr(interaction_type, "value") else str(interaction_type),
             "score_delta": score_delta,
             "context": context,
             "new_score": relationship.score,
@@ -76,8 +77,7 @@ class UserRelationshipService:
         new_status = self._calculate_status(relationship.score)
         if new_status != relationship.status:
             logger.info(
-                f"User relationship evolved: {agent_id}-{user_id} "
-                f"{relationship.status.value} -> {new_status.value}"
+                f"User relationship evolved: {agent_id}-{user_id} {relationship.status.value} -> {new_status.value}"
             )
             relationship.status = new_status
 
@@ -102,7 +102,7 @@ class UserRelationshipService:
 
     def get_tone_modifier(self, relationship: UserRelationship) -> ToneModifier:
         tone = relationship.get_tone()
-        
+
         warmth = 0.0
         formality = 0.0
         empathy = 0.0
@@ -133,20 +133,20 @@ class UserRelationshipService:
         include_subtle_hints: bool = False,
     ) -> PreferenceModifier:
         preference = relationship.get_preference_expression()
-        
+
         if preference == PreferenceExpression.NONE:
             return PreferenceModifier(
                 expression=PreferenceExpression.NONE,
                 message_suffix="",
                 include_subtle_hints=False,
             )
-        
+
         message = ""
         if include_subtle_hints and random.random() < 0.3:
             messages = self.PREFERENCE_MESSAGES.get(preference, [])
             if messages:
                 message = " " + random.choice(messages)
-        
+
         return PreferenceModifier(
             expression=preference,
             message_suffix=message,
@@ -162,10 +162,10 @@ class UserRelationshipService:
     ) -> tuple[str, ToneModifier, Optional[PreferenceModifier]]:
         relationship = await self.get_relationship(agent_id, user_id)
         tone_mod = self.get_tone_modifier(relationship)
-        
+
         prefix = ""
         suffix = ""
-        
+
         if tone_mod.tone == ToneType.FRIENDLY:
             prefix = "😊 "
         elif tone_mod.tone == ToneType.WARM:
@@ -182,9 +182,9 @@ class UserRelationshipService:
         if include_preference:
             pref_mod = self.get_preference_modifier(relationship, include_subtle_hints=True)
             suffix += pref_mod.message_suffix
-        
+
         modified_message = f"{prefix}{message}{suffix}"
-        
+
         return modified_message, tone_mod, pref_mod
 
     async def get_all_relationships(self, agent_id: str) -> list[UserRelationship]:
@@ -193,29 +193,29 @@ class UserRelationshipService:
     async def decay_scores(self, decay_factor: float = 0.01) -> int:
         updated = 0
         relationships = await self.get_all_relationships("__all__")
-        
+
         for rel in relationships:
             if rel.interaction_count < 3:
                 continue
-            
+
             days_since_interaction = (datetime.utcnow() - rel.last_interaction).days
             if days_since_interaction > 7:
                 decay = decay_factor * days_since_interaction
                 rel.score = max(-100, rel.score - decay)
-                
+
                 old_status = rel.status
                 rel.status = self._calculate_status(rel.score)
-                
+
                 if old_status != rel.status:
                     logger.info(
                         f"User relationship decayed: {rel.agent_id}-{rel.user_id} "
                         f"{old_status.value} -> {rel.status.value}"
                     )
-                
+
                 rel.updated_at = datetime.utcnow()
                 await self.repository.save(rel)
                 updated += 1
-        
+
         return updated
 
     async def classify_interaction(
@@ -224,8 +224,6 @@ class UserRelationshipService:
         agent_response: str,
         sentiment_score: float,
     ) -> "InteractionType":
-        from .models import InteractionType
-        
         if sentiment_score > 0.5:
             return InteractionType.PLEASANT
         elif sentiment_score < -0.5:
@@ -234,5 +232,5 @@ class UserRelationshipService:
             return InteractionType.HELPFUL
         elif "?" in user_message and len(user_message) < 50:
             return InteractionType.SOCIAL
-        
+
         return InteractionType.NEUTRAL

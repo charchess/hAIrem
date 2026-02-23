@@ -5,7 +5,7 @@ from src.features.admin.agent_config.models import LLMProviderConfig
 logger = logging.getLogger(__name__)
 
 
-SUPPORTED_PROVIDERS = {
+SUPPORTED_PROVIDERS: dict[str, dict[str, Any]] = {
     "ollama": {
         "name": "Ollama",
         "default_model": "llama2",
@@ -59,17 +59,17 @@ SUPPORTED_PROVIDERS = {
 
 def get_provider_info(provider: str) -> dict[str, Any]:
     """Get provider information."""
-    return SUPPORTED_PROVIDERS.get(provider.lower(), {
-        "name": provider,
-        "default_model": None,
-        "default_base_url": None,
-        "supports_streaming": True,
-    })
+    return SUPPORTED_PROVIDERS.get(
+        provider.lower(),
+        {
+            "name": provider,
+            "default_model": None,
+            "default_base_url": None,
+            "supports_streaming": True,
+        },
+    )
 
 
 def list_providers() -> list[dict[str, Any]]:
     """List all supported providers."""
-    return [
-        {"id": k, "name": v["name"], "default_model": v["default_model"]}
-        for k, v in SUPPORTED_PROVIDERS.items()
-    ]
+    return [{"id": k, "name": v["name"], "default_model": v["default_model"]} for k, v in SUPPORTED_PROVIDERS.items()]

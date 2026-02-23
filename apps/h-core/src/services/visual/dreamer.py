@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from typing import Any
 
 # Define logger FIRST
 logger = logging.getLogger(__name__)
@@ -7,13 +8,12 @@ logger = logging.getLogger(__name__)
 try:
     from electra.drivers.ha_client import HaClient
 except ImportError:
-    # Handle both absolute and relative if sys.path is messed up
     try:
         from agents.electra.drivers.ha_client import HaClient
     except ImportError:
         logger.warning("Dreamer: HaClient not found, using mock")
-        class HaClient:
-            async def get_state(self, *args, **kwargs): return {}
+        HaClient = None
+
 from src.services.visual.service import VisualImaginationService
 
 
@@ -22,7 +22,7 @@ class Dreamer:
     Orchestrates proactive image generation during sleep cycles.
     """
 
-    def __init__(self, ha_client: HaClient, visual_service: VisualImaginationService):
+    def __init__(self, ha_client: Any, visual_service: VisualImaginationService):
         self.ha = ha_client
         self.visual_service = visual_service
 
@@ -75,11 +75,9 @@ class Dreamer:
 
             # Use the consolidated service logic
             asset_uri, _ = await self.visual_service.generate_and_index(
-                agent_id=agent_id,
-                prompt=prompt,
-                tags=["proactive", f"weather:{weather}", f"time:{time_of_day}"]
+                agent_id=agent_id, prompt=prompt, tags=["proactive", f"weather:{weather}", f"time:{time_of_day}"]
             )
-            
+
             logger.info(f"DREAMER: Proactive asset ready at {asset_uri}")
 
         except Exception as e:

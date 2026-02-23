@@ -126,7 +126,7 @@ class MemoryConsolidator:
             if isinstance(content, dict):
                 content = content.get("content") or json.dumps(content)
             convo_lines.append(f"{sender}: {content}")
-            msg_ids.append(m.get("id").split(":")[-1].strip("`"))
+            msg_ids.append((m.get("id") or "").split(":")[-1].strip("`"))
 
             payload = m.get("payload", {})
             if isinstance(payload, dict):
@@ -278,7 +278,7 @@ class MemoryConsolidator:
 
         try:
             response = await self.llm.get_completion([{"role": "system", "content": prompt}], stream=False)
-            clean_json = response.strip()
+            clean_json = str(response).strip() if isinstance(response, str) else ""
             if "```json" in clean_json:
                 clean_json = clean_json.split("```json")[1].split("```")[0].strip()
 

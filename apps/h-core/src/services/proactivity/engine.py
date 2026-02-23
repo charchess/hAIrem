@@ -17,7 +17,12 @@ class ProactivityEngine:
         self.stimuli: Dict[str, Dict[str, Any]] = {}
 
     async def register_trigger(
-        self, event_name: str, target_agent: str, context: str = "", entity_id: str = None, new_state: str = None
+        self,
+        event_name: str,
+        target_agent: str,
+        context: str = "",
+        entity_id: str | None = None,
+        new_state: str | None = None,
     ):
         """
         Registers a complex trigger.

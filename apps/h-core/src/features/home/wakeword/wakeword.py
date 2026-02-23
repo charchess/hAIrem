@@ -45,7 +45,7 @@ class WakewordEngine:
         self.audio_stream = None
         self.is_running = False
         self.detection_callback: Optional[Callable] = None
-        self.audio_queue = queue.Queue(maxsize=100)
+        self.audio_queue: queue.Queue[Any] = queue.Queue(maxsize=100)
         self.processing_thread: Optional[threading.Thread] = None
         self.capture_thread: Optional[threading.Thread] = None
 
@@ -73,7 +73,7 @@ class WakewordEngine:
             if self.audio:
                 self.audio.terminate()
 
-    async def start_listening(self, callback: Callable[[Dict[str, Any]], None]) -> bool:
+    async def start_listening(self, callback: Callable[[Dict[str, Any]], Any]) -> bool:
         """
         Start listening for wakeword detection.
 
@@ -105,32 +105,8 @@ class WakewordEngine:
             )
 
             # Start audio stream
-            self.audio_stream.start_stream()
-
-            # Start processing thread
-            self.is_running = True
-            self.processing_thread = threading.Thread(target=self._processing_loop, daemon=True)
-            self.processing_thread.start()
-
-            logger.info("Wakeword detection started")
-            return True
-
-        except Exception as e:
-            logger.error(f"Failed to start wakeword detection: {e}")
-            return False
-
-        if self.is_running:
-            logger.warning("Wakeword engine already running")
-            return True
-
-        self.detection_callback = callback
-
-        try:
-            # Initialize audio stream
-            self.audio_stream = AudioStream(sample_rate=16000, channels=1, chunk_size=self.chunk_size)
-
-            # Start audio capture
-            await self.audio_stream.start()
+            if self.audio_stream:
+                self.audio_stream.start_stream()
 
             # Start processing thread
             self.is_running = True
@@ -196,6 +172,7 @@ class WakewordEngine:
                     continue
 
                 # Predict wakeword
+                assert self.model is not None
                 prediction = self.model.predict(audio_data)
 
                 # Check for wakeword detection

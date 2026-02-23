@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import json
 import logging
 from collections.abc import Callable, Coroutine
@@ -25,7 +26,9 @@ class RedisClient:
                 return False
             try:
                 self.client = redis.from_url(self.redis_url, decode_responses=True)
-                await self.client.ping()
+                ping_result = self.client.ping()
+                if inspect.isawaitable(ping_result):
+                    await ping_result
                 logger.info(f"Connected to Redis at {self.redis_url}")
                 return True
             except Exception as e:
@@ -42,8 +45,8 @@ class RedisClient:
                 return
 
         try:
-            # Flatten dict for Redis Stream
-            payload = {}
+            assert self.client is not None
+            payload: dict[Any, Any] = {}
             for k, v in data.items():
                 if isinstance(v, (dict, list)):
                     payload[k] = json.dumps(v)
@@ -68,7 +71,7 @@ class RedisClient:
             if not await self.connect():
                 return
 
-        # Create group if not exists
+        assert self.client is not None
         try:
             await self.client.xgroup_create(stream, group, id=start_id, mkstream=True)
         except redis.ResponseError as e:
@@ -78,6 +81,10 @@ class RedisClient:
 
         while not self._stop_event.is_set():
             try:
+                if not self.client:
+                    if not await self.connect():
+                        return
+                assert self.client is not None
                 messages = await self.client.xreadgroup(group, consumer, {stream: ">"}, count=1, block=1000)
 
                 if messages:
@@ -105,7 +112,8 @@ class RedisClient:
                                 await handler(decoded_data)
 
                                 # ACK
-                                await self.client.xack(stream, group, m_id)
+                                if self.client:
+                                    await self.client.xack(stream, group, m_id)
 
                             except Exception as e:
                                 logger.error(f"STREAM_PROC_FAIL on {stream}:{m_id}: {e}")
@@ -118,6 +126,38 @@ class RedisClient:
                     logger.error(f"Stream loop error: {e}")
                     await asyncio.sleep(2)
 
+    async def get(self, key: str) -> Any:
+        if not self.client:
+            await self.connect()
+        assert self.client is not None
+        raw = await self.client.get(key)
+        if raw and isinstance(raw, str):
+            try:
+                return json.loads(raw)
+            except (json.JSONDecodeError, ValueError):
+                return raw
+        return raw
+
+    async def set(self, key: str, value: Any, ex: int | None = None) -> None:
+        if not self.client:
+            await self.connect()
+        assert self.client is not None
+        data = json.dumps(value) if isinstance(value, (dict, list)) else str(value)
+        await self.client.set(key, data, ex=ex)
+
+    async def delete(self, key: str) -> None:
+        if not self.client:
+            await self.connect()
+        assert self.client is not None
+        await self.client.delete(key)
+
+    async def scan(self, cursor: int, pattern: str, count: int = 100) -> tuple[int, list[str]]:
+        if not self.client:
+            await self.connect()
+        assert self.client is not None
+        result = await self.client.scan(cursor, match=pattern, count=count)
+        return result[0], list(result[1])
+
     async def disconnect(self):
         self._stop_event.set()
         if self.client:
@@ -129,7 +169,7 @@ class RedisClient:
         if not self.client:
             await self.connect()
         try:
-            # Handle both HLinkMessage objects and dicts
+            assert self.client is not None
             if hasattr(message, "model_dump_json"):
                 data = message.model_dump_json()
             elif isinstance(message, dict):
@@ -147,6 +187,7 @@ class RedisClient:
             try:
                 if not self.client:
                     await self.connect()
+                assert self.client is not None
                 async with self.client.pubsub() as pubsub:
                     await pubsub.subscribe(channel)
                     while not self._stop_event.is_set():

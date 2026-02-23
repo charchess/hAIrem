@@ -5,12 +5,13 @@ import inspect
 from datetime import datetime
 from typing import Any, List, Optional, Dict
 
+SURREAL_AVAILABLE = False
 try:
     from surrealdb import Surreal
-except ImportError:
-    Surreal = None
 
-SURREAL_AVAILABLE = Surreal is not None
+    SURREAL_AVAILABLE = True
+except ImportError:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ class SurrealDbClient:
         self.password = password
         self.ns = ns
         self.db = db
-        self.client: Optional[Surreal] = None
+        self.client: Any = None
         self._stop_event = asyncio.Event()
 
     async def _call(self, method_name: str, *args, **kwargs) -> Any:
@@ -65,7 +66,9 @@ class SurrealDbClient:
                 pass
 
         # We keep the constructor call simple for mock compatibility in tests
-        self.client = Surreal(self.url)
+        from surrealdb import Surreal as _Surreal  # noqa: PLC0415
+
+        self.client = _Surreal(self.url)
 
         try:
             # Need to call connect() explicitly in newer versions of the library
@@ -221,7 +224,7 @@ class SurrealDbClient:
         except Exception as e:
             logger.error(f"Failed to insert causal link: {e}")
 
-    async def insert_concept(self, name: str, description: str, fact_content: str = None):
+    async def insert_concept(self, name: str, description: str, fact_content: str | None = None):
         """Creates a concept and optionally links a fact to it via ABOUT."""
         try:
             cid = f"concept:`{name.lower().replace(' ', '_')}`"
@@ -311,6 +314,35 @@ class SurrealDbClient:
             return str(fid)
         except Exception as e:
             logger.error(f"Failed to insert graph memory: {e}")
+            return None
+
+    async def save_asset_record(self, asset_data: Dict[str, Any]) -> Optional[str]:
+        try:
+            url = asset_data.get("url", "")
+            q = (
+                f"INSERT INTO visual_asset (url, prompt, agent_id, tags, embedding, reference_image_used) "
+                f"VALUES ($url, $prompt, $aid, $tags, $emb, $ref) "
+                f"ON DUPLICATE KEY UPDATE prompt = $prompt, tags = $tags, last_used = time::now();"
+            )
+            result = await self._call(
+                "query",
+                q,
+                {
+                    "url": url,
+                    "prompt": asset_data.get("prompt", ""),
+                    "aid": asset_data.get("agent_id", "system"),
+                    "tags": asset_data.get("tags", []),
+                    "emb": asset_data.get("embedding", []),
+                    "ref": asset_data.get("reference_image_used", ""),
+                },
+            )
+            if result and isinstance(result, list) and result[0].get("result"):
+                rows = result[0]["result"]
+                if rows and isinstance(rows, list):
+                    return str(rows[0].get("id", ""))
+            return None
+        except Exception as e:
+            logger.error(f"Failed to save asset record: {e}")
             return None
 
     async def open_episode(self, session_id: str, agent_id: str, user_id: Optional[str] = None) -> str:

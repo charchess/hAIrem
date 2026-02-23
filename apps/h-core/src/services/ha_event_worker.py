@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class HaEventWorker:
-    def __init__(self, redis: RedisClient, ha_client: HaClient, proactivity_engine: ProactivityEngine = None):
+    def __init__(self, redis: RedisClient, ha_client: HaClient, proactivity_engine: ProactivityEngine | None = None):
         self.redis = redis
         self.ha_client = ha_client
         self.proactivity = proactivity_engine

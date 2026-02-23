@@ -51,6 +51,8 @@ class ExteriorService:
             speed=speed,
             is_wifi_connected=is_wifi_connected,
             ssid=ssid,
+            network_type=None,
+            altitude=None,
         )
 
         score = 0.0
@@ -120,7 +122,13 @@ class ExteriorService:
         room_id: Optional[str] = None,
     ) -> AgentSpatialContext:
         if agent_id not in self._agent_contexts:
-            self._agent_contexts[agent_id] = AgentSpatialContext(agent_id=agent_id)
+            self._agent_contexts[agent_id] = AgentSpatialContext(
+                agent_id=agent_id,
+                current_room_id=None,
+                exterior_theme=None,
+                last_exterior_time=None,
+                last_interior_time=None,
+            )
 
         context = self._agent_contexts[agent_id]
         now = datetime.utcnow()
@@ -131,9 +139,7 @@ class ExteriorService:
 
         if detection_result.is_exterior:
             context.last_exterior_time = now
-            context.exterior_theme = self._get_exterior_theme(
-                detection_result.markers
-            )
+            context.exterior_theme = self._get_exterior_theme(detection_result.markers)
         else:
             context.last_interior_time = now
             context.exterior_theme = None
@@ -141,12 +147,14 @@ class ExteriorService:
         if room_id:
             context.current_room_id = room_id
 
-        context.location_history.append({
-            "timestamp": now.isoformat(),
-            "is_exterior": detection_result.is_exterior,
-            "room_id": room_id,
-            "confidence": detection_result.confidence,
-        })
+        context.location_history.append(
+            {
+                "timestamp": now.isoformat(),
+                "is_exterior": detection_result.is_exterior,
+                "room_id": room_id,
+                "confidence": detection_result.confidence,
+            }
+        )
 
         if len(context.location_history) > 10:
             context.location_history = context.location_history[-10:]
@@ -167,7 +175,7 @@ class ExteriorService:
         if "park" in ssid or "garden" in ssid:
             return EXTERIOR_THEMES.get("park", "outdoor")
 
-        return EXTERIOR_THEMES.get("outdoor")
+        return EXTERIOR_THEMES.get("outdoor", "outdoor")
 
     def get_agent_spatial_context(self, agent_id: str) -> Optional[AgentSpatialContext]:
         return self._agent_contexts.get(agent_id)

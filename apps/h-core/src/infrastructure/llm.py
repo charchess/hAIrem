@@ -178,12 +178,11 @@ class LlmClient:
         return {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
 
     def get_model_provider(self) -> tuple[str, str]:
-        """Get provider and model from the model string."""
-        model = self.model
-        if "/" in model:
-            provider, model = model.split("/", 1)
-            return provider, model
-        return "unknown", model
+        model_str = str(self.model or "unknown")
+        if "/" in model_str:
+            provider, model_name = model_str.split("/", 1)
+            return provider, model_name
+        return "unknown", model_str
 
     async def _error_generator(self, msg: str):
         yield msg
