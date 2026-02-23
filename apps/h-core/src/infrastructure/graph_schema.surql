@@ -20,6 +20,10 @@ DEFINE FIELD strength ON TABLE BELIEVES TYPE float DEFAULT 1.0;
 DEFINE FIELD last_accessed ON TABLE BELIEVES TYPE datetime DEFAULT time::now();
 DEFINE FIELD last_reinforced ON TABLE BELIEVES TYPE datetime DEFAULT time::now();
 DEFINE FIELD permanent ON TABLE BELIEVES TYPE bool DEFAULT false;
+DEFINE FIELD force_score ON TABLE BELIEVES TYPE float DEFAULT 0.5;
+DEFINE FIELD affect ON TABLE BELIEVES TYPE float DEFAULT 0.5;
+DEFINE FIELD importance ON TABLE BELIEVES TYPE float DEFAULT 0.5;
+DEFINE FIELD relevance ON TABLE BELIEVES TYPE float DEFAULT 0.5;
 
 DEFINE TABLE ABOUT SCHEMAFULL TYPE RELATION FROM fact TO subject PERMISSIONS FULL;
 
@@ -43,6 +47,20 @@ DEFINE FIELD last_used ON TABLE visual_asset TYPE datetime DEFAULT time::now();
 DEFINE FIELD reference_image_used ON TABLE visual_asset TYPE option<string> DEFAULT "";
 
 DEFINE INDEX visual_asset_embedding ON TABLE visual_asset FIELDS embedding MTREE DIMENSION 384 DIST COSINE;
+
+-- Episodic Memory (Epic 24)
+DEFINE TABLE episode SCHEMAFULL PERMISSIONS FULL;
+DEFINE FIELD session_id ON TABLE episode TYPE string;
+DEFINE FIELD agent_id ON TABLE episode TYPE string;
+DEFINE FIELD user_id ON TABLE episode TYPE option<string>;
+DEFINE FIELD started_at ON TABLE episode TYPE datetime DEFAULT time::now();
+DEFINE FIELD ended_at ON TABLE episode TYPE option<datetime>;
+DEFINE FIELD summary ON TABLE episode TYPE option<string>;
+DEFINE FIELD emotion_arc ON TABLE episode TYPE array DEFAULT [];
+DEFINE INDEX episode_session ON TABLE episode FIELDS session_id UNIQUE;
+
+DEFINE TABLE EXTRACTED_FROM SCHEMAFULL TYPE RELATION FROM fact TO episode PERMISSIONS FULL;
+DEFINE FIELD extracted_at ON TABLE EXTRACTED_FROM TYPE datetime DEFAULT time::now();
 
 -- Vault System (Named Inventory)
 DEFINE TABLE vault SCHEMAFULL PERMISSIONS FULL;

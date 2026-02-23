@@ -242,19 +242,7 @@ class SurrealDbClient:
         except Exception as e:
             logger.error(f"Failed to insert concept: {e}")
 
-    async def insert_graph_memory(self, fact_data: Dict[str, Any]):
-        """Stores an atomic fact using the graph model.
-
-        Args:
-            fact_data: Dictionary containing:
-                - fact: The fact content
-                - subject: The subject (e.g., "user", "Lisa")
-                - agent: The agent believing the fact (e.g., "system", "Renarde")
-                - confidence: Confidence score (0.0-1.0)
-                - user_id: Optional user ID
-                - user_name: Optional user name
-                - permanent: If True, fact will not decay (for identity facts)
-        """
+    async def insert_graph_memory(self, fact_data: Dict[str, Any], force: Any = None) -> Optional[str]:
         subject_name = fact_data.get("subject", "user")
         agent_name = fact_data.get("agent", "system")
         fact_content = fact_data.get("fact", "")
@@ -287,7 +275,7 @@ class SurrealDbClient:
 
             fact_res = await self._call("create", "fact", fact_data_db)
             if not fact_res:
-                return
+                return None
 
             # fact_res can be a list or a single dict depending on library version
             if isinstance(fact_res, list) and len(fact_res) > 0:
@@ -296,20 +284,97 @@ class SurrealDbClient:
                 fid = fact_res.get("id")
             else:
                 logger.error(f"SURREAL: Unexpected fact creation result: {fact_res}")
-                return
+                return None
 
             if not fid:
-                return
+                return None
 
-            # Include permanent flag in the BELIEVES edge
+            initial_strength = force.score if force else 1.0
+            force_fields = ""
+            if force:
+                d = force.to_dict()
+                force_fields = (
+                    f", force_score = {d['force_score']}"
+                    f", affect = {d['affect']}"
+                    f", importance = {d['importance']}"
+                    f", relevance = {d['relevance']}"
+                )
+
             await self._call(
                 "query",
-                f"RELATE {aid}->BELIEVES->{fid} SET confidence = $conf, strength = 1.0, last_accessed = time::now(), permanent = $permanent, last_reinforced = time::now();",
+                f"RELATE {aid}->BELIEVES->{fid} SET confidence = $conf, strength = {initial_strength},"
+                f" last_accessed = time::now(), permanent = $permanent,"
+                f" last_reinforced = time::now(){force_fields};",
                 {"conf": confidence, "permanent": permanent},
             )
             await self._call("query", f"RELATE {fid}->ABOUT->{sid};")
+            return str(fid)
         except Exception as e:
             logger.error(f"Failed to insert graph memory: {e}")
+            return None
+
+    async def open_episode(self, session_id: str, agent_id: str, user_id: Optional[str] = None) -> str:
+        data: Dict[str, Any] = {"session_id": session_id, "agent_id": agent_id}
+        if user_id:
+            data["user_id"] = user_id
+        result = await self._call("create", "episode", data)
+        if isinstance(result, list) and result:
+            return str(result[0].get("id", ""))
+        if isinstance(result, dict):
+            return str(result.get("id", ""))
+        return ""
+
+    async def close_episode(
+        self, session_id: str, summary: Optional[str] = None, emotion_arc: Optional[List[Dict[str, Any]]] = None
+    ) -> bool:
+        await self._call(
+            "query",
+            "UPDATE episode SET ended_at = time::now(), summary = $summary, emotion_arc = $arc"
+            " WHERE session_id = $sid;",
+            {"sid": session_id, "summary": summary, "arc": emotion_arc or []},
+        )
+        return True
+
+    async def link_fact_to_episode(self, fact_id: str, session_id: str) -> bool:
+        result = await self._call(
+            "query",
+            "LET $ep = (SELECT id FROM episode WHERE session_id = $sid LIMIT 1);"
+            " IF $ep[0].id THEN RELATE $fact->EXTRACTED_FROM->$ep[0].id SET extracted_at = time::now(); END;",
+            {"sid": session_id, "fact": fact_id},
+        )
+        return result is not None
+
+    async def get_episode(self, session_id: str) -> Optional[Dict[str, Any]]:
+        result = await self._call(
+            "query",
+            "SELECT * FROM episode WHERE session_id = $sid LIMIT 1;",
+            {"sid": session_id},
+        )
+        if result and isinstance(result, list) and result[0].get("result"):
+            rows = result[0]["result"]
+            return rows[0] if rows else None
+        return None
+
+    async def get_episode_facts(self, session_id: str) -> List[Dict[str, Any]]:
+        result = await self._call(
+            "query",
+            "SELECT <-EXTRACTED_FROM<-fact.* AS facts FROM episode WHERE session_id = $sid;",
+            {"sid": session_id},
+        )
+        if result and isinstance(result, list) and result[0].get("result"):
+            rows = result[0]["result"]
+            return rows[0].get("facts", []) if rows else []
+        return []
+
+    async def get_recent_episodes(self, agent_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+        result = await self._call(
+            "query",
+            f"SELECT * FROM episode WHERE agent_id = $aid ORDER BY started_at DESC LIMIT {limit};",
+            {"aid": agent_id},
+        )
+        if result and isinstance(result, list) and result[0].get("result"):
+            return result[0]["result"]
+        return []
 
     async def persist_message(self, message: Dict[str, Any]):
         from src.utils.privacy import PrivacyFilter
@@ -372,36 +437,27 @@ class SurrealDbClient:
             logger.info(f"CONFLICT_RESOLVED: Merged facts into {old_fact_id}.")
 
     async def apply_decay_to_all_memories(self, decay_rate: float = 0.05, threshold: float = 0.1) -> int:
-        """Apply decay to all memory strengths and remove faded memories.
-
-        Args:
-            decay_rate: The base decay rate (e.g., 0.05 for 5% decay)
-            threshold: Memories with strength below this are deleted
-
-        Returns:
-            Number of memories removed
-        """
+        """Force-aware decay: decay_effective = base_rate × max(0.1, 1 − force_score × 0.9)."""
         try:
-            # Update beliefs with decay formula - skip permanent facts
-            # Use last_reinforced field for time-based decay
             update_query = f"""
-                UPDATE BELIEVES 
-                SET 
-                    strength = strength * math::pow({decay_rate}, time::now() - last_reinforced),
+                UPDATE BELIEVES
+                SET
+                    strength = strength * math::pow(
+                        {decay_rate} * math::max(0.1, 1.0 - force_score * 0.9),
+                        time::now() - last_reinforced
+                    ),
                     last_reinforced = time::now()
                 WHERE permanent != true
             """
             await self._call("query", update_query)
 
-            # Delete beliefs below threshold - include threshold directly in query for test compatibility
             delete_query = f"DELETE BELIEVES WHERE strength < {threshold}"
             result = await self._call("query", delete_query)
 
-            # Return count of deleted records if available
             if result and isinstance(result, list) and len(result) > 0:
                 deleted = result[0].get("result", []) if isinstance(result[0], dict) else result
                 count = len(deleted) if isinstance(deleted, list) else 0
-                logger.info(f"DECAY_APPLIED: {count} memories removed (threshold: {threshold})")
+                logger.info(f"DECAY_APPLIED: {count} memories forgotten (threshold: {threshold})")
                 return count
             return 0
         except Exception as e:

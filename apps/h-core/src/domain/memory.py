@@ -1,7 +1,9 @@
 import json
 import logging
-from typing import Any
+from datetime import datetime, timezone
+from typing import Any, Optional
 
+from src.domain.memory_force import MemoryForce, MemoryForceEvaluator
 from src.infrastructure.llm import LlmClient
 from src.infrastructure.redis import RedisClient
 from src.infrastructure.surrealdb import SurrealDbClient
@@ -11,35 +13,45 @@ logger = logging.getLogger(__name__)
 
 
 class ConflictResolver:
-    """Handles resolution of contradictory facts using LLM synthesis."""
-
     RESOLUTION_PROMPT = """
     You are the Memory Conflict Resolver for hAIrem.
-    You have two facts that might be contradictory.
-    
-    Fact A (Existing): "{old_fact}"
-    Fact B (New): "{new_fact}"
-    
-    Are these facts contradictory? 
-    - If YES, provide a synthesized fact that resolves the contradiction.
-    - If NO (they are complementary or unrelated), return "COMPLEMENTARY".
-    
-    Output format: JSON
+    Fact A (Existing): "{old_fact}" | force={old_force:.2f} | age={old_age_days}d
+    Fact B (New): "{new_fact}" | force={new_force:.2f} | age=0d
+
+    Are these facts contradictory?
+    - If YES: synthesize a resolution. Higher force takes precedence.
+    - If NO: return "COMPLEMENTARY".
+
+    Output JSON:
     {{
       "is_conflict": true/false,
-      "resolution": "Synthesized fact or 'COMPLEMENTARY'",
-      "action": "OVERRIDE" (if new replaces old) or "MERGE" (if both integrated)
+      "resolution": "Synthesized fact or COMPLEMENTARY",
+      "action": "OVERRIDE" or "MERGE",
+      "winner": "A" or "B" or "MERGE",
+      "confidence": 0.0-1.0
     }}
     """
 
     def __init__(self, llm_client: LlmClient):
         self.llm = llm_client
 
-    async def resolve(self, old_fact: str, new_fact: str) -> dict[str, Any]:
-        prompt = self.RESOLUTION_PROMPT.format(old_fact=old_fact, new_fact=new_fact)
+    async def resolve(
+        self,
+        old_fact: str,
+        new_fact: str,
+        old_force: float = 0.5,
+        new_force: float = 0.5,
+        old_age_days: float = 0.0,
+    ) -> dict[str, Any]:
+        prompt = self.RESOLUTION_PROMPT.format(
+            old_fact=old_fact,
+            new_fact=new_fact,
+            old_force=old_force,
+            new_force=new_force,
+            old_age_days=old_age_days,
+        )
         response = await self.llm.get_completion([{"role": "system", "content": prompt}], stream=False)
 
-        # Clean response
         clean_json = response.strip()  # type: ignore
         if clean_json.startswith("```json"):
             clean_json = clean_json.split("```json")[1].split("```")[0].strip()
@@ -82,27 +94,32 @@ class MemoryConsolidator:
     ---
     """
 
-    def __init__(self, surreal_client: SurrealDbClient, llm_client: LlmClient, redis_client: RedisClient):
+    def __init__(
+        self,
+        surreal_client: SurrealDbClient,
+        llm_client: LlmClient,
+        redis_client: RedisClient,
+        session_id: Optional[str] = None,
+    ):
         self.surreal = surreal_client
         self.llm = llm_client
         self.redis = redis_client
         self.resolver = ConflictResolver(llm_client)
+        self.session_id = session_id
+        self._force_evaluator = MemoryForceEvaluator()
 
     async def consolidate(self, limit: int = 20) -> int:
-        """Run a consolidation cycle."""
         logger.info("Starting Cognitive Consolidation cycle...")
 
-        # 1. Fetch unprocessed messages
         messages = await self.surreal.get_unprocessed_messages(limit=limit)
         if not messages:
             logger.info("No new messages to consolidate.")
             return 0
 
-        # 2. Format conversation for LLM
         convo_lines = []
         msg_ids = []
-        user_ids_in_batch = []  # Use list to preserve order
-        seen_user_ids = set()  # Track seen to avoid duplicates
+        user_ids_in_batch: list[str] = []
+        seen_user_ids: set[str] = set()
         for m in messages:
             sender = m.get("sender", {}).get("agent_id", "unknown")
             content = m.get("payload", {}).get("content", "")
@@ -119,58 +136,68 @@ class MemoryConsolidator:
                     seen_user_ids.add(msg_user_id)
 
         primary_user_id = user_ids_in_batch[0] if user_ids_in_batch else None
-
         conversation_text = "\n".join(convo_lines)
 
-        # 3. Call LLM to extract facts
         prompt = self.CONSOLIDATION_PROMPT.format(conversation=conversation_text)
         try:
             response = await self.llm.get_completion([{"role": "system", "content": prompt}], stream=False)
 
-            # Clean response if it contains markdown code blocks
             clean_json = response.strip()  # type: ignore
             if clean_json.startswith("```json"):
                 clean_json = clean_json.split("```json")[1].split("```")[0].strip()
             elif clean_json.startswith("```"):
                 clean_json = clean_json.split("```")[1].split("```")[0].strip()
 
-            facts = json.loads(clean_json)
-            logger.info(f"Extracted {len(facts)} facts from {len(messages)} messages.")
-
-            # 4. Store facts and mark messages as processed
             data = json.loads(clean_json)
             extracted_facts = data.get("facts", [])
             causal_links = data.get("causal_links", [])
             concepts = data.get("concepts", [])
+            logger.info(f"Extracted {len(extracted_facts)} facts from {len(messages)} messages.")
 
             for fact_data in extracted_facts:
-                # Add source metadata
                 fact_data["source_ids"] = msg_ids
-                # If subject is user, default belief to 'system' (Universal)
                 if fact_data.get("subject") == "user" and not fact_data.get("agent"):
                     fact_data["agent"] = "system"
 
-                # STORY 6.2: Associate user_id with the fact
                 if primary_user_id:
                     fact_data["user_id"] = primary_user_id
 
-                # Generate embedding for the fact
                 embedding = await self.llm.get_embedding(fact_data["fact"])
                 fact_data["embedding"] = embedding
 
-                # STORY 13.4: Conflict Check
+                agent_id = fact_data.get("agent", "system")
+                force = self._force_evaluator.evaluate(fact_data["fact"], embedding, agent_id)
+
                 conflicts = await self.surreal.semantic_search(embedding, limit=1)
                 if conflicts and conflicts[0].get("score", 0) > 0.85:
-                    old_fact = conflicts[0]
-                    resolution = await self.resolver.resolve(old_fact["content"], fact_data["fact"])
+                    old_fact_rec = conflicts[0]
+                    old_force_score = old_fact_rec.get("force_score", 0.5)
+                    old_last_reinforced = old_fact_rec.get("last_reinforced")
+                    old_age_days = 0.0
+                    if old_last_reinforced:
+                        try:
+                            ts = datetime.fromisoformat(str(old_last_reinforced).replace("Z", "+00:00"))
+                            old_age_days = (datetime.now(timezone.utc) - ts).days
+                        except (ValueError, TypeError):
+                            pass
+                    resolution = await self.resolver.resolve(
+                        old_fact_rec["content"],
+                        fact_data["fact"],
+                        old_force=old_force_score,
+                        new_force=force.score,
+                        old_age_days=old_age_days,
+                    )
                     if resolution.get("is_conflict"):
                         logger.info(
-                            f"CONFLICT detected: {old_fact['content']} vs {fact_data['fact']}. Action: {resolution['action']}"
+                            f"CONFLICT detected: {old_fact_rec['content']} vs {fact_data['fact']}."
+                            f" Action: {resolution['action']}"
                         )
-                        await self.surreal.merge_or_override_fact(old_fact["id"], fact_data, resolution)
-                        continue  # Fact handled by resolver
+                        await self.surreal.merge_or_override_fact(old_fact_rec["id"], fact_data, resolution)
+                        continue
 
-                await self.surreal.insert_graph_memory(fact_data)
+                fact_id = await self.surreal.insert_graph_memory(fact_data, force=force)
+                if fact_id and self.session_id:
+                    await self.surreal.link_fact_to_episode(fact_id, self.session_id)
 
             # 4b. Store Causal Links
             for link in causal_links:
