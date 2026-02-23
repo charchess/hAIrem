@@ -15,3 +15,9 @@ skills:
     description: "Lance une macro d'automatisation complexe."
   - name: manage_shopping_list
     description: "Ajoute ou liste les articles de la liste de courses."
+
+voice_config:
+  language: "EN"
+  speed: 1.15
+  tone: -0.1
+  voice_ref: "electra/media/voice_ref.wav"

@@ -9,6 +9,12 @@ system_prompt: |
   Sois naturelle et authentique.
 preferred_location: "Cuisine"
 
+voice_config:
+  language: "FR"
+  speed: 1.0
+  tone: 0.05
+  voice_ref: "lisa/media/voice_ref.wav"
+
 reference_sheets:
   - media/character_sheet_neutral.png
 

@@ -100,6 +100,8 @@ services:
       - SURREALDB_USER=root
       - SURREALDB_PASS=root
       - DEBUG=1
+      - MELOTTS_BASE_URL=http://melotts-openvoice:8008
+      - AGENTS_PATH=/app/agents
     ports:
       - "8000:8000"
     depends_on:
@@ -107,6 +109,27 @@ services:
         condition: service_healthy
     networks:
       - hairem-net
+
+  melotts-openvoice:
+    image: melotts-openvoice:latest
+    ports:
+      - "8008:8000"
+    volumes:
+      - ./agents:/app/voices:ro
+      - ./shared_assets/voices:/app/models
+    networks:
+      - hairem-net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          memory: 6G
+    profiles:
+      - tts
 
 networks:
   hairem-net:

@@ -24,3 +24,9 @@ skills:
     description: "Retourne l'état de présence des autres agents du hAIrem."
   - name: suggest_topic
     description: "Propose un sujet de conversation créatif et inspirant."
+
+voice_config:
+  language: "FR"
+  speed: 1.05
+  tone: 0.1
+  voice_ref: "renarde/media/voice_ref.wav"

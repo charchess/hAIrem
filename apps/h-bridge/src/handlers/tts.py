@@ -6,16 +6,18 @@ Epic 5: Voice Capabilities - Dedicated Base Voice, Voice Modulation, Prosody
 """
 
 import asyncio
-import hashlib
-import logging
-import time
-import os
-import tempfile
 import base64
-import threading
+import hashlib
+import json
+import logging
+import os
 import queue
+import tempfile
+import threading
+import time
+from typing import Any, Dict, Optional
+
 import httpx
-from typing import Dict, Any, Optional, Generator
 
 _TTS_CACHE_DIR = os.getenv("TTS_CACHE_DIR", "/tmp/tts_cache")
 os.makedirs(_TTS_CACHE_DIR, exist_ok=True)
@@ -238,6 +240,40 @@ class TTSService:
                     {"audio_chunk": b64_audio, "index": 0, "is_last": True, "format": "wav"},
                 )
 
+            # 3. MeloTTS + OpenVoice (Neural TTS)
+            elif self.engine_type == "melo":
+                agent_id = params.get("agent_id", "default")
+                voice_config = params.get("voice_config") or {}
+                vc_id = voice_config.get("voice_ref", agent_id)
+                cache_key = _tts_cache_key(text, "melo", vc_id, pitch, rate)
+                cached = _cache_hit(cache_key, "wav")
+                if cached:
+                    logger.debug(f"TTS cache hit (melo): {cache_key[:8]}")
+                    audio_bytes = cached
+                else:
+                    from services.tts_service import get_tts_orchestrator
+
+                    vc = {**voice_config, "speed": rate, "tone": pitch - 1.0}
+                    result = get_tts_orchestrator().synthesize(text, agent_id, vc)
+                    audio_bytes = result if result is not None else b""
+                    if audio_bytes:
+                        _cache_store(cache_key, "wav", audio_bytes)
+
+                if audio_bytes:
+                    chunk_size = 65536
+                    chunks = [audio_bytes[i : i + chunk_size] for i in range(0, len(audio_bytes), chunk_size)]
+                    for idx, chunk in enumerate(chunks):
+                        self._send_event(
+                            MessageType.TTS_AUDIO_CHUNK,
+                            request_id,
+                            {
+                                "audio_chunk": base64.b64encode(chunk).decode("utf-8"),
+                                "index": idx,
+                                "is_last": idx == len(chunks) - 1,
+                                "format": "wav",
+                            },
+                        )
+
             self._send_event(MessageType.TTS_END, request_id, {"status": "completed"})
 
         except Exception as e:
@@ -273,6 +309,10 @@ class TTSService:
             base_params = self.voice_modulation_service.modulate_voice(base_params, emotion)
         style = params.get("prosody_style", "default")
         base_params = self.prosody_service.apply_prosody(base_params, text, style=style)
+        if self.engine_type == "melo" and "voice_config" not in params:
+            from services.tts_service import _load_agent_voice_config
+
+            base_params["voice_config"] = _load_agent_voice_config(agent_id)
         final_params = {**params, **base_params}
         self.request_queue.put((request_id, text, final_params))
         return request_id
