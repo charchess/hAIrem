@@ -1,7 +1,7 @@
 import os
 import re
 import logging
-from typing import Optional, List
+from typing import Any, Callable, Coroutine, Optional, List
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -14,6 +14,7 @@ JWT_ALGORITHM = "HS256"
 
 try:
     import jwt
+
     JWT_AVAILABLE = True
 except ImportError:
     JWT_AVAILABLE = False
@@ -32,17 +33,13 @@ def decode_token(token: str) -> Optional[TokenPayload]:
     mock_payload = _mock_decode_token(token)
     if mock_payload:
         return mock_payload
-    
+
     if not JWT_AVAILABLE:
         return None
-    
+
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        return TokenPayload(
-            sub=payload.get("sub", ""),
-            role=payload.get("role", "user"),
-            exp=payload.get("exp")
-        )
+        return TokenPayload(sub=payload.get("sub", ""), role=payload.get("role", "user"), exp=payload.get("exp"))
     except jwt.ExpiredSignatureError:
         logger.warning("Token expired")
         return None
@@ -67,71 +64,53 @@ def _mock_decode_token(token: str) -> Optional[TokenPayload]:
 def validate_agent_id(agent_id: str) -> str:
     if not agent_id:
         return agent_id
-    
+
     sql_pattern = re.compile(
         r"(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION)\b)|"
         r"(--|;|'|\"|%27|%22)|"
         r"(\bOR\b.*=.*\b)|\bAND\b.*=.*\b",
-        re.IGNORECASE
+        re.IGNORECASE,
     )
-    
+
     if sql_pattern.search(agent_id):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid agent_id: potential SQL injection detected"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid agent_id: potential SQL injection detected"
         )
-    
+
     if "<script>" in agent_id.lower() or "javascript:" in agent_id.lower():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid agent_id: potential XSS detected"
-        )
-    
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid agent_id: potential XSS detected")
+
     return agent_id
 
 
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-) -> TokenPayload:
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> TokenPayload:
     if not credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing authorization credentials"
-        )
-    
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing authorization credentials")
+
     scheme = credentials.scheme
     if scheme != "Bearer":
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid authentication scheme. Use 'Bearer <token>'"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid authentication scheme. Use 'Bearer <token>'"
         )
-    
+
     token = credentials.credentials
-    
+
     if not token or len(token.strip()) == 0:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Empty token provided"
-        )
-    
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Empty token provided")
+
     payload = decode_token(token)
     if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token"
-        )
-    
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+
     return payload
 
 
-def require_admin() -> type:
+def require_admin() -> Callable[..., Coroutine[Any, Any, Any]]:
     async def admin_check(current_user: TokenPayload = Depends(get_current_user)) -> TokenPayload:
         if current_user.role != "admin":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Admin access required"
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
         return current_user
+
     return admin_check
 
 
@@ -140,7 +119,8 @@ def require_role(allowed_roles: List[str]):
         if current_user.role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied. Required roles: {', '.join(allowed_roles)}"
+                detail=f"Access denied. Required roles: {', '.join(allowed_roles)}",
             )
         return current_user
+
     return role_check

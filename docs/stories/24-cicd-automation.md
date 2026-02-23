@@ -1,6 +1,6 @@
 # Story 24.1: Secret Scanning & Static Analysis (CI Gates)
 
-**Status:** Approved
+**Status:** Done
 **Epic:** 24 - CI/CD Pipeline
 
 ## Story
@@ -25,7 +25,7 @@
 
 # Story 24.2: Automated Regression & E2E Validation
 
-**Status:** Approved
+**Status:** Done
 **Epic:** 24 - CI/CD Pipeline
 
 ## Story
@@ -165,4 +165,4 @@ Risk profile: docs/qa/assessments/24.3-risk-20260127.md
 
 ### Recommended Status
 
-[✓ Ready for Done]
+[✓ Done]

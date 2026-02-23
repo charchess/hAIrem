@@ -172,7 +172,7 @@ class WhisperService:
     def _process_audio_chunk_sync(self, session_id: str, audio_bytes: bytes, room_id: str = "Salon"):
         """Process a single audio chunk synchronously with FFmpeg decoding."""
         try:
-            # ... (previous ffmpeg logic)
+            out: bytes = audio_bytes
             audio_data = np.frombuffer(out, dtype=np.float32)
 
             # Transcribe

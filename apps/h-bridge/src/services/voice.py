@@ -135,7 +135,7 @@ class VoiceProfileService:
             except Exception as e:
                 logger.warning(f"Could not save voice profile: {e}")
 
-    async def get_profile(self, agent_id: str) -> VoiceProfile:
+    async def get_profile(self, agent_id: str) -> Optional[VoiceProfile]:
         if agent_id in self._profiles:
             return self._profiles[agent_id]
 
@@ -174,8 +174,8 @@ class VoiceProfileService:
         return profile
 
     async def update_profile(self, agent_id: str, updates: Dict[str, Any]) -> VoiceProfile:
-        existing = self.get_profile(agent_id)
-        profile_data = existing.to_dict()
+        existing = await self.get_profile(agent_id)
+        profile_data = existing.to_dict() if existing is not None else {}
         profile_data.update(updates)
         new_profile = VoiceProfile.from_dict(profile_data)
         return await self.set_profile(agent_id, new_profile)
@@ -189,19 +189,20 @@ class VoiceProfileService:
     async def apply_to_tts_params(self, agent_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
         profile = await self.get_profile(agent_id)
         result = params.copy()
-        result["pitch"] = profile.pitch
-        result["rate"] = profile.rate
-        result["volume"] = profile.volume
-        result["voice_id"] = profile.voice_id
-        result["language"] = profile.language
+        if profile is not None:
+            result["pitch"] = profile.pitch
+            result["rate"] = profile.rate
+            result["volume"] = profile.volume
+            result["voice_id"] = profile.voice_id
+            result["language"] = profile.language
         return result
 
 
 voice_profile_service = VoiceProfileService()
 
 
-async def get_voice_profile(agent_id: str) -> VoiceProfile:
-    return voice_profile_service.get_profile(agent_id)
+async def get_voice_profile(agent_id: str) -> Optional[VoiceProfile]:
+    return await voice_profile_service.get_profile(agent_id)
 
 
 async def set_voice_profile(agent_id: str, profile_data: Dict[str, Any]) -> VoiceProfile:

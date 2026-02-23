@@ -25,7 +25,7 @@ class RedisClient:
                 return False
             try:
                 self.client = redis.from_url(self.redis_url, decode_responses=True)
-                await self.client.ping()
+                await self.client.ping()  # type: ignore[misc]
                 logger.info(f"Connected to Redis at {self.redis_url}")
                 return True
             except Exception as e:
@@ -40,6 +40,7 @@ class RedisClient:
         if not self.client:
             if not await self.connect():
                 return
+        assert self.client is not None
 
         try:
             # Flatten dict for Redis Stream
@@ -50,7 +51,7 @@ class RedisClient:
                 else:
                     payload[k] = str(v)
 
-            await self.client.xadd(stream, payload, maxlen=max_len, approximate=True)
+            await self.client.xadd(stream, payload, maxlen=max_len, approximate=True)  # type: ignore[arg-type]
             logger.info(f"STREAM_ADD: {stream} | Type: {data.get('type')}")
         except Exception as e:
             logger.error(f"Failed to add to stream {stream}: {e}")
@@ -67,6 +68,7 @@ class RedisClient:
         if not self.client:
             if not await self.connect():
                 return
+        assert self.client is not None
 
         # Create group if not exists
         try:
@@ -128,6 +130,7 @@ class RedisClient:
         """Legacy Pub/Sub support."""
         if not self.client:
             await self.connect()
+        assert self.client is not None
         try:
             # Handle both HLinkMessage objects and dicts
             if hasattr(message, "model_dump_json"):
@@ -147,6 +150,7 @@ class RedisClient:
             try:
                 if not self.client:
                     await self.connect()
+                assert self.client is not None
                 async with self.client.pubsub() as pubsub:
                     await pubsub.subscribe(channel)
                     while not self._stop_event.is_set():

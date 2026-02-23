@@ -20,106 +20,102 @@ EMOTION_CONFIGS = {
         pitch_modifier=1.15,
         rate_modifier=1.2,
         volume_modifier=1.1,
-        description="Faster speech, higher pitch, increased volume"
+        description="Faster speech, higher pitch, increased volume",
     ),
     "excited": EmotionConfig(
         emotion="excited",
         pitch_modifier=1.2,
         rate_modifier=1.3,
         volume_modifier=1.15,
-        description="Much faster, higher pitch, louder"
+        description="Much faster, higher pitch, louder",
     ),
     "sad": EmotionConfig(
         emotion="sad",
         pitch_modifier=0.85,
         rate_modifier=0.75,
         volume_modifier=0.8,
-        description="Slower speech, lower pitch, quieter"
+        description="Slower speech, lower pitch, quieter",
     ),
     "angry": EmotionConfig(
         emotion="angry",
         pitch_modifier=0.95,
         rate_modifier=1.15,
         volume_modifier=1.2,
-        description="Faster speech, lower pitch, louder"
+        description="Faster speech, lower pitch, louder",
     ),
     "fearful": EmotionConfig(
         emotion="fearful",
         pitch_modifier=1.1,
         rate_modifier=1.4,
         volume_modifier=0.9,
-        description="Very fast, higher pitch, variable volume"
+        description="Very fast, higher pitch, variable volume",
     ),
     "surprised": EmotionConfig(
         emotion="surprised",
         pitch_modifier=1.25,
         rate_modifier=1.1,
         volume_modifier=1.0,
-        description="Higher pitch, slightly faster"
+        description="Higher pitch, slightly faster",
     ),
     "calm": EmotionConfig(
         emotion="calm",
         pitch_modifier=1.0,
         rate_modifier=0.85,
         volume_modifier=0.9,
-        description="Slower, normal pitch, softer"
+        description="Slower, normal pitch, softer",
     ),
     "neutral": EmotionConfig(
-        emotion="neutral",
-        pitch_modifier=1.0,
-        rate_modifier=1.0,
-        volume_modifier=1.0,
-        description="Normal speech"
+        emotion="neutral", pitch_modifier=1.0, rate_modifier=1.0, volume_modifier=1.0, description="Normal speech"
     ),
     "urgent": EmotionConfig(
         emotion="urgent",
         pitch_modifier=1.05,
         rate_modifier=1.4,
         volume_modifier=1.15,
-        description="Very fast, slightly higher pitch, louder"
+        description="Very fast, slightly higher pitch, louder",
     ),
     "gentle": EmotionConfig(
         emotion="gentle",
         pitch_modifier=1.05,
         rate_modifier=0.8,
         volume_modifier=0.85,
-        description="Slower, slightly higher pitch, softer"
+        description="Slower, slightly higher pitch, softer",
     ),
     "energetic": EmotionConfig(
         emotion="energetic",
         pitch_modifier=1.15,
         rate_modifier=1.25,
         volume_modifier=1.1,
-        description="Faster, higher pitch, louder"
+        description="Faster, higher pitch, louder",
     ),
     "tired": EmotionConfig(
         emotion="tired",
         pitch_modifier=0.9,
         rate_modifier=0.7,
         volume_modifier=0.75,
-        description="Much slower, lower pitch, quieter"
+        description="Much slower, lower pitch, quieter",
     ),
     "questioning": EmotionConfig(
         emotion="questioning",
         pitch_modifier=1.1,
         rate_modifier=0.95,
         volume_modifier=0.95,
-        description="Slightly higher pitch, slightly slower"
+        description="Slightly higher pitch, slightly slower",
     ),
     "enthusiastic": EmotionConfig(
         emotion="enthusiastic",
         pitch_modifier=1.18,
         rate_modifier=1.25,
         volume_modifier=1.1,
-        description="Faster, higher pitch, louder"
+        description="Faster, higher pitch, louder",
     ),
     "thoughtful": EmotionConfig(
         emotion="thoughtful",
         pitch_modifier=0.95,
         rate_modifier=0.85,
         volume_modifier=0.95,
-        description="Slower, lower pitch"
-    )
+        description="Slower, lower pitch",
+    ),
 }
 
 
@@ -137,9 +133,20 @@ class VoiceModulationService:
 
     def detect_emotion_from_text(self, text: str) -> str:
         text_lower = text.lower()
-        
+
         emotion_indicators = {
-            "happy": ["happy", "joy", "great", "wonderful", "excellent", "love", "merveilleux", "super", "génial", "heureux"],
+            "happy": [
+                "happy",
+                "joy",
+                "great",
+                "wonderful",
+                "excellent",
+                "love",
+                "merveilleux",
+                "super",
+                "génial",
+                "heureux",
+            ],
             "excited": ["excited", "amazing", "incredible", "wow", "can't wait", "supers", "incroyable", "ouf", "spam"],
             "sad": ["sad", "unfortunately", "sorry", "miss", "down", "triste", "manque", "désolé", "snif"],
             "angry": ["angry", "mad", "furious", "hate", "stupid", "fâché", "furieux", "déteste", "idiot"],
@@ -148,59 +155,51 @@ class VoiceModulationService:
             "calm": ["calm", "relaxed", "peaceful", "quiet", "gentle", "calme", "paisible", "tranquille"],
             "urgent": ["urgent", "immediately", "hurry", "quick", "now", "urgent", "immédiat", "vite", "dépéchez"],
             "tired": ["tired", "exhausted", "sleepy", "fatigue", "épuisé", "fatigué", "sommeil"],
-            "questioning": ["?", "why", "how", "what", "when", "where", "qui", "quoi", "pourquoi", "comment"]
+            "questioning": ["?", "why", "how", "what", "when", "where", "qui", "quoi", "pourquoi", "comment"],
         }
-        
+
         scores = {}
         for emotion, keywords in emotion_indicators.items():
             score = sum(1 for kw in keywords if kw in text_lower)
             if score > 0:
                 scores[emotion] = score
-        
+
         if scores:
-            return max(scores, key=scores.get)
-        
+            return max(scores, key=lambda k: scores[k])
+
         return self._default_emotion
 
     def modulate_voice(
-        self,
-        base_params: Dict[str, Any],
-        emotion: Optional[str] = None,
-        intensity: float = 1.0
+        self, base_params: Dict[str, Any], emotion: Optional[str] = None, intensity: float = 1.0
     ) -> Dict[str, Any]:
         if emotion is None:
             emotion = self._default_emotion
-        
+
         config = self.get_emotion_config(emotion)
-        
+
         result = base_params.copy()
-        
+
         pitch = base_params.get("pitch", 1.0)
         rate = base_params.get("rate", 1.0)
         volume = base_params.get("volume", 1.0)
-        
+
         result["pitch"] = pitch * (1.0 + (config.pitch_modifier - 1.0) * intensity)
         result["rate"] = rate * (1.0 + (config.rate_modifier - 1.0) * intensity)
         result["volume"] = min(1.5, volume * (1.0 + (config.volume_modifier - 1.0) * intensity))
-        
+
         result["emotion"] = emotion
         result["modulation_applied"] = True
-        
+
         return result
 
-    async def set_agent_modulation_settings(
-        self,
-        agent_id: str,
-        settings: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def set_agent_modulation_settings(self, agent_id: str, settings: Dict[str, Any]) -> Dict[str, Any]:
         self._agent_modulation_settings[agent_id] = settings
         return {"success": True, "agent_id": agent_id, "settings": settings}
 
     async def get_agent_modulation_settings(self, agent_id: str) -> Dict[str, Any]:
-        return self._agent_modulation_settings.get(agent_id, {
-            "default_emotion": self._default_emotion,
-            "intensity": 1.0
-        })
+        return self._agent_modulation_settings.get(
+            agent_id, {"default_emotion": self._default_emotion, "intensity": 1.0}
+        )
 
     def get_available_emotions(self) -> list:
         return list(EMOTION_CONFIGS.keys())
@@ -210,9 +209,7 @@ voice_modulation_service = VoiceModulationService()
 
 
 async def modulate_voice(
-    base_params: Dict[str, Any],
-    emotion: Optional[str] = None,
-    intensity: float = 1.0
+    base_params: Dict[str, Any], emotion: Optional[str] = None, intensity: float = 1.0
 ) -> Dict[str, Any]:
     return voice_modulation_service.modulate_voice(base_params, emotion, intensity)
 

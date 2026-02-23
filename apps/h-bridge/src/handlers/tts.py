@@ -189,7 +189,10 @@ class TTSService:
                     audio_bytes = cached
                 else:
                     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-                    headers = {"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"}
+                    headers: dict[str, str] = {
+                        "xi-api-key": ELEVENLABS_API_KEY or "",
+                        "Content-Type": "application/json",
+                    }
                     data = {
                         "text": text,
                         "model_id": "eleven_multilingual_v2",
@@ -296,7 +299,7 @@ class TTSService:
         except Exception as e:
             logger.error(f"Failed to dispatch TTS event: {e}")
 
-    async def speak(self, text: str, request_id: str = None, params: Dict = None):
+    async def speak(self, text: str, request_id: Optional[str] = None, params: Optional[Dict[str, Any]] = None):
         if not request_id:
             request_id = f"tts_{int(time.time() * 1000)}"
         params = params or {}

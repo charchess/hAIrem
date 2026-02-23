@@ -17,6 +17,7 @@ def mock_redis():
     r = MagicMock()
     r.client = MagicMock()
     r.connect = AsyncMock()
+    r.delete = AsyncMock()
     r.client.delete = AsyncMock()
     return r
 
@@ -94,4 +95,4 @@ async def test_generate_initial_relationships_same_role_higher_trust(service, mo
 async def test_reset_streams_deletes_streams(service, mock_redis):
     await service.reset_streams(["stream_a", "stream_b"])
 
-    assert mock_redis.client.delete.call_count == 2
+    assert mock_redis.delete.call_count == 2
