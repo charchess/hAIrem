@@ -1,5 +1,6 @@
 name: music
 version: "1.0.0"
+access: unique
 description: Control music playback via Home Assistant media players
 author: hAIrem
 requires: [home_assistant]

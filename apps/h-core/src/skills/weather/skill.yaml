@@ -1,5 +1,6 @@
 name: weather
 version: "1.0.0"
+access: multiple
 description: Fetch current weather and forecasts via Home Assistant weather entities
 author: hAIrem
 requires: [home_assistant]

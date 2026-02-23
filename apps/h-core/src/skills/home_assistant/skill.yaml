@@ -1,5 +1,6 @@
 name: home_assistant
 version: "1.0.0"
+access: multiple
 description: Control Home Assistant entities (lights, switches, sensors, climate)
 author: hAIrem
 requires: []

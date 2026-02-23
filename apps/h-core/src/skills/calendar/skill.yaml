@@ -1,5 +1,6 @@
 name: calendar
 version: "1.0.0"
+access: multiple
 description: Query and create calendar events via Home Assistant calendar integration
 author: hAIrem
 requires: [home_assistant]

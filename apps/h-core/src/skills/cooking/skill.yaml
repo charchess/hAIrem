@@ -1,5 +1,6 @@
 name: cooking
 version: "1.0.0"
+access: multiple
 description: Recipe suggestions, ingredient substitutions, and cooking timers
 author: hAIrem
 requires: []
