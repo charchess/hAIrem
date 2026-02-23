@@ -25,9 +25,9 @@ class TestEmotionalStateRecord:
             user_id="user_123",
             agent_id="system",
         )
-        
+
         data = record.to_dict()
-        
+
         assert data["emotion"] == "happy"
         assert data["intensity"] == 0.8
         assert data["keywords"] == ["happy", "joy"]
@@ -43,9 +43,9 @@ class TestEmotionalStateRecord:
             "user_id": "user_456",
             "agent_id": "agent_1",
         }
-        
+
         record = EmotionalStateRecord.from_dict(data)
-        
+
         assert record.emotion == "excited"
         assert record.intensity == 0.9
         assert record.user_id == "user_456"
@@ -62,9 +62,9 @@ class TestEmotionalSummary:
             average_intensity=0.75,
             summary_text="User was mostly happy",
         )
-        
+
         data = summary.to_dict()
-        
+
         assert data["user_id"] == "user_123"
         assert data["dominant_emotion"] == "happy"
         assert data["emotion_counts"]["happy"] == 10
@@ -80,9 +80,9 @@ class TestEmotionalSummary:
             "summary_text": "User was calm",
             "archived_at": "2024-02-01T12:00:00",
         }
-        
+
         summary = EmotionalSummary.from_dict(data)
-        
+
         assert summary.user_id == "user_789"
         assert summary.dominant_emotion == "calm"
 
@@ -95,9 +95,9 @@ class TestEmotionalHistoryRepository:
         mock_redis.client = mock_client
         mock_redis.client.lpush = AsyncMock()
         mock_redis.client.llen = AsyncMock(return_value=5)
-        
+
         repo = EmotionalHistoryRepository(mock_redis)
-        
+
         result = await repo.store_emotional_state(
             user_id="user_123",
             emotion="happy",
@@ -106,20 +106,20 @@ class TestEmotionalHistoryRepository:
             keywords=["happy"],
             agent_id="system",
         )
-        
+
         assert result is True
         mock_redis.client.lpush.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_store_emotional_state_no_redis(self):
         repo = EmotionalHistoryRepository(None)
-        
+
         result = await repo.store_emotional_state(
             user_id="user_123",
             emotion="happy",
             intensity=0.8,
         )
-        
+
         assert result is False
 
     @pytest.mark.asyncio
@@ -127,15 +127,17 @@ class TestEmotionalHistoryRepository:
         mock_redis = MagicMock()
         mock_client = AsyncMock()
         mock_redis.client = mock_client
-        mock_client.lrange = AsyncMock(return_value=[
-            json.dumps({"emotion": "happy", "intensity": 0.8}),
-            json.dumps({"emotion": "excited", "intensity": 0.9}),
-        ])
-        
+        mock_client.lrange = AsyncMock(
+            return_value=[
+                json.dumps({"emotion": "happy", "intensity": 0.8}),
+                json.dumps({"emotion": "excited", "intensity": 0.9}),
+            ]
+        )
+
         repo = EmotionalHistoryRepository(mock_redis)
-        
+
         result = await repo.get_recent_emotions("user_123", limit=5)
-        
+
         assert len(result) == 2
         assert result[0]["emotion"] == "happy"
         assert result[1]["emotion"] == "excited"
@@ -146,11 +148,11 @@ class TestEmotionalHistoryRepository:
         mock_client = AsyncMock()
         mock_redis.client = mock_client
         mock_client.lrange = AsyncMock(return_value=[])
-        
+
         repo = EmotionalHistoryRepository(mock_redis)
-        
+
         result = await repo.get_recent_emotions("user_123")
-        
+
         assert result == []
 
     @pytest.mark.asyncio
@@ -160,13 +162,13 @@ class TestEmotionalHistoryRepository:
         mock_redis.client = mock_client
         mock_redis.client.lpush = AsyncMock()
         mock_redis.client.llen = AsyncMock(return_value=1)
-        
+
         repo = EmotionalHistoryRepository(mock_redis)
-        
+
         summary_data = {"dominant_emotion": "happy", "emotion_counts": {"happy": 10}}
-        
+
         result = await repo.archive_emotions("user_123", summary_data)
-        
+
         assert result is True
         mock_redis.client.lpush.assert_called_once()
 
@@ -175,14 +177,16 @@ class TestEmotionalHistoryRepository:
         mock_redis = MagicMock()
         mock_client = AsyncMock()
         mock_redis.client = mock_client
-        mock_client.lrange = AsyncMock(return_value=[
-            json.dumps({"dominant_emotion": "happy", "emotion_counts": {"happy": 5}}),
-        ])
-        
+        mock_client.lrange = AsyncMock(
+            return_value=[
+                json.dumps({"dominant_emotion": "happy", "emotion_counts": {"happy": 5}}),
+            ]
+        )
+
         repo = EmotionalHistoryRepository(mock_redis)
-        
+
         result = await repo.get_archived_summaries("user_123")
-        
+
         assert len(result) == 1
         assert result[0]["dominant_emotion"] == "happy"
 
@@ -195,15 +199,15 @@ class TestEmotionalHistoryService:
         mock_redis.client = mock_client
         mock_redis.client.lpush = AsyncMock()
         mock_redis.client.llen = AsyncMock(return_value=1)
-        
+
         service = EmotionalHistoryService(redis_client=mock_redis)
-        
+
         result = await service.detect_and_store_emotion(
             user_id="user_123",
             message="I am so happy today!",
             agent_id="system",
         )
-        
+
         assert result is not None
         assert result.emotion in ["happy", "excited"]
         mock_redis.client.lpush.assert_called()
@@ -212,13 +216,13 @@ class TestEmotionalHistoryService:
     async def test_detect_and_store_emotion_no_emotion(self):
         mock_redis = MagicMock()
         service = EmotionalHistoryService(redis_client=mock_redis)
-        
+
         result = await service.detect_and_store_emotion(
             user_id="user_123",
             message="Hello, how are you?",
             agent_id="system",
         )
-        
+
         assert result is None
 
     @pytest.mark.asyncio
@@ -226,16 +230,18 @@ class TestEmotionalHistoryService:
         mock_redis = MagicMock()
         mock_client = AsyncMock()
         mock_redis.client = mock_client
-        mock_client.lrange = AsyncMock(return_value=[
-            json.dumps({"emotion": "happy", "intensity": 0.8}),
-            json.dumps({"emotion": "happy", "intensity": 0.7}),
-            json.dumps({"emotion": "sad", "intensity": 0.5}),
-        ])
-        
+        mock_client.lrange = AsyncMock(
+            return_value=[
+                json.dumps({"emotion": "happy", "intensity": 0.8}),
+                json.dumps({"emotion": "happy", "intensity": 0.7}),
+                json.dumps({"emotion": "sad", "intensity": 0.5}),
+            ]
+        )
+
         service = EmotionalHistoryService(redis_client=mock_redis)
-        
+
         result = await service.get_emotional_context("user_123")
-        
+
         assert result["has_history"] is True
         assert result["current_emotion"] == "happy"
         assert result["context_length"] == 3
@@ -248,11 +254,11 @@ class TestEmotionalHistoryService:
         mock_client = AsyncMock()
         mock_redis.client = mock_client
         mock_client.lrange = AsyncMock(return_value=[])
-        
+
         service = EmotionalHistoryService(redis_client=mock_redis)
-        
+
         result = await service.get_emotional_context("user_123")
-        
+
         assert result["has_history"] is False
         assert result["current_emotion"] is None
         assert result["recent_emotions"] == []
@@ -260,9 +266,9 @@ class TestEmotionalHistoryService:
     @pytest.mark.asyncio
     async def test_get_emotional_context_no_redis(self):
         service = EmotionalHistoryService(redis_client=None)
-        
+
         result = await service.get_emotional_context("user_123")
-        
+
         assert result["has_history"] is False
 
     @pytest.mark.asyncio
@@ -270,13 +276,87 @@ class TestEmotionalHistoryService:
         mock_redis = MagicMock()
         mock_client = AsyncMock()
         mock_redis.client = mock_client
-        mock_client.lrange = AsyncMock(return_value=[
-            json.dumps({"emotion": "happy", "intensity": 0.8}),
-        ])
-        
+        mock_client.lrange = AsyncMock(
+            return_value=[
+                json.dumps({"emotion": "happy", "intensity": 0.8}),
+            ]
+        )
+
         service = EmotionalHistoryService(redis_client=mock_redis)
-        
+
         result = await service.get_full_context("user_123")
-        
+
         assert "archived_summaries" in result
         assert "total_archived" in result
+
+
+class TestEmotionalHistoryServiceArchive:
+    @pytest.mark.asyncio
+    async def test_check_and_archive_below_threshold_returns_false(self):
+        mock_redis = MagicMock()
+        mock_client = AsyncMock()
+        mock_redis.client = mock_client
+        mock_client.lrange = AsyncMock(
+            return_value=[
+                json.dumps({"emotion": "happy", "intensity": 0.5, "timestamp": "2024-01-01T00:00:00"}) for _ in range(5)
+            ]
+        )
+        service = EmotionalHistoryService(redis_client=mock_redis)
+
+        result = await service._check_and_archive("user_123")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_check_and_archive_above_threshold_archives_and_returns_true(self):
+        mock_redis = MagicMock()
+        mock_client = AsyncMock()
+        mock_redis.client = mock_client
+
+        records = [
+            json.dumps({"emotion": "happy", "intensity": 0.5, "timestamp": f"2024-01-{i + 1:02d}T00:00:00"})
+            for i in range(21)
+        ]
+        mock_client.lrange = AsyncMock(return_value=records)
+        mock_client.lpush = AsyncMock()
+        mock_client.llen = AsyncMock(return_value=1)
+        mock_client.lpop = AsyncMock()
+        mock_client.rpush = AsyncMock()
+
+        service = EmotionalHistoryService(redis_client=mock_redis)
+
+        result = await service._check_and_archive("user_123")
+
+        assert result is True
+        mock_client.lpush.assert_called()
+
+    def test_create_summary_computes_dominant_emotion(self):
+        service = EmotionalHistoryService(redis_client=None)
+
+        records = [
+            {"emotion": "happy", "intensity": 0.8, "timestamp": "2024-01-01T00:00:00"},
+            {"emotion": "happy", "intensity": 0.7, "timestamp": "2024-01-02T00:00:00"},
+            {"emotion": "sad", "intensity": 0.5, "timestamp": "2024-01-03T00:00:00"},
+        ]
+
+        summary = service._create_summary("user_x", records)
+
+        assert summary.dominant_emotion == "happy"
+        assert summary.emotion_counts["happy"] == 2
+        assert summary.emotion_counts["sad"] == 1
+        assert 0 < summary.average_intensity < 1.0
+        assert "happy" in summary.summary_text
+
+    def test_create_summary_handles_empty_records(self):
+        service = EmotionalHistoryService(redis_client=None)
+        summary = service._create_summary("user_x", [])
+        assert summary.dominant_emotion == "neutral"
+        assert summary.average_intensity == 0.0
+
+    def test_create_summary_handles_missing_timestamps(self):
+        service = EmotionalHistoryService(redis_client=None)
+        records = [
+            {"emotion": "calm", "intensity": 0.4},
+        ]
+        summary = service._create_summary("user_x", records)
+        assert summary.dominant_emotion == "calm"

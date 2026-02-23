@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from src.services.visual.vault import VaultService
+from src.services.visual.wardrobe import WardrobeService
 from src.services.chat.commands import CommandHandler
 from src.models.hlink import HLinkMessage, MessageType, Payload, Recipient, Sender
 
@@ -9,7 +9,6 @@ from src.models.hlink import HLinkMessage, MessageType, Payload, Recipient, Send
 def mock_db():
     db = MagicMock()
     db._call = AsyncMock()
-    # Mock update_agent_state
     db.update_agent_state = AsyncMock()
     return db
 
@@ -17,7 +16,7 @@ def mock_db():
 @pytest.fixture
 def mock_visual(mock_db):
     visual = MagicMock()
-    visual.vault = VaultService(mock_db)
+    visual.wardrobe = WardrobeService(mock_db)
     visual.generate_and_index = AsyncMock(return_value="file:///tmp/new.png")
     visual.notify_visual_asset = AsyncMock()
     return visual
@@ -31,8 +30,8 @@ def mock_redis():
 
 
 @pytest.mark.asyncio
-async def test_vault_service_save_and_get(mock_db):
-    service = VaultService(mock_db)
+async def test_wardrobe_service_save_and_get(mock_db):
+    service = WardrobeService(mock_db)
 
     # Mocking successful upsert (SurrealDB query result format)
     mock_db._call.return_value = [{"result": []}]
@@ -123,3 +122,100 @@ async def test_command_handler_vault_list(mock_redis, mock_visual, mock_db):
     assert "Vault de Lisa" in text
     assert "dress1" in text
     assert "beach" in text
+
+
+class TestWardrobeServiceEdgeCases:
+    @pytest.mark.asyncio
+    async def test_save_item_resolves_asset_id_via_query_when_missing(self):
+        db = MagicMock()
+        db._call = AsyncMock()
+        db._call.return_value = [{"result": [{"id": "visual_asset:xyz"}]}]
+        service = WardrobeService(db)
+
+        result = await service.save_item("lisa", "summer_dress", "file:///tmp/img.png", "a summer dress")
+        assert result == "visual_asset:xyz"
+
+    @pytest.mark.asyncio
+    async def test_save_item_returns_none_when_asset_id_unresolvable(self):
+        db = MagicMock()
+        db._call = AsyncMock(return_value=[{"result": []}])
+        service = WardrobeService(db)
+
+        result = await service.save_item("lisa", "mystery", "file:///tmp/x.png", "unknown")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_save_item_returns_none_on_db_error_in_upsert(self):
+        db = MagicMock()
+        call_count = 0
+
+        async def side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return [{"result": [{"id": "visual_asset:abc"}]}]
+            return [{"status": "ERR", "detail": "DB error"}]
+
+        db._call = AsyncMock(side_effect=side_effect)
+        service = WardrobeService(db)
+
+        result = await service.save_item("lisa", "dress", "file:///tmp/img.png", "a dress")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_item_returns_none_on_empty_result(self):
+        db = MagicMock()
+        db._call = AsyncMock(return_value=[{"result": []}])
+        service = WardrobeService(db)
+
+        result = await service.get_item("lisa", "nonexistent")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_item_with_category_filter(self):
+        db = MagicMock()
+        db._call = AsyncMock(return_value=[{"result": [{"name": "dress", "category": "garment"}]}])
+        service = WardrobeService(db)
+
+        result = await service.get_item("lisa", "dress", category="garment")
+        assert result is not None
+        call_args = db._call.call_args
+        assert "category" in str(call_args)
+
+    @pytest.mark.asyncio
+    async def test_get_item_returns_none_on_exception(self):
+        db = MagicMock()
+        db._call = AsyncMock(side_effect=Exception("db offline"))
+        service = WardrobeService(db)
+
+        result = await service.get_item("lisa", "dress")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_list_items_returns_empty_on_no_results(self):
+        db = MagicMock()
+        db._call = AsyncMock(return_value=[{"result": []}])
+        service = WardrobeService(db)
+
+        result = await service.list_items("lisa")
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_list_items_with_category_filter(self):
+        db = MagicMock()
+        db._call = AsyncMock(return_value=[{"result": [{"name": "bg1", "category": "background"}]}])
+        service = WardrobeService(db)
+
+        result = await service.list_items("lisa", category="background")
+        assert len(result) == 1
+        call_args = db._call.call_args
+        assert "background" in str(call_args)
+
+    @pytest.mark.asyncio
+    async def test_list_items_returns_empty_on_exception(self):
+        db = MagicMock()
+        db._call = AsyncMock(side_effect=Exception("db offline"))
+        service = WardrobeService(db)
+
+        result = await service.list_items("lisa")
+        assert result == []
