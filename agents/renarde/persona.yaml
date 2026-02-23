@@ -25,6 +25,8 @@ skills:
   - name: suggest_topic
     description: "Propose un sujet de conversation créatif et inspirant."
 
+  - name: move_to_room
+    description: "Se déplace vers une pièce ou un lieu pour être présent là-bas."
 voice_config:
   language: "FR"
   speed: 1.05

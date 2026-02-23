@@ -16,6 +16,7 @@ class Renderer {
         this.activeOutfits = {}; 
         this.activeView = 'stage';
         this.activeSpeakerId = null;
+        this.userLocation = 'home_center';
         this.activeAdminTab = 'system';
         this.selectedAgentForConfig = null;
         this.systemStatus = { ws: 'checking', redis: 'checking', llm: 'checking', brain: 'checking' };
@@ -198,7 +199,7 @@ class Renderer {
             this.updateLayer(this.layers.body, bodySrc, `/static/assets/agents/${agentId}/${agentId}_neutral_01.png`);
             if (this.layers.body) {
                 this.layers.body.style.display = 'block';
-                this.layers.body.style.opacity = '1';
+                this._applyLocationVisibility();
             }
         }
         if (cleanedText && !skipTypewriter) this.typewrite(cleanedText);
@@ -361,6 +362,26 @@ class Renderer {
         const cssStatus = (status === 'ok' || status === 'online' || status === 'connected') ? 'ok' : status;
         const adminIndicator = document.getElementById(`status-${component}-admin`);
         if (adminIndicator) { adminIndicator.textContent = status.toUpperCase(); adminIndicator.className = `status-indicator ${cssStatus}`; }
+    }
+
+    setUserLocation(locationName) {
+        this.userLocation = locationName;
+        this._applyLocationVisibility();
+    }
+
+    onAgentLocationChanged(agentId, locationName) {
+        if (this.agents[agentId]) this.agents[agentId].location = locationName;
+        this._applyLocationVisibility();
+        if (this.activeView === 'crew') this.renderAgentGrid();
+    }
+
+    _applyLocationVisibility() {
+        if (!this.activeSpeakerId || !this.layers.body) return;
+        const agent = this.agents[this.activeSpeakerId];
+        const agentLoc = agent && agent.location ? agent.location : null;
+        const sameRoom = !agentLoc || agentLoc === this.userLocation || agentLoc === 'home_center';
+        this.layers.body.style.transition = 'opacity 1.5s ease';
+        this.layers.body.style.opacity = sameRoom ? '1' : '0';
     }
 }
 

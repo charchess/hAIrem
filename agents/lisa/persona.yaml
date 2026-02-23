@@ -42,3 +42,5 @@ skills:
     description: "Obtenir un résumé de l'état général de la maison."
   - name: add_reminder
     description: "Ajouter un rappel ou mémo en mémoire."
+  - name: move_to_room
+    description: "Se déplace vers une pièce ou un lieu pour être présent là-bas."

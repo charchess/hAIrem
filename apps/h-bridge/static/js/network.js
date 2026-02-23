@@ -190,6 +190,11 @@ class NetworkClient {
                     window.renderer.clearAgentSpeaking();
                 }
             }
+        } else if (message.type === "location.change") {
+            const content = message.payload.content;
+            if (window.renderer && window.renderer.onAgentLocationChanged) {
+                window.renderer.onAgentLocationChanged(content.agent_id, content.location);
+            }
         } else if (message.type === "visual.asset") {
             const payload = message.payload.content;
             let url = payload.url;

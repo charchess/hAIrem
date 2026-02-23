@@ -386,6 +386,10 @@ class HaremOrchestrator:
             logger.info("⚙️ SETUP: HaEventWorker started.")
 
             from src.infrastructure.plugin_loader import PluginLoader
+            from src.features.home.spatial.registry import SpatialRegistry
+
+            self.spatial_registry = SpatialRegistry(surreal=self.surreal, redis=self.redis)
+            await self.spatial_registry.initialize()
 
             self.plugin_loader = PluginLoader(
                 os.getenv("AGENTS_PATH", "/app/agents"),
@@ -395,6 +399,7 @@ class HaremOrchestrator:
                 self.surreal,
                 self.visual_service,
                 None,
+                self.spatial_registry,
             )
             await self.plugin_loader.start()
 

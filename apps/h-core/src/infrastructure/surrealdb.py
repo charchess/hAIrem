@@ -788,3 +788,57 @@ class SurrealDbClient:
             )
         except Exception as e:
             logger.error(f"SURREAL: mark_dream_consumed failed for {agent_id}: {e}")
+
+    async def move_agent_to_location(self, agent_id: str, location_name: str) -> bool:
+        agent_key = agent_id.lower().replace(" ", "_")
+        loc_key = location_name.lower().replace(" ", "_")
+        try:
+            await self._call(
+                "query",
+                f"INSERT INTO location (id, name, display_name) VALUES (location:`{loc_key}`, $name, $name) ON DUPLICATE KEY UPDATE name = $name;",
+                {"name": location_name},
+            )
+            await self._call(
+                "query",
+                f"DELETE PRESENT_IN WHERE in = subject:`{agent_key}`;",
+            )
+            await self._call(
+                "query",
+                f"RELATE subject:`{agent_key}`->PRESENT_IN->location:`{loc_key}` SET since = time::now();",
+            )
+            await self.update_agent_state(agent_id, "IS_IN", {"name": location_name, "description": f"The {location_name}"})
+            return True
+        except Exception as e:
+            logger.error(f"SURREAL: move_agent_to_location failed for {agent_id}: {e}")
+            return False
+
+    async def get_agents_in_location(self, location_name: str) -> List[str]:
+        loc_key = location_name.lower().replace(" ", "_")
+        try:
+            res = await self._call(
+                "query",
+                f"SELECT in.name AS agent_name FROM PRESENT_IN WHERE out = location:`{loc_key}`;",
+            )
+            if res and isinstance(res, list) and len(res) > 0:
+                rows = res[0].get("result", []) if isinstance(res[0], dict) else res[0]
+                return [r.get("agent_name", "") for r in rows if r.get("agent_name")]
+            return []
+        except Exception as e:
+            logger.error(f"SURREAL: get_agents_in_location failed for {location_name}: {e}")
+            return []
+
+    async def get_agent_location(self, agent_id: str) -> Optional[str]:
+        agent_key = agent_id.lower().replace(" ", "_")
+        try:
+            res = await self._call(
+                "query",
+                f"SELECT out.name AS loc_name FROM PRESENT_IN WHERE in = subject:`{agent_key}` LIMIT 1;",
+            )
+            if res and isinstance(res, list) and len(res) > 0:
+                rows = res[0].get("result", []) if isinstance(res[0], dict) else res[0]
+                if rows:
+                    return rows[0].get("loc_name")
+            return None
+        except Exception as e:
+            logger.error(f"SURREAL: get_agent_location failed for {agent_id}: {e}")
+            return None

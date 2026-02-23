@@ -62,6 +62,16 @@ DEFINE INDEX episode_session ON TABLE episode FIELDS session_id UNIQUE;
 DEFINE TABLE EXTRACTED_FROM SCHEMAFULL TYPE RELATION FROM fact TO episode PERMISSIONS FULL;
 DEFINE FIELD extracted_at ON TABLE EXTRACTED_FROM TYPE datetime DEFAULT time::now();
 
+-- Spatial Presence (Epic 18)
+DEFINE TABLE location SCHEMAFULL PERMISSIONS FULL;
+DEFINE FIELD name ON TABLE location TYPE string;
+DEFINE FIELD display_name ON TABLE location TYPE string DEFAULT name;
+DEFINE FIELD background_prompt_template ON TABLE location TYPE option<string>;
+DEFINE INDEX location_name ON TABLE location FIELDS name UNIQUE;
+
+DEFINE TABLE PRESENT_IN SCHEMAFULL TYPE RELATION FROM subject TO location PERMISSIONS FULL;
+DEFINE FIELD since ON TABLE PRESENT_IN TYPE datetime DEFAULT time::now();
+
 -- Vault System (Named Inventory)
 DEFINE TABLE vault SCHEMAFULL PERMISSIONS FULL;
 DEFINE FIELD name ON TABLE vault TYPE string;

@@ -16,6 +16,8 @@ skills:
   - name: manage_shopping_list
     description: "Ajoute ou liste les articles de la liste de courses."
 
+  - name: move_to_room
+    description: "Se déplace vers une pièce ou un lieu pour être présent là-bas."
 voice_config:
   language: "EN"
   speed: 1.15

@@ -9,3 +9,5 @@ system_prompt: |
 skills:
   - name: change_world_theme
     description: "Change le thème global du monde (ex: Christmas, Cyberpunk, Beach)."
+  - name: move_to_room
+    description: "Se déplace vers une pièce ou un lieu pour être présent là-bas."

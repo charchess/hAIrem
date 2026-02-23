@@ -755,11 +755,7 @@ class BaseAgent:
         else:
             logger.debug(f"AGENT {self.config.name}: No specific response defined for theme '{new_theme}'")
 
-    async def move_to(self, location_name: str) -> str:
-        """Moves the agent to a new location via Spatial service."""
-        # Detect if actually changing room
-        # (In a real implementation we'd check DB first, but for now we always 'move')
-
+    async def move_to_room(self, location_name: str) -> str:
         note_msg = HLinkMessage(
             type=MessageType.AGENT_INTERNAL_NOTE,
             sender=Sender(agent_id="system", role="orchestrator"),
@@ -772,7 +768,6 @@ class BaseAgent:
             await self.spatial.move_agent(self.config.name, location_name)
             return f"Success: Moved to {location_name}"
 
-        # Fallback to direct DB update if service missing
         if self.surreal:
             await self.surreal.update_agent_state(
                 self.config.name, "IS_IN", {"name": location_name, "description": f"The {location_name}"}
@@ -780,6 +775,9 @@ class BaseAgent:
             return f"Success: Moved to {location_name} (Direct)"
 
         return "Spatial service unavailable."
+
+    async def move_to(self, location_name: str) -> str:
+        return await self.move_to_room(location_name)
 
     async def change_outfit(self, description: str) -> str:
         """Changes the agent's outfit."""

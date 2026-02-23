@@ -48,6 +48,7 @@ class MessageType(str, Enum):
     SYSTEM_INACTIVITY = "system.inactivity"
     SYSTEM_WHISPER = "system.whisper"
     WORLD_THEME_CHANGED = "world.theme_changed"
+    LOCATION_CHANGED = "location.change"
 
 
 class Priority(str, Enum):

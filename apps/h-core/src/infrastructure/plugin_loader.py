@@ -72,6 +72,7 @@ class PluginLoader:
         surreal_client=None,
         visual_service=None,
         token_tracking_service=None,
+        spatial_registry=None,
     ):
         self.agents_dir = os.path.abspath(agents_dir)
         self.registry = registry
@@ -80,6 +81,7 @@ class PluginLoader:
         self.surreal = surreal_client
         self.visual_service = visual_service
         self.token_tracking_service = token_tracking_service
+        self.spatial_registry = spatial_registry
         self.observer = Observer()
         logger.info(f"PLUGIN_LOADER: Initialized with path {self.agents_dir}")
 
@@ -178,6 +180,7 @@ class PluginLoader:
                 surreal_client=self.surreal,
                 visual_service=self.visual_service,
                 token_tracking_service=self.token_tracking_service,
+                spatial_registry=self.spatial_registry,
             )
 
             if config.name in self.registry.agents:
