@@ -1,8 +1,8 @@
 import logging
+import os
 from datetime import datetime
 from typing import Any
 
-# Define logger FIRST
 logger = logging.getLogger(__name__)
 
 try:
@@ -22,9 +22,17 @@ class Dreamer:
     Orchestrates proactive image generation during sleep cycles.
     """
 
-    def __init__(self, ha_client: Any, visual_service: VisualImaginationService):
+    def __init__(
+        self,
+        ha_client: Any,
+        visual_service: VisualImaginationService,
+        llm_client: Any = None,
+        surreal_client: Any = None,
+    ):
         self.ha = ha_client
         self.visual_service = visual_service
+        self.llm = llm_client
+        self.surreal = surreal_client
 
     async def get_weather_context(self) -> str:
         """Fetch weather condition from Home Assistant."""
@@ -58,7 +66,35 @@ class Dreamer:
             return "sunset"
         return "night"
 
-    async def prepare_daily_assets(self, agent_id: str = "system"):
+    async def generate_creative_impulse(self, agent_id: str, persona_description: str) -> str:
+        if not self.llm:
+            return f"A dreamlike, artistic portrait of {agent_id} in an unexpected visual style"
+
+        prompt_request = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a creative director generating short image generation prompts. "
+                    "Return ONLY a concise prompt (max 30 words), no explanations."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Agent persona: {persona_description}\n"
+                    "Generate one unexpected, creative visual style or outfit this agent might dream about tonight. "
+                    "Make it distinct from standard looks. Pure image prompt only."
+                ),
+            },
+        ]
+        try:
+            result = await self.llm.get_completion(prompt_request)
+            return result.strip() if isinstance(result, str) else f"Ethereal dreamscape portrait of {agent_id}"
+        except Exception as e:
+            logger.error(f"DREAMER: LLM creative impulse failed for {agent_id}: {e}")
+            return f"Ethereal dreamscape portrait of {agent_id}"
+
+    async def prepare_daily_assets(self, agent_id: str = "system", agents: list[dict[str, Any]] | None = None):
         """
         Analyzes context, constructs prompt, and triggers proactive generation via VisualImaginationService.
         """
@@ -68,17 +104,45 @@ class Dreamer:
             weather = await self.get_weather_context()
             time_of_day = await self.get_time_of_day_context()
 
-            prompt = (
+            background_prompt = (
                 f"A view from the window, {weather} weather, {time_of_day}, cinematic style, high detail, masterpiece"
             )
-            logger.info(f"DREAMER: Generated prompt: {prompt}")
+            logger.info(f"DREAMER: Generated background prompt: {background_prompt}")
 
-            # Use the consolidated service logic
             asset_uri, _ = await self.visual_service.generate_and_index(
-                agent_id=agent_id, prompt=prompt, tags=["proactive", f"weather:{weather}", f"time:{time_of_day}"]
+                agent_id=agent_id,
+                prompt=background_prompt,
+                tags=["proactive", f"weather:{weather}", f"time:{time_of_day}"],
             )
 
-            logger.info(f"DREAMER: Proactive asset ready at {asset_uri}")
+            logger.info(f"DREAMER: Proactive background asset ready at {asset_uri}")
 
         except Exception as e:
-            logger.error(f"DREAMER: Failed to prepare proactive assets: {e}")
+            logger.error(f"DREAMER: Failed to prepare proactive background: {e}")
+
+        if not agents:
+            return
+
+        for agent in agents:
+            aid = agent.get("id", "")
+            persona = agent.get("persona", f"A creative AI character named {aid}")
+            if not aid:
+                continue
+            try:
+                creative_prompt = await self.generate_creative_impulse(aid, persona)
+                logger.info(f"DREAMER: Creative impulse for {aid}: {creative_prompt}")
+
+                asset_uri, asset_record = await self.visual_service.generate_and_index(
+                    agent_id=aid,
+                    prompt=creative_prompt,
+                    tags=["dream", "creative", aid],
+                )
+
+                if self.surreal and asset_record:
+                    asset_id = str(asset_record).replace("visual_asset:", "")
+                    if asset_id:
+                        await self.surreal.store_dream(aid, creative_prompt, asset_id)
+                        logger.info(f"DREAMER: Dream stored for {aid} → asset {asset_id}")
+
+            except Exception as e:
+                logger.error(f"DREAMER: Creative dreaming failed for {aid}: {e}")

@@ -126,6 +126,11 @@ class SurrealDbClient:
             DEFINE FIELD IF NOT EXISTS timestamp ON TABLE vault TYPE datetime DEFAULT time::now();
             DEFINE INDEX IF NOT EXISTS vault_unique ON TABLE vault FIELDS agent_id, name UNIQUE;
 
+            DEFINE TABLE IF NOT EXISTS dreamed_of SCHEMAFULL;
+            DEFINE FIELD IF NOT EXISTS prompt ON TABLE dreamed_of TYPE string;
+            DEFINE FIELD IF NOT EXISTS consumed ON TABLE dreamed_of TYPE bool DEFAULT false;
+            DEFINE FIELD IF NOT EXISTS created_at ON TABLE dreamed_of TYPE datetime DEFAULT time::now();
+
             DEFINE TABLE IF NOT EXISTS messages SCHEMALESS;
             DEFINE TABLE IF NOT EXISTS subject SCHEMAFULL;
             DEFINE FIELD IF NOT EXISTS name ON TABLE subject TYPE string;
@@ -747,3 +752,39 @@ class SurrealDbClient:
         except:
             pass
         return None
+
+    async def store_dream(self, agent_id: str, prompt: str, asset_id: str) -> None:
+        agent_key = agent_id.lower().replace(" ", "_")
+        try:
+            await self._call(
+                "query",
+                f"RELATE subject:`{agent_key}`->dreamed_of->visual_asset:`{asset_id}` SET prompt = $prompt, consumed = false, created_at = time::now();",
+                {"prompt": prompt},
+            )
+        except Exception as e:
+            logger.error(f"SURREAL: store_dream failed for {agent_id}: {e}")
+
+    async def get_pending_dream(self, agent_id: str) -> Optional[Dict[str, Any]]:
+        agent_key = agent_id.lower().replace(" ", "_")
+        try:
+            res = await self._call(
+                "query",
+                f"SELECT prompt, out AS asset_id FROM dreamed_of WHERE in = subject:`{agent_key}` AND consumed = false ORDER BY created_at DESC LIMIT 1;",
+            )
+            if res and isinstance(res, list) and len(res) > 0:
+                rows = res[0].get("result", []) if isinstance(res[0], dict) else res[0]
+                if isinstance(rows, list) and len(rows) > 0:
+                    return rows[0]
+        except Exception as e:
+            logger.error(f"SURREAL: get_pending_dream failed for {agent_id}: {e}")
+        return None
+
+    async def mark_dream_consumed(self, agent_id: str) -> None:
+        agent_key = agent_id.lower().replace(" ", "_")
+        try:
+            await self._call(
+                "query",
+                f"UPDATE dreamed_of SET consumed = true WHERE in = subject:`{agent_key}` AND consumed = false;",
+            )
+        except Exception as e:
+            logger.error(f"SURREAL: mark_dream_consumed failed for {agent_id}: {e}")

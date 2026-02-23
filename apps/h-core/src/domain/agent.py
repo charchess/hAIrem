@@ -500,6 +500,22 @@ class BaseAgent:
             logger.error(f"Failed to get burning memory: {e}")
             return ""
 
+    async def _get_dream_context(self) -> str:
+        if not self.surreal or not hasattr(self.surreal, "get_pending_dream"):
+            return ""
+        try:
+            dream = await self.surreal.get_pending_dream(self.config.name)
+            if not dream:
+                return ""
+            prompt = dream.get("prompt", "")
+            if not prompt:
+                return ""
+            await self.surreal.mark_dream_consumed(self.config.name)
+            return f"### CREATIVE DREAM (last night's vision) ###\n{prompt}\n[You may share this vision with the user if it feels natural.]"
+        except Exception as e:
+            logger.error(f"Failed to get dream context: {e}")
+            return ""
+
     async def _assemble_payload(self, trigger_message: HLinkMessage) -> list[dict[str, str]]:
         """Assembles the message history for the LLM."""
         system_prompt = (
@@ -518,6 +534,10 @@ class BaseAgent:
         burning_memory = await self._get_burning_memory_context()
         if burning_memory:
             system_prompt = f"{system_prompt}\n\n{burning_memory}"
+
+        dream_context = await self._get_dream_context()
+        if dream_context:
+            system_prompt = f"{system_prompt}\n\n{dream_context}"
 
         messages = [
             {"role": "system", "content": system_prompt},
