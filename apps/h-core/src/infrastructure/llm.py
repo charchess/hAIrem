@@ -16,6 +16,8 @@ except ImportError:
     LITELLM_AVAILABLE = False
     print("WARNING: litellm library not found. LLM features will be disabled.")
 
+EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+
 try:
     from fastembed import TextEmbedding
 
@@ -204,44 +206,29 @@ class LlmClient:
         if not text:
             return []
 
-        # 1. Check Cache
         if self.cache:
-            cached = await self.cache.get(text)
+            cached = await self.cache.get(text, EMBEDDING_MODEL_NAME)
             if cached:
-                logger.info(f"Embedding cache hit.")
+                logger.info("Embedding cache hit.")
                 return cached
 
-        # 2. Generate Locally
-        # LAZY INITIALIZATION
         if not self.embedding_model and FASTEMBED_AVAILABLE:
             try:
                 from fastembed import TextEmbedding
 
-                self.embedding_model = TextEmbedding(
-                    model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-                )
+                self.embedding_model = TextEmbedding(model_name=EMBEDDING_MODEL_NAME)
                 logger.info("FastEmbed initialized on demand.")
             except Exception as e:
                 logger.error(f"Failed to lazy-load FastEmbed: {e}")
 
         if self.embedding_model:
             try:
-                # FastEmbed requires a list of strings
-                if isinstance(text, str):
-                    text_input = [text]
-                else:
-                    text_input = text
-
-                # FastEmbed returns a generator of vectors (numpy or list)
+                text_input = [text] if isinstance(text, str) else text
                 embeddings = list(self.embedding_model.embed(text_input))
                 if embeddings:
-                    # Convert numpy array to list if necessary
                     vec = embeddings[0].tolist() if hasattr(embeddings[0], "tolist") else list(embeddings[0])
-
-                    # 3. Store in Cache
                     if self.cache:
-                        await self.cache.set(text, vec)
-
+                        await self.cache.set(text, vec, EMBEDDING_MODEL_NAME)
                     return vec
             except Exception as e:
                 logger.error(f"FastEmbed generation failed: {e}")
