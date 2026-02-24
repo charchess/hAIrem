@@ -185,6 +185,50 @@ class TestDiscussionBudgetRouting:
         assert orch.discussion_budget == 5
 
     @pytest.mark.asyncio
+    async def test_arbiter_low_score_stops_cascade(self):
+        from src.main import HaremOrchestrator
+
+        orch = HaremOrchestrator.__new__(HaremOrchestrator)
+        orch.discussion_budget = 3
+        orch.MAX_DISCUSSION_BUDGET = 5
+        orch.agent_registry = MagicMock()
+        orch.agent_registry.agents = {}
+        orch.social_arbiter = MagicMock()
+        orch.social_arbiter.determine_responder_async = AsyncMock(return_value=None)
+        orch.redis = MagicMock()
+        orch.redis.publish = AsyncMock()
+        orch.surreal = MagicMock()
+
+        data = {
+            "type": "narrative.text",
+            "sender": {"agent_id": "lisa", "role": "agent"},
+            "recipient": {"target": "renarde"},
+            "payload": {"content": "..."},
+            "id": str(uuid4()),
+        }
+
+        await orch.handle_message(data)
+        orch.redis.publish.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_arbiter_returns_none_when_all_scores_below_threshold(self):
+        from src.features.home.social_arbiter.arbiter import SocialArbiter
+        from src.features.home.social_arbiter.models import AgentProfile
+
+        arbiter = SocialArbiter()
+        lisa = AgentProfile(agent_id="lisa", name="Lisa", role="guide", domains=["conversation"])
+        arbiter.register_agent(lisa)
+
+        with patch.object(
+            arbiter.scoring_engine,
+            "calculate_relevance_llm",
+            new=AsyncMock(return_value={"lisa": 0.2}),
+        ):
+            result = await arbiter.determine_responder_async("...", min_threshold_override=0.75, discussion_turn=0)
+
+        assert result is None or result == []
+
+    @pytest.mark.asyncio
     async def test_dynamic_threshold_increases_with_turns(self):
         from src.main import HaremOrchestrator
 
