@@ -19,6 +19,12 @@ class SpeechQueue:
         self._counter = 0
         self._stop_event = asyncio.Event()
         self.is_interrupted: bool = False
+        self.is_speaking: bool = False
+        self.current_speaker: str | None = None
+
+    def set_speaking(self, agent_id: str) -> None:
+        self.is_speaking = True
+        self.current_speaker = agent_id
 
     async def enqueue(self, request: SpeechRequest) -> None:
         self.is_interrupted = False
@@ -35,6 +41,8 @@ class SpeechQueue:
 
     def interrupt(self) -> None:
         self.is_interrupted = True
+        self.is_speaking = False
+        self.current_speaker = None
         while not self._queue.empty():
             try:
                 self._queue.get_nowait()

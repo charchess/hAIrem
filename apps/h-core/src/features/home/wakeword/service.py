@@ -4,7 +4,10 @@ Provides high-level interface for wakeword detection and integration with the ev
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.services.audio.speech_queue import SpeechQueue
 from .wakeword import WakewordDetector
 
 logger = logging.getLogger(__name__)
@@ -105,6 +108,21 @@ class WakewordService:
         detector_status = await self.detector.get_status()
 
         return {"service": "wakeword", "initialized": True, "active": self.is_active, "detector": detector_status}
+
+    async def emit_barge_in(self, speech_queue: "SpeechQueue | None" = None) -> None:
+        if speech_queue is not None and not speech_queue.is_speaking:
+            return
+        try:
+            await self.redis.publish_event(
+                "system_stream",
+                {
+                    "type": "audio.barge_in",
+                    "sender": {"agent_id": "wakeword", "role": "system"},
+                    "payload": {"content": {}},
+                },
+            )
+        except Exception as e:
+            logger.error(f"emit_barge_in failed: {e}")
 
     async def update_config(self, new_config: Dict[str, Any]) -> bool:
         """

@@ -98,6 +98,10 @@ class HaremOrchestrator:
         self.discussion_budget = 0
         self.MAX_DISCUSSION_BUDGET = 5
 
+        from src.services.audio.speech_queue import SpeechQueue
+
+        self.speech_queue = SpeechQueue()
+
     async def status_heartbeat(self):
         logger.info("💓 HEARTBEAT: Consolidated worker started.")
         while not self.stop_event.is_set():
@@ -254,6 +258,20 @@ class HaremOrchestrator:
 
                         # Always refresh to apply potential LLM changes
                         asyncio.create_task(agent.refresh_config())
+                return
+
+            if msg_type == "audio.barge_in":
+                if self.speech_queue.is_speaking:
+                    speaker = self.speech_queue.current_speaker
+                    self.speech_queue.interrupt()
+                    await self.redis.publish_event(
+                        "system_stream",
+                        {
+                            "type": "agent.interrupted",
+                            "sender": {"agent_id": "system", "role": "system"},
+                            "payload": {"content": {"agent_id": speaker}},
+                        },
+                    )
                 return
 
             target = msg.recipient.target
