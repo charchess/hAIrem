@@ -173,3 +173,51 @@ async def test_agent_move_to_room_fallback_to_direct_db(mock_surreal):
     mock_surreal.update_agent_state.assert_awaited_once_with(
         "electra", "IS_IN", {"name": "bureau", "description": "The bureau"}
     )
+
+
+@pytest.mark.asyncio
+async def test_get_agents_in_location_returns_empty_on_none_response():
+    from src.infrastructure.surrealdb import SurrealDbClient
+
+    surreal = SurrealDbClient(url="ws://localhost:8000", user="root", password="root")
+    surreal._call = AsyncMock(return_value=None)
+
+    result = await surreal.get_agents_in_location("salon")
+
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_move_agent_to_location_returns_false_on_db_error():
+    from src.infrastructure.surrealdb import SurrealDbClient
+
+    surreal = SurrealDbClient(url="ws://localhost:8000", user="root", password="root")
+    surreal._call = AsyncMock(side_effect=Exception("connection lost"))
+
+    result = await surreal.move_agent_to_location("lisa", "salon")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_get_agents_in_location_returns_empty_on_db_error():
+    from src.infrastructure.surrealdb import SurrealDbClient
+
+    surreal = SurrealDbClient(url="ws://localhost:8000", user="root", password="root")
+    surreal._call = AsyncMock(side_effect=Exception("timeout"))
+
+    result = await surreal.get_agents_in_location("salon")
+
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_agent_location_returns_none_on_db_error():
+    from src.infrastructure.surrealdb import SurrealDbClient
+
+    surreal = SurrealDbClient(url="ws://localhost:8000", user="root", password="root")
+    surreal._call = AsyncMock(side_effect=Exception("query failed"))
+
+    result = await surreal.get_agent_location("renarde")
+
+    assert result is None
