@@ -16,8 +16,9 @@ if core_src not in sys.path:
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from infrastructure.redis import RedisClient
 from infrastructure.surrealdb import SurrealDbClient
 from models.hlink import HLinkMessage, MessageType, Payload, Recipient, Sender
@@ -259,6 +260,11 @@ async def get_metrics():
 
         content = _json.loads(content)
     return content.get("metrics", {"counters": {}, "histograms": {}})
+
+
+@app.get("/metrics")
+async def prometheus_metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/api/status")

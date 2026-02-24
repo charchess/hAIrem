@@ -2,8 +2,11 @@ import asyncio
 import logging
 import os
 import inspect
+import time
 from datetime import datetime
 from typing import Any, List, Optional, Dict
+
+from src.infrastructure.metrics import get_metrics_collector
 
 SURREAL_AVAILABLE = False
 try:
@@ -27,7 +30,6 @@ class SurrealDbClient:
         self._stop_event = asyncio.Event()
 
     async def _call(self, method_name: str, *args, **kwargs) -> Any:
-        """Robust wrapper for SurrealDB client calls with auto-reconnect."""
         if not self.client:
             await self.connect()
             if not self.client:
@@ -35,9 +37,11 @@ class SurrealDbClient:
 
         try:
             method = getattr(self.client, method_name)
+            _t0 = time.monotonic()
             res = method(*args, **kwargs)
             if inspect.isawaitable(res):
                 res = await res
+            get_metrics_collector().record_surrealdb_call(method_name, time.monotonic() - _t0)
 
             return res
         except Exception as e:
@@ -806,7 +810,9 @@ class SurrealDbClient:
                 "query",
                 f"RELATE subject:`{agent_key}`->PRESENT_IN->location:`{loc_key}` SET since = time::now();",
             )
-            await self.update_agent_state(agent_id, "IS_IN", {"name": location_name, "description": f"The {location_name}"})
+            await self.update_agent_state(
+                agent_id, "IS_IN", {"name": location_name, "description": f"The {location_name}"}
+            )
             return True
         except Exception as e:
             logger.error(f"SURREAL: move_agent_to_location failed for {agent_id}: {e}")

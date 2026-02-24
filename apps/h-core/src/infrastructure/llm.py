@@ -2,8 +2,11 @@ import asyncio
 import json
 import logging
 import os
+import time
 from collections.abc import AsyncGenerator
 from typing import Any
+
+from src.infrastructure.metrics import get_metrics_collector
 
 try:
     import litellm
@@ -144,7 +147,9 @@ class LlmClient:
                 logger.info(
                     f"LLM_CALL: Model={provider_config['model']}, Tools={len(tools) if tools else 0}, FallbackIndex={self._fallback_index}"
                 )
+                _t0 = time.monotonic()
                 response = await asyncio.wait_for(acompletion(**kwargs), timeout=120.0)
+                get_metrics_collector().record_llm_completion(provider_config["model"], time.monotonic() - _t0)
 
                 self._current_provider = provider_config
 

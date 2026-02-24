@@ -1,8 +1,10 @@
 import base64
 import logging
+import time
 
 from src.services.audio.melotts_provider import MeloTtsProvider
 from src.services.audio.elevenlabs_provider import ElevenLabsProvider
+from src.infrastructure.metrics import get_metrics_collector
 
 logger = logging.getLogger(__name__)
 
@@ -14,10 +16,12 @@ class TtsOrchestrator:
         self.redis = redis_client
 
     async def synthesize(self, text: str, voice_id: str = "FR", timeout_ms: int = 800) -> bytes:
+        _t0 = time.monotonic()
         audio = await self.primary.synthesize(text, voice_id, timeout_ms)
         if not audio:
             logger.info("TtsOrchestrator: primary empty, using fallback.")
             audio = await self.fallback.synthesize(text, voice_id)
+        get_metrics_collector().record_tts_synthesis(time.monotonic() - _t0)
         return audio
 
     async def synthesize_and_broadcast(self, text: str, agent_id: str, voice_id: str = "FR") -> None:
