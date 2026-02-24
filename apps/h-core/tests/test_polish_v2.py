@@ -45,35 +45,27 @@ def test_addressing_check(mock_agent):
 @pytest.mark.asyncio
 async def test_log_level_filtering():
     mock_redis = AsyncMock()
+    mock_redis.publish_event = AsyncMock()
     handler = RedisLogHandler(mock_redis)
     handler.setFormatter(logging.Formatter("%(message)s"))
-
-    # Set log level to ERROR
     handler.setLevel("ERROR")
 
-    # Mock loop to be running
-    handler.loop = MagicMock()
-    handler.loop.is_running.return_value = True
-
-    # Info log should be ignored
     record_info = logging.LogRecord(
         name="test", level=logging.INFO, pathname="", lineno=0, msg="Info message", args=(), exc_info=None
     )
     handler.emit(record_info)
-    await asyncio.sleep(0.01)
-    mock_redis.publish.assert_not_called()
+    assert handler._queue.empty()
 
-    # Error log should be published
     record_error = logging.LogRecord(
         name="test", level=logging.ERROR, pathname="", lineno=0, msg="Error message", args=(), exc_info=None
     )
     handler.emit(record_error)
 
-    # We need to wait for the task
-    for _ in range(10):
-        if mock_redis.publish_event.called:
-            break
-        await asyncio.sleep(0.1)  # Increased wait time
+    stop = asyncio.Event()
+    worker = asyncio.create_task(handler.start_worker(stop_event=stop))
+    await asyncio.sleep(0.15)
+    stop.set()
+    await worker
 
     mock_redis.publish_event.assert_called_once()
 

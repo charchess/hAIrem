@@ -3,6 +3,7 @@ import datetime
 import json
 import logging
 import os
+import queue
 import sys
 import time
 from typing import Any, List, Optional
@@ -14,35 +15,34 @@ logger = logging.getLogger("H-CORE")
 
 
 class RedisLogHandler(logging.Handler):
-    """Broadcasts logs to Redis for UI visibility."""
-
     def __init__(self, redis_client):
         super().__init__()
         self.redis = redis_client
-        self._is_emitting = False
+        self._queue: queue.SimpleQueue = queue.SimpleQueue()
 
     def emit(self, record):
         if record.levelno < self.level:
             return
-        if self._is_emitting:
-            return
         try:
-            self._is_emitting = True
             msg_str = self.format(record)
-            data = {
-                "type": "system.log",
-                "sender": {"agent_id": "core", "role": "system"},
-                "payload": {"content": msg_str},
-            }
-            try:
-                loop = asyncio.get_running_loop()
-                loop.create_task(self.redis.publish_event("system_stream", data))
-            except RuntimeError:
-                pass
+            self._queue.put_nowait(msg_str)
         except Exception:
             pass
-        finally:
-            self._is_emitting = False
+
+    async def start_worker(self, stop_event: asyncio.Event | None = None):
+        while not (stop_event and stop_event.is_set()):
+            try:
+                while not self._queue.empty():
+                    msg_str = self._queue.get_nowait()
+                    data = {
+                        "type": "system.log",
+                        "sender": {"agent_id": "core", "role": "system"},
+                        "payload": {"content": msg_str},
+                    }
+                    await self.redis.publish_event("system_stream", data)
+            except Exception:
+                pass
+            await asyncio.sleep(0.1)
 
 
 class HaremOrchestrator:
@@ -432,15 +432,16 @@ class HaremOrchestrator:
 
         logger.error("✅ REDIS CONNECTED")
 
-        # STORY 14.1 FIX: Disable Redis logging for h-core to avoid recursion loops
-        # log_handler = RedisLogHandler(self.redis)
-        # log_handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
-        # logging.getLogger().addHandler(log_handler)
+        log_handler = RedisLogHandler(self.redis)
+        log_handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+        log_handler.setLevel(logging.WARNING)
+        logging.getLogger().addHandler(log_handler)
 
         self.tasks = [
             asyncio.create_task(self.status_heartbeat()),
             asyncio.create_task(self.message_router()),
             asyncio.create_task(self._background_setup()),
+            asyncio.create_task(log_handler.start_worker()),
         ]
 
         logger.error(f"🚀 TASKS CREATED: {len(self.tasks)}")

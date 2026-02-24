@@ -9,31 +9,30 @@ from src.main import RedisLogHandler
 @pytest.mark.asyncio
 async def test_redis_log_handler_publishes_to_redis():
     mock_redis = AsyncMock()
+    mock_redis.publish_event = AsyncMock()
     handler = RedisLogHandler(mock_redis)
     handler.setFormatter(logging.Formatter("%(levelname)s:%(message)s"))
+    handler.setLevel(logging.WARNING)
 
-    logger = logging.getLogger("test_logger")
+    logger = logging.getLogger("test_logger_23_7")
     logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.WARNING)
 
-    # Mock loop
-    handler.loop = MagicMock()
-    handler.loop.is_running.return_value = True
+    stop = asyncio.Event()
+    worker = asyncio.create_task(handler.start_worker(stop_event=stop))
 
     try:
-        with patch("asyncio.get_running_loop") as mock_loop:
-            mock_loop.return_value = asyncio.get_event_loop()
-            logger.info("Test message")
-
-            # Give some time for the task to be created and executed
-            await asyncio.sleep(0.1)
+        logger.warning("Test message")
+        await asyncio.sleep(0.15)
+        stop.set()
+        await worker
 
         mock_redis.publish_event.assert_called_once()
         args, kwargs = mock_redis.publish_event.call_args
         assert args[0] == "system_stream"
         message_data = args[1]
         assert message_data["type"] == "system.log"
-        assert "INFO:Test message" in message_data["payload"]["content"]
+        assert "Test message" in message_data["payload"]["content"]
     finally:
         logger.removeHandler(handler)
 
