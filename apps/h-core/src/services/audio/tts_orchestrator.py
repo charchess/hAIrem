@@ -10,10 +10,11 @@ logger = logging.getLogger(__name__)
 
 
 class TtsOrchestrator:
-    def __init__(self, primary: MeloTtsProvider, fallback: ElevenLabsProvider, redis_client):
+    def __init__(self, primary: MeloTtsProvider, fallback: ElevenLabsProvider, redis_client, room_router=None):
         self.primary = primary
         self.fallback = fallback
         self.redis = redis_client
+        self.room_router = room_router
 
     async def synthesize(self, text: str, voice_id: str = "FR", timeout_ms: int = 800) -> bytes:
         _t0 = time.monotonic()
@@ -24,7 +25,9 @@ class TtsOrchestrator:
         get_metrics_collector().record_tts_synthesis(time.monotonic() - _t0)
         return audio
 
-    async def synthesize_and_broadcast(self, text: str, agent_id: str, voice_id: str = "FR") -> None:
+    async def synthesize_and_broadcast(
+        self, text: str, agent_id: str, voice_id: str = "FR", room_id: str | None = None
+    ) -> None:
         audio = await self.synthesize(text, voice_id)
         if not audio:
             return
@@ -38,3 +41,8 @@ class TtsOrchestrator:
             await self.redis.publish_event("system_stream", event)
         except Exception as e:
             logger.error(f"TtsOrchestrator: broadcast error — {e}")
+        if self.room_router and room_id:
+            try:
+                await self.room_router.route(f"data:audio/mp3;base64,{chunk}", room_id=room_id, agent_id=agent_id)
+            except Exception as e:
+                logger.error(f"TtsOrchestrator: room routing error — {e}")

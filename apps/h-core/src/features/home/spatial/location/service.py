@@ -106,6 +106,17 @@ class LocationService:
             for loc in locations
         ]
 
+    async def get_user_room(self, ha_client=None, entity_id: str = "person.user") -> str | None:
+        if ha_client is None:
+            return None
+        try:
+            state = await ha_client.get_state(entity_id)
+            if state and state not in ("not_home", "unknown", "unavailable", ""):
+                return state
+            return None
+        except Exception:
+            return None
+
     async def track_ambiguous_location(
         self, agent_id: str, room_id: str, confidence_level: str = "medium", confidence_reason: Optional[str] = None
     ) -> dict:

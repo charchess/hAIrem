@@ -101,6 +101,7 @@ class HaremOrchestrator:
         from src.services.audio.speech_queue import SpeechQueue
 
         self.speech_queue = SpeechQueue()
+        self.user_room: str | None = None
 
     async def status_heartbeat(self):
         logger.info("💓 HEARTBEAT: Consolidated worker started.")
@@ -291,7 +292,11 @@ class HaremOrchestrator:
                 dynamic_threshold = 0.75 + (5 - self.discussion_budget) * 0.05
 
                 elapsed_turns = self.MAX_DISCUSSION_BUDGET - self.discussion_budget
-                _wctx = {"theme": self.world_state.get_theme()} if hasattr(self, "world_state") else None
+                _wctx = (
+                    {"theme": self.world_state.get_theme(), "location": getattr(self, "user_room", None)}
+                    if hasattr(self, "world_state")
+                    else {"location": getattr(self, "user_room", None)}
+                )
                 responders = await self.social_arbiter.determine_responder_async(
                     content,
                     min_threshold_override=dynamic_threshold,
@@ -313,7 +318,11 @@ class HaremOrchestrator:
 
             if target == "broadcast" or target == "all":
                 logger.error("👥 Calling SocialArbiter...")
-                _wctx = {"theme": self.world_state.get_theme()} if hasattr(self, "world_state") else None
+                _wctx = (
+                    {"theme": self.world_state.get_theme(), "location": getattr(self, "user_room", None)}
+                    if hasattr(self, "world_state")
+                    else {"location": getattr(self, "user_room", None)}
+                )
                 responders = await self.social_arbiter.determine_responder_async(content, world_context=_wctx)
                 logger.error(f"👥 ARBITER: Found {len(responders) if responders else 0} responders")
                 if responders:
